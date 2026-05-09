@@ -3,6 +3,8 @@ class VoiceRecording < ApplicationRecord
 
   KINDS = %w[anamnesis periodization_create periodization_edit_workout periodization_edit_periodization].freeze
 
+  AUDIO_RETENTION = 7.days
+
   belongs_to :organization
   belongs_to :student
   belongs_to :trainer, class_name: "User"
@@ -38,6 +40,13 @@ class VoiceRecording < ApplicationRecord
   def fail!(message)
     self.error_message = message
     transition_to!(:failed)
+  end
+
+  def self.purge_audio_older_than(duration)
+    cutoff = duration.ago
+    joins(:audio_attachment)
+      .where("voice_recordings.created_at < ?", cutoff)
+      .find_each { |recording| recording.audio.purge_later }
   end
 
   private

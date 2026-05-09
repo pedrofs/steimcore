@@ -137,6 +137,36 @@ class VoiceRecordingTest < ActiveSupport::TestCase
     assert_equal "Whisper indisponível", recording.error_message
   end
 
+  test "purge_audio_older_than purges only recordings older than the cutoff with audio attached, leaving transcripts intact" do
+    old_with_audio = build_recording
+    old_with_audio.audio.attach(io: StringIO.new("old"), filename: "old.webm", content_type: "audio/webm")
+    old_with_audio.update!(transcript: "transcrição antiga")
+    old_with_audio.update_columns(created_at: 8.days.ago)
+
+    new_with_audio = build_recording
+    new_with_audio.audio.attach(io: StringIO.new("new"), filename: "new.webm", content_type: "audio/webm")
+    new_with_audio.update!(transcript: "transcrição recente")
+    new_with_audio.update_columns(created_at: 1.day.ago)
+
+    old_without_audio = build_recording
+    old_without_audio.update!(transcript: "sem áudio")
+    old_without_audio.update_columns(created_at: 10.days.ago)
+
+    perform_enqueued_jobs do
+      assert_nothing_raised do
+        VoiceRecording.purge_audio_older_than(7.days)
+      end
+    end
+
+    assert_not old_with_audio.reload.audio.attached?, "old recording's audio should have been purged"
+    assert new_with_audio.reload.audio.attached?, "recent recording's audio should remain attached"
+    assert_not old_without_audio.reload.audio.attached?, "recording without audio should remain detached (no error)"
+
+    assert_equal "transcrição antiga", old_with_audio.transcript
+    assert_equal "transcrição recente", new_with_audio.transcript
+    assert_equal "sem áudio", old_without_audio.transcript
+  end
+
   private
     def build_recording(**overrides)
       VoiceRecording.create!(
