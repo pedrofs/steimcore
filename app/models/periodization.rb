@@ -21,6 +21,8 @@ class Periodization < ApplicationRecord
     when :workout
       raise ArgumentError, ":workout scope requires target_workout" if target_workout.nil?
       raise ArgumentError, "target_workout must belong to current_version" unless target_workout.periodization_version_id == current_version_id
+    when :periodization
+      # Whole-plan edit: no target_workout required.
     else
       raise ArgumentError, "unknown edit scope #{scope.inspect}"
     end

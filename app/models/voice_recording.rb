@@ -1,7 +1,7 @@
 class VoiceRecording < ApplicationRecord
   include JobStatusable
 
-  KINDS = %w[anamnesis periodization_create periodization_edit_workout].freeze
+  KINDS = %w[anamnesis periodization_create periodization_edit_workout periodization_edit_periodization].freeze
 
   belongs_to :organization
   belongs_to :student
@@ -59,6 +59,15 @@ class VoiceRecording < ApplicationRecord
           trainer: trainer,
           voice_recording: self,
           target_workout: target_workout
+        )
+        GeneratePeriodizationJob.perform_later(version.id)
+      when "periodization_edit_periodization"
+        periodization = student.active_periodization
+        raise "no active periodization to edit for student=#{student_id}" if periodization.nil?
+        version = periodization.start_edit!(
+          scope: :periodization,
+          trainer: trainer,
+          voice_recording: self
         )
         GeneratePeriodizationJob.perform_later(version.id)
       else

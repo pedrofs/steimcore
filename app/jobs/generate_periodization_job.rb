@@ -4,12 +4,20 @@
 # patch, and applies the patch to the version through Forkable.
 #
 # Scope is detected from the voice_recording's kind:
-#   periodization_create        → :create  → schema for full plan
-#   periodization_edit_workout  → :workout → schema for one workout's
-#                                            { name, content_md }; the targeted
-#                                            workout (target_workout_id on the
-#                                            recording) is replaced inside the
-#                                            carry-forward done by Forkable.
+#   periodization_create             → :create        → schema for full plan
+#   periodization_edit_workout       → :workout       → schema for one workout's
+#                                                       { name, content_md };
+#                                                       the targeted workout
+#                                                       (target_workout_id on
+#                                                       the recording) is
+#                                                       replaced inside the
+#                                                       carry-forward done by
+#                                                       Forkable.
+#   periodization_edit_periodization → :periodization → same full-plan schema
+#                                                       as :create; previous
+#                                                       workouts are NOT carried
+#                                                       forward, the new plan
+#                                                       fully replaces the old.
 #
 # Any schema-invalid response or RubyLLM error marks the version :failed with
 # the message preserved for retry.
@@ -74,6 +82,8 @@ class GeneratePeriodizationJob < ApplicationJob
     case recording&.kind
     when "periodization_edit_workout"
       run_workout_edit!(version, student, organization, recording)
+    when "periodization_edit_periodization"
+      run_periodization_edit!(version, student, organization, recording)
     else
       run_create!(version, student, organization, recording)
     end
@@ -122,6 +132,25 @@ class GeneratePeriodizationJob < ApplicationJob
         trainer: version.trainer,
         voice_recording: recording,
         target_workout: target_workout
+      )
+      version.transition_to!(:completed)
+    end
+
+    def run_periodization_edit!(version, student, organization, recording)
+      parent_version = version.parent_version
+      raise InvalidPlanError, "edit version missing parent_version" if parent_version.nil?
+
+      chat = RubyLLM.chat(model: MODEL).with_instructions(periodization_edit_system_prompt).with_schema(SCHEMA)
+      response = chat.ask(periodization_edit_user_prompt(student, organization, parent_version, recording.transcript.to_s))
+
+      plan = parse_response(response.content)
+      validate_create_plan!(plan)
+
+      version.fork_with!(
+        scope: :periodization,
+        patch: plan,
+        trainer: version.trainer,
+        voice_recording: recording
       )
       version.transition_to!(:completed)
     end
@@ -257,6 +286,58 @@ class GeneratePeriodizationJob < ApplicationJob
         ## Tarefa
         Devolva apenas o novo conteúdo do treino na posição
         #{target_workout.position}, no formato { workout: { name, content_md } }.
+      PROMPT
+    end
+
+    def periodization_edit_system_prompt
+      <<~PROMPT
+        Você é um assistente de um personal trainer numa academia de musculação.
+        Sua tarefa é REVISAR uma periodização existente, em português do Brasil,
+        aplicando as instruções do treinador. Devolva o plano completo
+        atualizado: body markdown (visão geral do mesociclo, princípios,
+        progressão) e a lista completa de treinos (A, B, C, …), cada um com
+        nome curto, conteúdo em markdown (lista de exercícios, séries,
+        repetições, observações) e uma posição inteira a partir de 1. O
+        resultado substitui o plano anterior por inteiro: você pode adicionar,
+        remover, renomear ou reordenar treinos conforme necessário. Use apenas
+        equipamentos disponíveis na academia. Não invente dados que o treinador
+        não tenha mencionado. Não mencione que você é uma IA.
+      PROMPT
+    end
+
+    def periodization_edit_user_prompt(student, organization, parent_version, transcript)
+      workouts_block = parent_version.workouts.order(:position).map { |w|
+        "### Treino #{w.name} (posição #{w.position})\n#{w.content_md.presence || '(vazio)'}"
+      }.join("\n\n")
+
+      <<~PROMPT
+        ## Aluno
+        Nome: #{student.name}
+        Idade: #{student.age || "(não informada)"}
+        Sexo: #{student.sex || "(não informado)"}
+        Objetivo principal: #{student.primary_goal || "(não informado)"}
+        Frequência semanal: #{student.weekly_frequency || "(não informada)"}
+        Restrições resumidas: #{student.restrictions_summary.presence || "(nenhuma)"}
+
+        ## Anamnese atual
+        #{student.anamnesis_md.presence || "(vazia)"}
+
+        ## Equipamentos da academia
+        #{organization.equipment_list_md.presence || "(não informado)"}
+
+        ## Periodização atual (versão #{parent_version.id})
+        #{parent_version.body_md.presence || "(vazia)"}
+
+        ## Treinos atuais
+        #{workouts_block.presence || "(nenhum)"}
+
+        ## Instruções do treinador (transcritas)
+        #{transcript.presence || "(vazias)"}
+
+        ## Tarefa
+        Devolva o plano completo atualizado, com body_md e a lista de workouts
+        (numerados em ordem de execução semanal). Você pode adicionar, remover
+        ou reordenar treinos conforme as instruções do treinador.
       PROMPT
     end
 

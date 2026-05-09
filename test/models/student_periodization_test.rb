@@ -63,6 +63,36 @@ class StudentPeriodizationTest < ActiveSupport::TestCase
     assert_equal parent_version.id, periodization.reload.current_version_id, "current_version is unchanged until promotion"
   end
 
+  test "Periodization#start_edit! with :periodization creates a pending generating version pointing at the parent (no target_workout required)" do
+    parent_version = @student.start_periodization!(trainer: @trainer, voice_recording: @recording)
+    parent_version.fork_with!(
+      scope: :create,
+      patch: { body_md: "x", workouts: [ { name: "A", content_md: "y", position: 1 } ] },
+      trainer: @trainer,
+      voice_recording: @recording
+    )
+    parent_version.transition_to!(:completed)
+    periodization = parent_version.periodization
+    periodization.set_current_version!(parent_version)
+
+    edit_recording = VoiceRecording.create!(
+      organization: @organization, student: @student, trainer: @trainer,
+      kind: "periodization_edit_periodization"
+    )
+
+    new_version = periodization.start_edit!(
+      scope: :periodization,
+      trainer: @trainer,
+      voice_recording: edit_recording
+    )
+
+    assert_equal "generating", new_version.status
+    assert_equal parent_version.id, new_version.parent_version_id
+    assert_equal edit_recording, new_version.voice_recording
+    assert_equal periodization.id, new_version.periodization_id
+    assert_equal parent_version.id, periodization.reload.current_version_id, "current_version is unchanged until promotion"
+  end
+
   test "Periodization#start_edit! rejects unknown scopes and missing target_workout" do
     parent_version = @student.start_periodization!(trainer: @trainer, voice_recording: @recording)
     parent_version.fork_with!(

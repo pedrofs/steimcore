@@ -236,6 +236,138 @@ class GeneratePeriodizationJobTest < ActiveJob::TestCase
       end
   end
 
+  # --- :periodization scope ---
+
+  class PeriodizationScopeTest < ActiveJob::TestCase
+    setup do
+      @organization = organizations(:steimfit)
+      @organization.update!(equipment_list_md: "- Barra olímpica\n- Anilhas\n")
+
+      @student = students(:alice)
+      @student.update!(
+        age: 32, sex: "Feminino", primary_goal: "Hipertrofia",
+        weekly_frequency: 3, restrictions_summary: "Lombar sensível",
+        anamnesis_md: "## Histórico\n\nLevantamento básico há 2 anos."
+      )
+      @trainer = users(:one)
+
+      create_recording = VoiceRecording.create!(
+        organization: @organization, student: @student, trainer: @trainer,
+        kind: "periodization_create",
+        transcript: "Plano inicial."
+      )
+      @parent_version = @student.start_periodization!(trainer: @trainer, voice_recording: create_recording)
+      @parent_version.fork_with!(
+        scope: :create,
+        patch: {
+          body_md: "## Plano\n\nMesociclo base.",
+          workouts: [
+            { name: "A", content_md: "Agachamento 4x8", position: 1 },
+            { name: "B", content_md: "Supino 4x8", position: 2 },
+            { name: "C", content_md: "Levantamento terra 3x5", position: 3 }
+          ]
+        },
+        trainer: @trainer,
+        voice_recording: create_recording
+      )
+      @parent_version.transition_to!(:completed)
+      @parent_version.periodization.set_current_version!(@parent_version)
+
+      @edit_recording = VoiceRecording.create!(
+        organization: @organization, student: @student, trainer: @trainer,
+        kind: "periodization_edit_periodization",
+        transcript: "Reescrever para foco em força, dois treinos por semana."
+      )
+
+      @edit_version = @parent_version.periodization.start_edit!(
+        scope: :periodization,
+        trainer: @trainer,
+        voice_recording: @edit_recording
+      )
+    end
+
+    test "applies a schema-valid full plan, replaces body+workouts entirely, marks completed, and includes parent context in the prompt" do
+      valid_plan = {
+        "body_md" => "## Novo plano\n\nFoco em força.",
+        "workouts" => [
+          { "name" => "Push", "content_md" => "- Supino 5x5", "position" => 1 },
+          { "name" => "Pull", "content_md" => "- Remada 5x5", "position" => 2 }
+        ]
+      }
+
+      captured_user_prompt = nil
+      captured_schema = nil
+      fake_chat = build_fake_chat(
+        content: valid_plan,
+        capture_prompt: ->(p) { captured_user_prompt = p },
+        capture_schema: ->(s) { captured_schema = s }
+      )
+
+      RubyLLM.stub :chat, ->(*) { fake_chat } do
+        GeneratePeriodizationJob.perform_now(@edit_version.id)
+      end
+
+      @edit_version.reload
+      assert_equal "completed", @edit_version.status
+      assert_equal "## Novo plano\n\nFoco em força.", @edit_version.body_md
+
+      by_position = @edit_version.workouts.order(:position).index_by(&:position)
+      assert_equal 2, by_position.size, "previous workouts must NOT be carried forward"
+      assert_equal %w[Push Pull], by_position.values.map(&:name)
+      assert_equal [ 1, 2 ], by_position.keys
+
+      assert_equal GeneratePeriodizationJob::SCHEMA, captured_schema
+      assert_match(/Mesociclo base/, captured_user_prompt, "prompt must include the parent body as context")
+      assert_match(/Supino 4x8/, captured_user_prompt, "prompt must include the parent workouts as context")
+      assert_match(/foco em força/i, captured_user_prompt, "prompt must include the trainer transcript")
+    end
+
+    test "marks the edit version failed when the LLM response is missing required keys" do
+      invalid_plan = { "body_md" => "ok" } # workouts missing
+      fake_chat = build_fake_chat(content: invalid_plan)
+
+      RubyLLM.stub :chat, ->(*) { fake_chat } do
+        GeneratePeriodizationJob.perform_now(@edit_version.id)
+      end
+
+      @edit_version.reload
+      assert_equal "failed", @edit_version.status
+      assert_match(/workouts/, @edit_version.error_message)
+      assert_equal 0, @edit_version.workouts.count, "no workouts should be persisted on a failed edit"
+    end
+
+    test "marks the edit version failed when RubyLLM raises" do
+      fake_chat = Object.new
+      fake_chat.define_singleton_method(:with_instructions) { |_| self }
+      fake_chat.define_singleton_method(:with_schema) { |_| self }
+      fake_chat.define_singleton_method(:ask) { |_| raise RuntimeError, "Anthropic indisponível" }
+
+      RubyLLM.stub :chat, ->(*) { fake_chat } do
+        GeneratePeriodizationJob.perform_now(@edit_version.id)
+      end
+
+      @edit_version.reload
+      assert_equal "failed", @edit_version.status
+      assert_equal "Anthropic indisponível", @edit_version.error_message
+    end
+
+    private
+      def build_fake_chat(content:, capture_prompt: nil, capture_schema: nil)
+        response = Struct.new(:content).new(content)
+        chat = Object.new
+        chat.define_singleton_method(:with_instructions) { |_| self }
+        chat.define_singleton_method(:with_schema) do |s|
+          capture_schema.call(s) if capture_schema
+          self
+        end
+        chat.define_singleton_method(:ask) do |prompt|
+          capture_prompt.call(prompt) if capture_prompt
+          response
+        end
+        chat
+      end
+  end
+
   private
     def build_fake_chat(content:, capture_prompt: nil, capture_schema: nil)
       response = Struct.new(:content).new(content)

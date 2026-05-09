@@ -88,6 +88,44 @@ class VoiceRecordingTest < ActiveSupport::TestCase
     assert_equal "Trocar supino por supino inclinado.", edit.reload.transcript
   end
 
+  test "confirm_transcript! for periodization_edit_periodization starts a pending edit version and enqueues GeneratePeriodizationJob" do
+    parent_version = @student.start_periodization!(
+      trainer: @trainer,
+      voice_recording: VoiceRecording.create!(
+        organization: @organization, student: @student, trainer: @trainer,
+        kind: "periodization_create"
+      )
+    )
+    parent_version.fork_with!(
+      scope: :create,
+      patch: { body_md: "x", workouts: [ { name: "A", content_md: "y", position: 1 } ] },
+      trainer: @trainer,
+      voice_recording: parent_version.voice_recording
+    )
+    parent_version.transition_to!(:completed)
+    parent_version.periodization.set_current_version!(parent_version)
+
+    edit = VoiceRecording.create!(
+      organization: @organization, student: @student, trainer: @trainer,
+      kind: "periodization_edit_periodization"
+    )
+    edit.transition_to!(:transcribing)
+    edit.update!(transcript: "tweak")
+    edit.transition_to!(:transcribed)
+
+    assert_difference "PeriodizationVersion.count", 1 do
+      assert_enqueued_jobs 1, only: GeneratePeriodizationJob do
+        edit.confirm_transcript!("Reescrever a periodização inteira focando em força.")
+      end
+    end
+
+    new_version = PeriodizationVersion.find_by!(voice_recording_id: edit.id)
+    assert_equal "generating", new_version.status
+    assert_equal parent_version.id, new_version.parent_version_id
+    assert_equal parent_version.periodization_id, new_version.periodization_id
+    assert_equal "Reescrever a periodização inteira focando em força.", edit.reload.transcript
+  end
+
   test "fail! moves to :failed with error_message" do
     recording = build_recording
     recording.transition_to!(:transcribing)

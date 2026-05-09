@@ -200,6 +200,112 @@ class PeriodizationVersion::ForkableTest < ActiveSupport::TestCase
     assert_equal "x", workout.content_md
   end
 
+  # --- :periodization scope ---
+
+  test "periodization scope replaces body_md and the entire workouts array; previous workouts are not retained" do
+    setup_parent_with_three_workouts!
+
+    edit_recording = VoiceRecording.create!(
+      organization: @organization,
+      student: @student,
+      trainer: @trainer,
+      kind: "periodization_edit_periodization"
+    )
+
+    new_version = build_child_version(voice_recording: edit_recording)
+
+    patch = {
+      body_md: "## Novo plano\n\nFoco em força.",
+      workouts: [
+        { name: "Push", content_md: "Supino 5x5", position: 1 },
+        { name: "Pull", content_md: "Remada 5x5", position: 2 }
+      ]
+    }
+
+    new_version.fork_with!(
+      scope: :periodization,
+      patch: patch,
+      trainer: @trainer,
+      voice_recording: edit_recording
+    )
+
+    new_version.reload
+    assert_equal "## Novo plano\n\nFoco em força.", new_version.body_md
+
+    workouts = new_version.workouts.order(:position)
+    assert_equal 2, workouts.count, "previous workouts must NOT be carried forward"
+    assert_equal %w[Push Pull], workouts.pluck(:name)
+    assert_equal [ 1, 2 ], workouts.pluck(:position)
+
+    assert_equal 3, @parent_version.reload.workouts.count, "parent workouts remain intact"
+  end
+
+  test "periodization scope sets parent_version_id, trainer, and voice_recording on the new version" do
+    setup_parent_with_three_workouts!
+    other_trainer = users(:two)
+    edit_recording = VoiceRecording.create!(
+      organization: @organization,
+      student: @student,
+      trainer: other_trainer,
+      kind: "periodization_edit_periodization"
+    )
+
+    new_version = build_child_version(voice_recording: edit_recording, trainer: other_trainer)
+
+    new_version.fork_with!(
+      scope: :periodization,
+      patch: {
+        body_md: "x",
+        workouts: [ { name: "A", content_md: "y", position: 1 } ]
+      },
+      trainer: other_trainer,
+      voice_recording: edit_recording
+    )
+
+    new_version.reload
+    assert_equal @parent_version.id, new_version.parent_version_id
+    assert_equal other_trainer.id, new_version.trainer_id
+    assert_equal edit_recording.id, new_version.voice_recording_id
+  end
+
+  test "periodization scope requires parent_version" do
+    orphan = @periodization.versions.build(
+      trainer: @trainer,
+      voice_recording: nil,
+      parent_version: nil
+    )
+    orphan.save!
+
+    assert_raises(ArgumentError) do
+      orphan.fork_with!(
+        scope: :periodization,
+        patch: { body_md: "x", workouts: [] },
+        trainer: @trainer,
+        voice_recording: nil
+      )
+    end
+  end
+
+  test "periodization scope accepts string-keyed patches" do
+    setup_parent_with_three_workouts!
+    new_version = build_child_version
+
+    new_version.fork_with!(
+      scope: :periodization,
+      patch: {
+        "body_md" => "Body",
+        "workouts" => [ { "name" => "X", "content_md" => "y", "position" => 1 } ]
+      },
+      trainer: @trainer,
+      voice_recording: nil
+    )
+
+    new_version.reload
+    assert_equal "Body", new_version.body_md
+    assert_equal 1, new_version.workouts.count
+    assert_equal "X", new_version.workouts.first.name
+  end
+
   private
     def setup_parent_with_three_workouts!
       @version.fork_with!(

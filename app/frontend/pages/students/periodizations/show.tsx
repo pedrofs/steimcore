@@ -1,6 +1,6 @@
 import { Head, Link, router, usePage } from "@inertiajs/react"
 import { Fragment } from "react"
-import { PencilIcon } from "lucide-react"
+import { PencilIcon, WandSparklesIcon } from "lucide-react"
 
 import { AppSidebar } from "@/components/app-sidebar"
 import {
@@ -100,6 +100,19 @@ export default function ShowPeriodization({ student, periodization }: Props) {
 
             {version ? (
               <>
+                {!periodization.archived && (
+                  <Button
+                    type="button"
+                    className="h-11 w-full gap-2 sm:h-10 sm:w-auto sm:self-start"
+                    onClick={() =>
+                      router.post(`/periodizations/${periodization.id}/edit`)
+                    }
+                  >
+                    <WandSparklesIcon className="size-4" />
+                    Modificar periodização
+                  </Button>
+                )}
+
                 <section className="flex flex-col gap-2">
                   <h2 className="text-lg font-medium">Plano</h2>
                   <Markdown

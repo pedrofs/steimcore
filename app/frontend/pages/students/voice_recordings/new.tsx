@@ -24,7 +24,11 @@ import {
 } from "@/hooks/use-voice-recorder"
 
 type Student = { id: string; name: string }
-type Kind = "anamnesis" | "periodization_create" | "periodization_edit_workout"
+type Kind =
+  | "anamnesis"
+  | "periodization_create"
+  | "periodization_edit_workout"
+  | "periodization_edit_periodization"
 type TargetWorkout = { id: string; name: string; position: number }
 type Props = { student: Student; kind: Kind; targetWorkout?: TargetWorkout | null }
 
@@ -44,7 +48,9 @@ export default function NewVoiceRecording({ student, kind, targetWorkout }: Prop
         ? "periodization"
         : kind === "periodization_edit_workout"
           ? "workout-edit"
-          : "anamnesis"
+          : kind === "periodization_edit_periodization"
+            ? "periodization-edit"
+            : "anamnesis"
     const file = new File([recorder.audio.blob], `${baseName}.${extension}`, {
       type: recorder.audio.mimeType,
     })
@@ -113,7 +119,9 @@ export default function NewVoiceRecording({ student, kind, targetWorkout }: Prop
                   ? "Descreva a periodização. A gravação para automaticamente em 3 minutos."
                   : kind === "periodization_edit_workout"
                     ? `Descreva a edição do treino${targetWorkout ? ` ${targetWorkout.name}` : ""}. A gravação para automaticamente em 3 minutos.`
-                    : "A gravação para automaticamente em 3 minutos."}
+                    : kind === "periodization_edit_periodization"
+                      ? "Descreva as mudanças que deseja aplicar à periodização. A gravação para automaticamente em 3 minutos."
+                      : "A gravação para automaticamente em 3 minutos."}
               </p>
             </div>
 

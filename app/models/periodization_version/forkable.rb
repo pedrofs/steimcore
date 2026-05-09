@@ -2,13 +2,19 @@
 # the receiver and gets mutated in-place: body_md and workouts are set/built.
 #
 # Scopes:
-#   :create  — first version of a periodization. parent_version must be nil.
-#              patch is the full plan { body_md, workouts: [...] }.
-#   :workout — single-workout edit. parent_version is required and is carried
-#              forward (body_md unchanged, all workouts copied byte-identical).
-#              The workout at target_workout.position is replaced with the
-#              patch's { name, content_md }; position is preserved from the
-#              parent so positions remain stable across versions.
+#   :create        — first version of a periodization. parent_version must be
+#                    nil. patch is the full plan { body_md, workouts: [...] }.
+#   :workout       — single-workout edit. parent_version is required and is
+#                    carried forward (body_md unchanged, all workouts copied
+#                    byte-identical). The workout at target_workout.position
+#                    is replaced with the patch's { name, content_md };
+#                    position is preserved from the parent so positions remain
+#                    stable across versions.
+#   :periodization — whole-plan edit. parent_version is required but only as a
+#                    parent pointer; body_md and the entire workouts array are
+#                    replaced from the patch. Previous workouts are NOT carried
+#                    forward — the AI returns the full updated plan, including
+#                    any add/remove/reorder.
 module PeriodizationVersion::Forkable
   extend ActiveSupport::Concern
 
@@ -16,11 +22,14 @@ module PeriodizationVersion::Forkable
     case scope.to_sym
     when :create
       raise ArgumentError, "create scope expects parent_version_id to be nil" if parent_version_id.present?
-      apply_create!(patch, trainer: trainer, voice_recording: voice_recording)
+      apply_full_plan!(patch, trainer: trainer, voice_recording: voice_recording)
     when :workout
       raise ArgumentError, ":workout scope requires parent_version" if parent_version.nil?
       raise ArgumentError, ":workout scope requires target_workout" if target_workout.nil?
       apply_workout!(patch, target_workout: target_workout, trainer: trainer, voice_recording: voice_recording)
+    when :periodization
+      raise ArgumentError, ":periodization scope requires parent_version" if parent_version.nil?
+      apply_full_plan!(patch, trainer: trainer, voice_recording: voice_recording)
     else
       raise ArgumentError, "unknown fork scope #{scope.inspect}"
     end
@@ -29,7 +38,7 @@ module PeriodizationVersion::Forkable
   end
 
   private
-    def apply_create!(patch, trainer:, voice_recording:)
+    def apply_full_plan!(patch, trainer:, voice_recording:)
       body_md = patch[:body_md] || patch["body_md"]
       workouts_attrs = patch[:workouts] || patch["workouts"] || []
 

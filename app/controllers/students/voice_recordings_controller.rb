@@ -74,6 +74,7 @@ class Students::VoiceRecordingsController < InertiaController
       case kind
       when "periodization_create" then "#{prefix} periodização"
       when "periodization_edit_workout" then "#{prefix} edição de treino"
+      when "periodization_edit_periodization" then "#{prefix} edição da periodização"
       else "#{prefix} anamnese"
       end
     end
