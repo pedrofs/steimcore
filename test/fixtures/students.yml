@@ -1,0 +1,12 @@
+alice:
+  name: Alice Trainer-Created
+  organization: steimfit
+
+bob:
+  name: Bob Trainer-Created
+  organization: steimfit
+
+archived_carol:
+  name: Carol Archived
+  organization: steimfit
+  archived_at: <%= 1.day.ago %>

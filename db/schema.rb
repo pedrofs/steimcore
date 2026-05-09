@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.2].define(version: 2026_05_09_120001) do
+ActiveRecord::Schema[8.2].define(version: 2026_05_09_120002) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -30,6 +30,24 @@ ActiveRecord::Schema[8.2].define(version: 2026_05_09_120001) do
     t.index ["user_id"], name: "index_sessions_on_user_id"
   end
 
+  create_table "students", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
+    t.uuid "active_periodization_id"
+    t.integer "age"
+    t.text "anamnesis_md", default: "", null: false
+    t.datetime "archived_at"
+    t.datetime "created_at", null: false
+    t.string "name", null: false
+    t.text "notes_md", default: "", null: false
+    t.uuid "organization_id", null: false
+    t.string "primary_goal"
+    t.text "restrictions_summary"
+    t.string "sex"
+    t.datetime "updated_at", null: false
+    t.integer "weekly_frequency"
+    t.index ["archived_at"], name: "index_students_on_archived_at"
+    t.index ["organization_id"], name: "index_students_on_organization_id"
+  end
+
   create_table "users", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.string "email_address", null: false
@@ -41,5 +59,6 @@ ActiveRecord::Schema[8.2].define(version: 2026_05_09_120001) do
   end
 
   add_foreign_key "sessions", "users"
+  add_foreign_key "students", "organizations"
   add_foreign_key "users", "organizations"
 end

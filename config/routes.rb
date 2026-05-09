@@ -1,13 +1,14 @@
 Rails.application.routes.draw do
-  resource :session, only: [:new, :create, :destroy]
-  resources :passwords, param: :token, only: [:new, :create, :edit, :update]
-  resource :organization, only: [:show, :edit, :update]
+  resource :session, only: [ :new, :create, :destroy ]
+  resources :passwords, param: :token, only: [ :new, :create, :edit, :update ]
+  resource :organization, only: [ :show, :edit, :update ]
+  resources :students, only: [ :index, :new, :create, :show, :edit, :update ]
 
   # Redirect to localhost from 127.0.0.1 to use same IP address with Vite server
   constraints(host: "127.0.0.1") do
     get "(*path)", to: redirect { |params, req| "#{req.protocol}localhost:#{req.port}/#{params[:path]}" }
   end
-  root 'home#index'
+  root "home#index"
 
   # Define your application routes per the DSL in https://guides.rubyonrails.org/routing.html
 

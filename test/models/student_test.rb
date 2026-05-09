@@ -1,0 +1,93 @@
+require "test_helper"
+
+class StudentTest < ActiveSupport::TestCase
+  setup do
+    @organization = organizations(:steimfit)
+  end
+
+  test "requires a name" do
+    student = Student.new(organization: @organization)
+
+    assert_not student.valid?
+    assert_includes student.errors[:name], "can't be blank"
+  end
+
+  test "requires an organization" do
+    student = Student.new(name: "Alice")
+
+    assert_not student.valid?
+    assert_includes student.errors[:organization], "must exist"
+  end
+
+  test "is valid with only a name and an organization" do
+    student = Student.new(name: "Alice", organization: @organization)
+
+    assert student.valid?, student.errors.full_messages.to_sentence
+  end
+
+  test "structured and freeform fields default to null/empty on create" do
+    student = Student.create!(name: "Alice", organization: @organization)
+
+    assert_nil student.age
+    assert_nil student.sex
+    assert_nil student.primary_goal
+    assert_nil student.restrictions_summary
+    assert_nil student.weekly_frequency
+    assert_nil student.active_periodization_id
+    assert_equal "", student.anamnesis_md
+    assert_equal "", student.notes_md
+  end
+
+  test "structured and freeform fields are updateable later" do
+    student = Student.create!(name: "Alice", organization: @organization)
+
+    student.update!(
+      age: 32,
+      sex: "Feminino",
+      primary_goal: "Hipertrofia",
+      restrictions_summary: "Lombar sensível",
+      weekly_frequency: 4,
+      anamnesis_md: "## Histórico\n\nLesão antiga.",
+      notes_md: "Toca dança duas vezes por semana."
+    )
+    student.reload
+
+    assert_equal 32, student.age
+    assert_equal "Feminino", student.sex
+    assert_equal "Hipertrofia", student.primary_goal
+    assert_equal "Lombar sensível", student.restrictions_summary
+    assert_equal 4, student.weekly_frequency
+    assert_equal "## Histórico\n\nLesão antiga.", student.anamnesis_md
+    assert_equal "Toca dança duas vezes por semana.", student.notes_md
+  end
+
+  test "archive! flips the archived state and is reflected by the scopes" do
+    student = Student.create!(name: "Dave", organization: @organization)
+
+    assert_not student.archived?
+    assert_includes Student.unarchived, student
+    assert_not_includes Student.archived, student
+
+    student.archive!
+
+    assert student.archived?
+    assert_not_nil student.archived_at
+    assert_includes Student.archived, student
+    assert_not_includes Student.unarchived, student
+  end
+
+  test "unarchived scope is the default expectation for the index" do
+    active = students(:alice)
+    archived = students(:archived_carol)
+
+    assert_includes Student.unarchived, active
+    assert_not_includes Student.unarchived, archived
+  end
+
+  test "is destroyed when forced to nil organization" do
+    student = Student.new(name: "Eve")
+
+    assert_not student.valid?
+    assert_includes student.errors[:organization], "must exist"
+  end
+end
