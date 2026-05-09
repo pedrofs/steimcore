@@ -54,6 +54,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                 asChild
                 tooltip="Home"
                 isActive={url === "/"}
+                className="h-11 md:h-8"
               >
                 <Link href="/">
                   <HomeIcon />

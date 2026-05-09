@@ -1,6 +1,14 @@
 import { createInertiaApp } from '@inertiajs/react'
 import { TooltipProvider } from '@/components/ui/tooltip'
 
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    void navigator.serviceWorker.register("/service-worker.js").catch(() => {
+      // PWA install is progressive enhancement; ignore registration failures.
+    })
+  })
+}
+
 void createInertiaApp({
   pages: "../pages",
 
