@@ -90,9 +90,20 @@ export default function Show({ student }: Props) {
                   </span>
                 )}
               </div>
-              <Button asChild className="h-11 w-full sm:h-10 sm:w-auto">
-                <Link href={`/students/${student.id}/edit`}>Editar perfil</Link>
-              </Button>
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <Button
+                  asChild
+                  variant="outline"
+                  className="h-11 w-full sm:h-10 sm:w-auto"
+                >
+                  <Link href={`/students/${student.id}/voice_recordings/new`}>
+                    Gravar anamnese
+                  </Link>
+                </Button>
+                <Button asChild className="h-11 w-full sm:h-10 sm:w-auto">
+                  <Link href={`/students/${student.id}/edit`}>Editar perfil</Link>
+                </Button>
+              </div>
             </div>
 
             <section className="flex flex-col gap-3">

@@ -10,9 +10,37 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.2].define(version: 2026_05_09_120002) do
+ActiveRecord::Schema[8.2].define(version: 2026_05_09_202304) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
+
+  create_table "active_storage_attachments", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
+    t.uuid "blob_id", null: false
+    t.datetime "created_at", null: false
+    t.string "name", null: false
+    t.uuid "record_id", null: false
+    t.string "record_type", null: false
+    t.index ["blob_id"], name: "index_active_storage_attachments_on_blob_id"
+    t.index ["record_type", "record_id", "name", "blob_id"], name: "index_active_storage_attachments_uniqueness", unique: true
+  end
+
+  create_table "active_storage_blobs", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
+    t.bigint "byte_size", null: false
+    t.string "checksum"
+    t.string "content_type"
+    t.datetime "created_at", null: false
+    t.string "filename", null: false
+    t.string "key", null: false
+    t.text "metadata"
+    t.string "service_name", null: false
+    t.index ["key"], name: "index_active_storage_blobs_on_key", unique: true
+  end
+
+  create_table "active_storage_variant_records", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
+    t.uuid "blob_id", null: false
+    t.string "variation_digest", null: false
+    t.index ["blob_id", "variation_digest"], name: "index_active_storage_variant_records_uniqueness", unique: true
+  end
 
   create_table "organizations", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
     t.datetime "created_at", null: false
@@ -58,7 +86,31 @@ ActiveRecord::Schema[8.2].define(version: 2026_05_09_120002) do
     t.index ["organization_id"], name: "index_users_on_organization_id"
   end
 
+  create_table "voice_recordings", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.text "error_message"
+    t.string "kind", null: false
+    t.uuid "organization_id", null: false
+    t.text "proposed_anamnesis_md"
+    t.string "status", null: false
+    t.uuid "student_id", null: false
+    t.bigint "trainer_id", null: false
+    t.text "transcript", default: "", null: false
+    t.datetime "transcript_edited_at"
+    t.datetime "updated_at", null: false
+    t.index ["organization_id"], name: "index_voice_recordings_on_organization_id"
+    t.index ["status", "created_at"], name: "index_voice_recordings_on_status_and_created_at"
+    t.index ["student_id", "created_at"], name: "index_voice_recordings_on_student_id_and_created_at"
+    t.index ["student_id"], name: "index_voice_recordings_on_student_id"
+    t.index ["trainer_id"], name: "index_voice_recordings_on_trainer_id"
+  end
+
+  add_foreign_key "active_storage_attachments", "active_storage_blobs", column: "blob_id"
+  add_foreign_key "active_storage_variant_records", "active_storage_blobs", column: "blob_id"
   add_foreign_key "sessions", "users"
   add_foreign_key "students", "organizations"
   add_foreign_key "users", "organizations"
+  add_foreign_key "voice_recordings", "organizations"
+  add_foreign_key "voice_recordings", "students"
+  add_foreign_key "voice_recordings", "users", column: "trainer_id"
 end

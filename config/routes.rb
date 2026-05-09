@@ -2,7 +2,13 @@ Rails.application.routes.draw do
   resource :session, only: [ :new, :create, :destroy ]
   resources :passwords, param: :token, only: [ :new, :create, :edit, :update ]
   resource :organization, only: [ :show, :edit, :update ]
-  resources :students, only: [ :index, :new, :create, :show, :edit, :update ]
+  resources :students, only: [ :index, :new, :create, :show, :edit, :update ] do
+    resources :voice_recordings, only: [ :new, :create, :show ], module: :students do
+      resource :transcript_confirmation, only: :create, module: :voice_recordings
+      resource :transcription, only: :create, module: :voice_recordings
+      resource :anamnesis_commit, only: :create, module: :voice_recordings
+    end
+  end
 
   # Redirect to localhost from 127.0.0.1 to use same IP address with Vite server
   constraints(host: "127.0.0.1") do
