@@ -70,10 +70,7 @@ export default function NewSession({ email_address }: Props) {
             Sign in
           </Button>
 
-          <div className="flex justify-between text-sm text-muted-foreground">
-            <Link href="/registration/new" className="underline">
-              Create account
-            </Link>
+          <div className="flex justify-end text-sm text-muted-foreground">
             <Link href="/passwords/new" className="underline">
               Forgot password?
             </Link>
