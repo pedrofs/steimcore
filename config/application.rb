@@ -16,6 +16,14 @@ module SteimCore
     # Common ones are `templates`, `generators`, or `middleware`, for example.
     config.autoload_lib(ignore: %w[assets tasks])
 
+    # Use UUIDv7 as the primary key type for all tables. The
+    # `default: -> { "uuidv7()" }` is added per-migration because Rails
+    # generators don't expose a way to set it globally.
+    # See CLAUDE.md "UUIDv7 primary keys".
+    config.generators do |g|
+      g.orm :active_record, primary_key_type: :uuid
+    end
+
     # Configuration for the application, engines, and railties goes here.
     #
     # These settings can be overridden in specific environments using the files

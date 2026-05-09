@@ -13,11 +13,41 @@
       "skillPath": "skills/engineering/grill-with-docs/SKILL.md",
       "computedHash": "31a5b1ae116558bf7d3f633f442835f54bd7645923d4f45c7823e52a97317666"
     },
+    "inertia-rails-controllers": {
+      "source": "inertia-rails/skills",
+      "sourceType": "github",
+      "skillPath": "skills/inertia-rails-controllers/SKILL.md",
+      "computedHash": "612dfa44798d0b8554c08bae1e26c8d5c995f040239e41689c71e4ea19e106af"
+    },
+    "inertia-rails-forms": {
+      "source": "inertia-rails/skills",
+      "sourceType": "github",
+      "skillPath": "skills/inertia-rails-forms/SKILL.md",
+      "computedHash": "47e38c3efe7e602d45b4a7edc7d36c35a98b5ce6146e5318dc0a2ea6182b2a60"
+    },
+    "inertia-rails-pages": {
+      "source": "inertia-rails/skills",
+      "sourceType": "github",
+      "skillPath": "skills/inertia-rails-pages/SKILL.md",
+      "computedHash": "c5fa65f568407746a34f13a07d826549b6bfad6d610255b7852ceed172ba443c"
+    },
+    "inertia-rails-typescript": {
+      "source": "inertia-rails/skills",
+      "sourceType": "github",
+      "skillPath": "skills/inertia-rails-typescript/SKILL.md",
+      "computedHash": "49f9c1eea1decbe8196ae9f5dfaecf7fff384c5bd5d828dd498b0b5e3bdede34"
+    },
     "shadcn": {
       "source": "shadcn/ui",
       "sourceType": "github",
       "skillPath": "skills/shadcn/SKILL.md",
       "computedHash": "80a6226e78f6d1fe464214ae0ef449d49d8ffaa3e7704f011e9b418c678ad4d1"
+    },
+    "shadcn-inertia": {
+      "source": "inertia-rails/skills",
+      "sourceType": "github",
+      "skillPath": "skills/shadcn-inertia/SKILL.md",
+      "computedHash": "2d65fa701ea12573aea5f45d77f513691d790958073e45cec55b0df20a261666"
     },
     "tdd": {
       "source": "mattpocock/skills",
