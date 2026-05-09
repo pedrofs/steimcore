@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.2].define(version: 2026_05_09_202304) do
+ActiveRecord::Schema[8.2].define(version: 2026_05_09_220858) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -47,6 +47,33 @@ ActiveRecord::Schema[8.2].define(version: 2026_05_09_202304) do
     t.text "equipment_list_md", default: "", null: false
     t.string "name", null: false
     t.datetime "updated_at", null: false
+  end
+
+  create_table "periodization_versions", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
+    t.text "body_md", default: "", null: false
+    t.datetime "created_at", null: false
+    t.text "error_message"
+    t.uuid "parent_version_id"
+    t.uuid "periodization_id", null: false
+    t.string "status", null: false
+    t.bigint "trainer_id", null: false
+    t.datetime "updated_at", null: false
+    t.uuid "voice_recording_id"
+    t.index ["parent_version_id"], name: "index_periodization_versions_on_parent_version_id"
+    t.index ["periodization_id", "created_at"], name: "idx_on_periodization_id_created_at_2ccdf56ebe"
+    t.index ["periodization_id"], name: "index_periodization_versions_on_periodization_id"
+    t.index ["trainer_id"], name: "index_periodization_versions_on_trainer_id"
+    t.index ["voice_recording_id"], name: "index_periodization_versions_on_voice_recording_id"
+  end
+
+  create_table "periodizations", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
+    t.datetime "archived_at"
+    t.datetime "created_at", null: false
+    t.uuid "current_version_id"
+    t.uuid "student_id", null: false
+    t.datetime "updated_at", null: false
+    t.index ["student_id", "archived_at"], name: "index_periodizations_on_student_id_and_archived_at"
+    t.index ["student_id"], name: "index_periodizations_on_student_id"
   end
 
   create_table "sessions", force: :cascade do |t|
@@ -105,12 +132,31 @@ ActiveRecord::Schema[8.2].define(version: 2026_05_09_202304) do
     t.index ["trainer_id"], name: "index_voice_recordings_on_trainer_id"
   end
 
+  create_table "workouts", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
+    t.text "content_md", default: "", null: false
+    t.datetime "created_at", null: false
+    t.string "name", null: false
+    t.uuid "periodization_version_id", null: false
+    t.integer "position", null: false
+    t.datetime "updated_at", null: false
+    t.index ["periodization_version_id", "position"], name: "index_workouts_on_periodization_version_id_and_position"
+    t.index ["periodization_version_id"], name: "index_workouts_on_periodization_version_id"
+  end
+
   add_foreign_key "active_storage_attachments", "active_storage_blobs", column: "blob_id"
   add_foreign_key "active_storage_variant_records", "active_storage_blobs", column: "blob_id"
+  add_foreign_key "periodization_versions", "periodization_versions", column: "parent_version_id"
+  add_foreign_key "periodization_versions", "periodizations"
+  add_foreign_key "periodization_versions", "users", column: "trainer_id"
+  add_foreign_key "periodization_versions", "voice_recordings"
+  add_foreign_key "periodizations", "periodization_versions", column: "current_version_id"
+  add_foreign_key "periodizations", "students"
   add_foreign_key "sessions", "users"
   add_foreign_key "students", "organizations"
+  add_foreign_key "students", "periodizations", column: "active_periodization_id"
   add_foreign_key "users", "organizations"
   add_foreign_key "voice_recordings", "organizations"
   add_foreign_key "voice_recordings", "students"
   add_foreign_key "voice_recordings", "users", column: "trainer_id"
+  add_foreign_key "workouts", "periodization_versions"
 end

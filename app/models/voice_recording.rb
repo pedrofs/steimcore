@@ -1,7 +1,7 @@
 class VoiceRecording < ApplicationRecord
   include JobStatusable
 
-  KINDS = %w[anamnesis].freeze
+  KINDS = %w[anamnesis periodization_create].freeze
 
   belongs_to :organization
   belongs_to :student
@@ -47,6 +47,9 @@ class VoiceRecording < ApplicationRecord
       case kind
       when "anamnesis"
         RegenerateAnamnesisJob.perform_later(id)
+      when "periodization_create"
+        version = student.start_periodization!(trainer: trainer, voice_recording: self)
+        GeneratePeriodizationJob.perform_later(version.id)
       else
         raise "No post-transcript job for kind=#{kind.inspect}"
       end

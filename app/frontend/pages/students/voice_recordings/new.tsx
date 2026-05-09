@@ -24,9 +24,10 @@ import {
 } from "@/hooks/use-voice-recorder"
 
 type Student = { id: string; name: string }
-type Props = { student: Student }
+type Kind = "anamnesis" | "periodization_create"
+type Props = { student: Student; kind: Kind }
 
-export default function NewVoiceRecording({ student }: Props) {
+export default function NewVoiceRecording({ student, kind }: Props) {
   const { props } = usePage()
   const title = props.title
   const breadcrumbs = props.breadcrumbs
@@ -37,19 +38,21 @@ export default function NewVoiceRecording({ student }: Props) {
   const handleSubmit = () => {
     if (!recorder.audio) return
     const extension = guessExtension(recorder.audio.mimeType)
-    const file = new File([recorder.audio.blob], `anamnesis.${extension}`, {
+    const baseName = kind === "periodization_create" ? "periodization" : "anamnesis"
+    const file = new File([recorder.audio.blob], `${baseName}.${extension}`, {
       type: recorder.audio.mimeType,
     })
     setSubmitting(true)
     router.post(
       `/students/${student.id}/voice_recordings`,
-      { audio: file, kind: "anamnesis" },
+      { audio: file, kind },
       {
         forceFormData: true,
         onFinish: () => setSubmitting(false),
       },
     )
   }
+
 
   return (
     <>
@@ -95,8 +98,10 @@ export default function NewVoiceRecording({ student }: Props) {
                 </h1>
               )}
               <p className="text-sm text-muted-foreground">
-                Aluno: <span className="font-medium">{student.name}</span>. A
-                gravação para automaticamente em 3 minutos.
+                Aluno: <span className="font-medium">{student.name}</span>.{" "}
+                {kind === "periodization_create"
+                  ? "Descreva a periodização. A gravação para automaticamente em 3 minutos."
+                  : "A gravação para automaticamente em 3 minutos."}
               </p>
             </div>
 

@@ -29,6 +29,7 @@ type Student = {
   anamnesisMd: string
   notesMd: string
   archived: boolean
+  activePeriodizationId: string | null
 }
 
 type Props = {
@@ -100,6 +101,15 @@ export default function Show({ student }: Props) {
                     Gravar anamnese
                   </Link>
                 </Button>
+                <Button
+                  asChild
+                  variant="outline"
+                  className="h-11 w-full sm:h-10 sm:w-auto"
+                >
+                  <Link href={`/students/${student.id}/periodizations/new`}>
+                    Criar periodização
+                  </Link>
+                </Button>
                 <Button asChild className="h-11 w-full sm:h-10 sm:w-auto">
                   <Link href={`/students/${student.id}/edit`}>Editar perfil</Link>
                 </Button>
@@ -127,6 +137,23 @@ export default function Show({ student }: Props) {
                 />
               </dl>
             </section>
+
+            {student.activePeriodizationId && (
+              <section className="flex flex-col gap-2">
+                <h2 className="text-lg font-medium">Periodização ativa</h2>
+                <Button
+                  asChild
+                  variant="outline"
+                  className="h-11 w-fit sm:h-10"
+                >
+                  <Link
+                    href={`/students/${student.id}/periodizations/${student.activePeriodizationId}`}
+                  >
+                    Abrir periodização
+                  </Link>
+                </Button>
+              </section>
+            )}
 
             <section className="flex flex-col gap-2">
               <h2 className="text-lg font-medium">Anamnese</h2>

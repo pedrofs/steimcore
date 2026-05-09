@@ -50,7 +50,7 @@ class Students::VoiceRecordingsControllerTest < ActionDispatch::IntegrationTest
       post student_voice_recordings_path(@student), params: { kind: "anamnesis" }
     end
 
-    assert_redirected_to new_student_voice_recording_path(@student)
+    assert_redirected_to new_student_voice_recording_path(@student, kind: "anamnesis")
     assert_match(/áudio/i, flash[:alert].to_s)
   end
 

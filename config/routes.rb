@@ -8,6 +8,11 @@ Rails.application.routes.draw do
       resource :transcription, only: :create, module: :voice_recordings
       resource :anamnesis_commit, only: :create, module: :voice_recordings
     end
+    resources :periodizations, only: [ :new, :show ], module: :students
+  end
+
+  resources :periodization_versions, only: [ :show, :update, :destroy ] do
+    resource :promotion, only: :create, module: :periodization_versions
   end
 
   # Redirect to localhost from 127.0.0.1 to use same IP address with Vite server

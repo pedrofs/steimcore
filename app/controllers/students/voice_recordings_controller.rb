@@ -5,13 +5,15 @@ class Students::VoiceRecordingsController < InertiaController
   before_action :load_recording, only: [ :show ]
 
   def new
-    @title = "Gravar anamnese"
+    @kind = resolve_kind(params[:kind])
+    @title = title_for(@kind)
     add_breadcrumb(label: "Alunos", path: students_path)
     add_breadcrumb(label: @student.name, path: student_path(@student))
-    add_breadcrumb(label: "Gravar anamnese", path: new_student_voice_recording_path(@student))
+    add_breadcrumb(label: @title, path: new_student_voice_recording_path(@student, kind: @kind))
 
     render inertia: "students/voice_recordings/new", props: {
-      student: { id: @student.id, name: @student.name }
+      student: { id: @student.id, name: @student.name },
+      kind: @kind
     }
   end
 
@@ -19,7 +21,7 @@ class Students::VoiceRecordingsController < InertiaController
     audio = params[:audio]
 
     if audio.blank?
-      redirect_to new_student_voice_recording_path(@student),
+      redirect_to new_student_voice_recording_path(@student, kind: params[:kind]),
                   alert: "Nenhum áudio recebido. Tente gravar novamente."
       return
     end
@@ -27,7 +29,7 @@ class Students::VoiceRecordingsController < InertiaController
     recording = @student.voice_recordings.new(
       organization: current_organization,
       trainer: Current.user,
-      kind: "anamnesis"
+      kind: resolve_kind(params[:kind])
     )
     recording.audio.attach(audio)
     recording.save!
@@ -38,7 +40,7 @@ class Students::VoiceRecordingsController < InertiaController
   end
 
   def show
-    @title = "Gravação de anamnese"
+    @title = title_for(@recording.kind, prefix: "Gravação")
     add_breadcrumb(label: "Alunos", path: students_path)
     add_breadcrumb(label: @student.name, path: student_path(@student))
     add_breadcrumb(label: "Gravação", path: student_voice_recording_path(@student, @recording))
@@ -56,6 +58,17 @@ class Students::VoiceRecordingsController < InertiaController
 
     def load_recording
       @recording = @student.voice_recordings.find(params[:id])
+    end
+
+    def resolve_kind(kind)
+      VoiceRecording::KINDS.include?(kind) ? kind : "anamnesis"
+    end
+
+    def title_for(kind, prefix: "Gravar")
+      case kind
+      when "periodization_create" then "#{prefix} periodização"
+      else "#{prefix} anamnese"
+      end
     end
 
     def recording_props(recording)

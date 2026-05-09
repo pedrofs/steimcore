@@ -90,7 +90,8 @@ class StudentsController < InertiaController
         weekly_frequency: student.weekly_frequency,
         anamnesis_md: student.anamnesis_md,
         notes_md: student.notes_md,
-        archived: student.archived?
+        archived: student.archived?,
+        active_periodization_id: student.active_periodization_id
       }
     end
 end

@@ -15,6 +15,12 @@ class Students::VoiceRecordings::TranscriptConfirmationsController < InertiaCont
 
     recording.confirm_transcript!(text)
 
-    redirect_to student_voice_recording_path(student, recording)
+    case recording.kind
+    when "periodization_create"
+      version = PeriodizationVersion.find_by!(voice_recording_id: recording.id)
+      redirect_to periodization_version_path(version)
+    else
+      redirect_to student_voice_recording_path(student, recording)
+    end
   end
 end
