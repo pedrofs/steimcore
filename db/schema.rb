@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.2].define(version: 2026_05_09_220858) do
+ActiveRecord::Schema[8.2].define(version: 2026_05_09_230000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -121,6 +121,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_05_09_220858) do
     t.text "proposed_anamnesis_md"
     t.string "status", null: false
     t.uuid "student_id", null: false
+    t.uuid "target_workout_id"
     t.bigint "trainer_id", null: false
     t.text "transcript", default: "", null: false
     t.datetime "transcript_edited_at"
@@ -129,6 +130,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_05_09_220858) do
     t.index ["status", "created_at"], name: "index_voice_recordings_on_status_and_created_at"
     t.index ["student_id", "created_at"], name: "index_voice_recordings_on_student_id_and_created_at"
     t.index ["student_id"], name: "index_voice_recordings_on_student_id"
+    t.index ["target_workout_id"], name: "index_voice_recordings_on_target_workout_id"
     t.index ["trainer_id"], name: "index_voice_recordings_on_trainer_id"
   end
 
@@ -158,5 +160,6 @@ ActiveRecord::Schema[8.2].define(version: 2026_05_09_220858) do
   add_foreign_key "voice_recordings", "organizations"
   add_foreign_key "voice_recordings", "students"
   add_foreign_key "voice_recordings", "users", column: "trainer_id"
+  add_foreign_key "voice_recordings", "workouts", column: "target_workout_id"
   add_foreign_key "workouts", "periodization_versions"
 end

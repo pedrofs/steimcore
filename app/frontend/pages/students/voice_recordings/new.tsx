@@ -24,10 +24,11 @@ import {
 } from "@/hooks/use-voice-recorder"
 
 type Student = { id: string; name: string }
-type Kind = "anamnesis" | "periodization_create"
-type Props = { student: Student; kind: Kind }
+type Kind = "anamnesis" | "periodization_create" | "periodization_edit_workout"
+type TargetWorkout = { id: string; name: string; position: number }
+type Props = { student: Student; kind: Kind; targetWorkout?: TargetWorkout | null }
 
-export default function NewVoiceRecording({ student, kind }: Props) {
+export default function NewVoiceRecording({ student, kind, targetWorkout }: Props) {
   const { props } = usePage()
   const title = props.title
   const breadcrumbs = props.breadcrumbs
@@ -38,14 +39,23 @@ export default function NewVoiceRecording({ student, kind }: Props) {
   const handleSubmit = () => {
     if (!recorder.audio) return
     const extension = guessExtension(recorder.audio.mimeType)
-    const baseName = kind === "periodization_create" ? "periodization" : "anamnesis"
+    const baseName =
+      kind === "periodization_create"
+        ? "periodization"
+        : kind === "periodization_edit_workout"
+          ? "workout-edit"
+          : "anamnesis"
     const file = new File([recorder.audio.blob], `${baseName}.${extension}`, {
       type: recorder.audio.mimeType,
     })
     setSubmitting(true)
+    const payload: Record<string, unknown> = { audio: file, kind }
+    if (kind === "periodization_edit_workout" && targetWorkout) {
+      payload.target_workout_id = targetWorkout.id
+    }
     router.post(
       `/students/${student.id}/voice_recordings`,
-      { audio: file, kind },
+      payload,
       {
         forceFormData: true,
         onFinish: () => setSubmitting(false),
@@ -101,7 +111,9 @@ export default function NewVoiceRecording({ student, kind }: Props) {
                 Aluno: <span className="font-medium">{student.name}</span>.{" "}
                 {kind === "periodization_create"
                   ? "Descreva a periodização. A gravação para automaticamente em 3 minutos."
-                  : "A gravação para automaticamente em 3 minutos."}
+                  : kind === "periodization_edit_workout"
+                    ? `Descreva a edição do treino${targetWorkout ? ` ${targetWorkout.name}` : ""}. A gravação para automaticamente em 3 minutos.`
+                    : "A gravação para automaticamente em 3 minutos."}
               </p>
             </div>
 

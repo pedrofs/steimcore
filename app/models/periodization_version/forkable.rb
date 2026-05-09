@@ -1,38 +1,91 @@
 # Applies an LLM-generated patch onto a PeriodizationVersion. The version is
-# the receiver and gets mutated in-place: body_md is set, workouts are built.
-# Future scopes (:periodization, :workout) carry forward the parent version's
-# state and replace only the targeted slice; for this slice, only :create is
-# implemented because the create flow has no parent to carry forward from.
+# the receiver and gets mutated in-place: body_md and workouts are set/built.
+#
+# Scopes:
+#   :create  — first version of a periodization. parent_version must be nil.
+#              patch is the full plan { body_md, workouts: [...] }.
+#   :workout — single-workout edit. parent_version is required and is carried
+#              forward (body_md unchanged, all workouts copied byte-identical).
+#              The workout at target_workout.position is replaced with the
+#              patch's { name, content_md }; position is preserved from the
+#              parent so positions remain stable across versions.
 module PeriodizationVersion::Forkable
   extend ActiveSupport::Concern
 
-  def fork_with!(scope:, patch:, trainer:, voice_recording: nil)
-    raise ArgumentError, "unknown fork scope #{scope.inspect}" unless scope.to_sym == :create
-    raise ArgumentError, "create scope expects parent_version_id to be nil" if parent_version_id.present?
-
-    body_md = patch[:body_md] || patch["body_md"]
-    workouts_attrs = patch[:workouts] || patch["workouts"] || []
-
-    transaction do
-      assign_attributes(
-        body_md: body_md.to_s,
-        trainer: trainer,
-        voice_recording: voice_recording
-      )
-
-      workouts.destroy_all if workouts.loaded? || persisted?
-
-      workouts_attrs.each do |attrs|
-        workouts.build(
-          name: (attrs[:name] || attrs["name"]).to_s,
-          content_md: (attrs[:content_md] || attrs["content_md"]).to_s,
-          position: (attrs[:position] || attrs["position"]).to_i
-        )
-      end
-
-      save!
+  def fork_with!(scope:, patch:, trainer:, voice_recording: nil, target_workout: nil)
+    case scope.to_sym
+    when :create
+      raise ArgumentError, "create scope expects parent_version_id to be nil" if parent_version_id.present?
+      apply_create!(patch, trainer: trainer, voice_recording: voice_recording)
+    when :workout
+      raise ArgumentError, ":workout scope requires parent_version" if parent_version.nil?
+      raise ArgumentError, ":workout scope requires target_workout" if target_workout.nil?
+      apply_workout!(patch, target_workout: target_workout, trainer: trainer, voice_recording: voice_recording)
+    else
+      raise ArgumentError, "unknown fork scope #{scope.inspect}"
     end
 
     self
   end
+
+  private
+    def apply_create!(patch, trainer:, voice_recording:)
+      body_md = patch[:body_md] || patch["body_md"]
+      workouts_attrs = patch[:workouts] || patch["workouts"] || []
+
+      transaction do
+        assign_attributes(
+          body_md: body_md.to_s,
+          trainer: trainer,
+          voice_recording: voice_recording
+        )
+
+        workouts.destroy_all if workouts.loaded? || persisted?
+
+        workouts_attrs.each do |attrs|
+          workouts.build(
+            name: (attrs[:name] || attrs["name"]).to_s,
+            content_md: (attrs[:content_md] || attrs["content_md"]).to_s,
+            position: (attrs[:position] || attrs["position"]).to_i
+          )
+        end
+
+        save!
+      end
+    end
+
+    def apply_workout!(patch, target_workout:, trainer:, voice_recording:)
+      workout_patch = patch[:workout] || patch["workout"] || {}
+      patch_name = (workout_patch[:name] || workout_patch["name"]).to_s
+      patch_content = (workout_patch[:content_md] || workout_patch["content_md"]).to_s
+      target_position = target_workout.position
+
+      transaction do
+        assign_attributes(
+          body_md: parent_version.body_md.to_s,
+          trainer: trainer,
+          voice_recording: voice_recording
+        )
+
+        workouts.destroy_all if workouts.loaded? || persisted?
+
+        parent_version.workouts.order(:position).each do |parent_workout|
+          if parent_workout.position == target_position
+            workouts.build(
+              name: patch_name,
+              content_md: patch_content,
+              position: parent_workout.position
+            )
+          else
+            workouts.build(
+              name: parent_workout.name,
+              content_md: parent_workout.content_md,
+              position: parent_workout.position
+            )
+          end
+        end
+
+        save!
+      end
+    end
 end

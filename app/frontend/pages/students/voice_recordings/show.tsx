@@ -114,7 +114,7 @@ export default function ShowVoiceRecording({ student, recording }: Props) {
               />
             )}
 
-            {recording.status === "completed" && recording.kind !== "periodization_create" && (
+            {recording.status === "completed" && recording.kind === "anamnesis" && (
               <AnamnesisReview
                 action={anamnesisCommitPath}
                 proposedAnamnesisMd={recording.proposedAnamnesisMd ?? ""}
@@ -137,24 +137,33 @@ export default function ShowVoiceRecording({ student, recording }: Props) {
 }
 
 function StatusBanner({ recording }: { recording: Recording }) {
-  const isPeriodization = recording.kind === "periodization_create"
-  const messages: Record<Recording["status"], string> = isPeriodization
-    ? {
-        pending: "Áudio recebido. Iniciando transcrição...",
-        transcribing: "Transcrevendo áudio...",
-        transcribed: "Transcrição pronta. Revise antes de gerar a periodização.",
-        generating: "Gerando periodização com IA...",
-        completed: "Periodização gerada. Abra a versão para revisar.",
-        failed: "Algo deu errado.",
-      }
-    : {
-        pending: "Áudio recebido. Iniciando transcrição...",
-        transcribing: "Transcrevendo áudio...",
-        transcribed: "Transcrição pronta. Revise antes de gerar a anamnese.",
-        generating: "Gerando anamnese atualizada com IA...",
-        completed: "Anamnese gerada. Revise e salve para atualizar o aluno.",
-        failed: "Algo deu errado.",
-      }
+  const messages: Record<Recording["status"], string> =
+    recording.kind === "periodization_create"
+      ? {
+          pending: "Áudio recebido. Iniciando transcrição...",
+          transcribing: "Transcrevendo áudio...",
+          transcribed: "Transcrição pronta. Revise antes de gerar a periodização.",
+          generating: "Gerando periodização com IA...",
+          completed: "Periodização gerada. Abra a versão para revisar.",
+          failed: "Algo deu errado.",
+        }
+      : recording.kind === "periodization_edit_workout"
+        ? {
+            pending: "Áudio recebido. Iniciando transcrição...",
+            transcribing: "Transcrevendo áudio...",
+            transcribed: "Transcrição pronta. Revise antes de gerar a edição do treino.",
+            generating: "Gerando edição do treino com IA...",
+            completed: "Edição gerada. Abra a nova versão para revisar.",
+            failed: "Algo deu errado.",
+          }
+        : {
+            pending: "Áudio recebido. Iniciando transcrição...",
+            transcribing: "Transcrevendo áudio...",
+            transcribed: "Transcrição pronta. Revise antes de gerar a anamnese.",
+            generating: "Gerando anamnese atualizada com IA...",
+            completed: "Anamnese gerada. Revise e salve para atualizar o aluno.",
+            failed: "Algo deu errado.",
+          }
   const showSpinner = ["pending", "transcribing", "generating"].includes(
     recording.status,
   )

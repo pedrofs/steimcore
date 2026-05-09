@@ -1,5 +1,6 @@
-import { Head, Link, usePage } from "@inertiajs/react"
+import { Head, Link, router, usePage } from "@inertiajs/react"
 import { Fragment } from "react"
+import { PencilIcon } from "lucide-react"
 
 import { AppSidebar } from "@/components/app-sidebar"
 import {
@@ -122,6 +123,21 @@ export default function ShowPeriodization({ student, periodization }: Props) {
                           content={w.contentMd}
                           placeholder="Sem conteúdo."
                         />
+                        {!periodization.archived && (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className="mt-2 h-11 w-full gap-2 sm:h-10 sm:w-auto sm:self-end"
+                            onClick={() =>
+                              router.post(
+                                `/periodization_versions/${version.id}/workouts/${w.id}/edit`,
+                              )
+                            }
+                          >
+                            <PencilIcon className="size-4" />
+                            Editar este treino
+                          </Button>
+                        )}
                       </article>
                     ))}
                     {version.workouts.length === 0 && (

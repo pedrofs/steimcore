@@ -16,7 +16,7 @@ class Students::VoiceRecordings::TranscriptConfirmationsController < InertiaCont
     recording.confirm_transcript!(text)
 
     case recording.kind
-    when "periodization_create"
+    when "periodization_create", "periodization_edit_workout"
       version = PeriodizationVersion.find_by!(voice_recording_id: recording.id)
       redirect_to periodization_version_path(version)
     else

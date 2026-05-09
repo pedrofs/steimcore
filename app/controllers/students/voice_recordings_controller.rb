@@ -6,30 +6,36 @@ class Students::VoiceRecordingsController < InertiaController
 
   def new
     @kind = resolve_kind(params[:kind])
+    target_workout = load_target_workout(params[:target_workout_id]) if @kind == "periodization_edit_workout"
     @title = title_for(@kind)
     add_breadcrumb(label: "Alunos", path: students_path)
     add_breadcrumb(label: @student.name, path: student_path(@student))
-    add_breadcrumb(label: @title, path: new_student_voice_recording_path(@student, kind: @kind))
+    add_breadcrumb(label: @title, path: new_student_voice_recording_path(@student, kind: @kind, target_workout_id: target_workout&.id))
 
     render inertia: "students/voice_recordings/new", props: {
       student: { id: @student.id, name: @student.name },
-      kind: @kind
+      kind: @kind,
+      target_workout: target_workout && { id: target_workout.id, name: target_workout.name, position: target_workout.position }
     }
   end
 
   def create
     audio = params[:audio]
+    kind = resolve_kind(params[:kind])
 
     if audio.blank?
-      redirect_to new_student_voice_recording_path(@student, kind: params[:kind]),
+      redirect_to new_student_voice_recording_path(@student, kind: kind, target_workout_id: params[:target_workout_id]),
                   alert: "Nenhum áudio recebido. Tente gravar novamente."
       return
     end
 
+    target_workout = (kind == "periodization_edit_workout") ? load_target_workout(params[:target_workout_id]) : nil
+
     recording = @student.voice_recordings.new(
       organization: current_organization,
       trainer: Current.user,
-      kind: resolve_kind(params[:kind])
+      kind: kind,
+      target_workout: target_workout
     )
     recording.audio.attach(audio)
     recording.save!
@@ -67,8 +73,17 @@ class Students::VoiceRecordingsController < InertiaController
     def title_for(kind, prefix: "Gravar")
       case kind
       when "periodization_create" then "#{prefix} periodização"
+      when "periodization_edit_workout" then "#{prefix} edição de treino"
       else "#{prefix} anamnese"
       end
+    end
+
+    def load_target_workout(id)
+      return nil if id.blank?
+      Workout
+        .joins(periodization_version: { periodization: :student })
+        .where(students: { organization_id: current_organization.id, id: @student.id })
+        .find(id)
     end
 
     def recording_props(recording)

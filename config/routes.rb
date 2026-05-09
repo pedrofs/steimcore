@@ -13,6 +13,9 @@ Rails.application.routes.draw do
 
   resources :periodization_versions, only: [ :show, :update, :destroy ] do
     resource :promotion, only: :create, module: :periodization_versions
+    resources :workouts, only: [], module: :periodization_versions do
+      resource :edit, only: :create, module: :workouts
+    end
   end
 
   # Redirect to localhost from 127.0.0.1 to use same IP address with Vite server

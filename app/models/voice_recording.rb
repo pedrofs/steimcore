@@ -1,15 +1,17 @@
 class VoiceRecording < ApplicationRecord
   include JobStatusable
 
-  KINDS = %w[anamnesis periodization_create].freeze
+  KINDS = %w[anamnesis periodization_create periodization_edit_workout].freeze
 
   belongs_to :organization
   belongs_to :student
   belongs_to :trainer, class_name: "User"
+  belongs_to :target_workout, class_name: "Workout", optional: true
 
   has_one_attached :audio
 
   validates :kind, presence: true, inclusion: { in: KINDS }
+  validates :target_workout, presence: true, if: :workout_edit?
 
   job_statuses transitions: {
     pending:      %i[transcribing failed],
@@ -50,8 +52,21 @@ class VoiceRecording < ApplicationRecord
       when "periodization_create"
         version = student.start_periodization!(trainer: trainer, voice_recording: self)
         GeneratePeriodizationJob.perform_later(version.id)
+      when "periodization_edit_workout"
+        periodization = target_workout.periodization_version.periodization
+        version = periodization.start_edit!(
+          scope: :workout,
+          trainer: trainer,
+          voice_recording: self,
+          target_workout: target_workout
+        )
+        GeneratePeriodizationJob.perform_later(version.id)
       else
         raise "No post-transcript job for kind=#{kind.inspect}"
       end
+    end
+
+    def workout_edit?
+      kind == "periodization_edit_workout"
     end
 end
