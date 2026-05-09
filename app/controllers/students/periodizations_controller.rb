@@ -20,6 +20,11 @@ class Students::PeriodizationsController < InertiaController
     add_breadcrumb(label: @student.name, path: student_path(@student))
     add_breadcrumb(label: "Periodização", path: student_periodization_path(@student, periodization))
 
+    history = periodization.versions
+                            .where(status: "completed")
+                            .includes(:trainer, :voice_recording)
+                            .order(:created_at)
+
     render inertia: "students/periodizations/show", props: {
       student: { id: @student.id, name: @student.name },
       periodization: {
@@ -29,12 +34,15 @@ class Students::PeriodizationsController < InertiaController
           id: version.id,
           body_md: version.body_md,
           workouts: version.workouts.order(:position).map { |w| workout_props(w) }
-        }
+        },
+        versions: history.map { |v| version_summary(v, periodization) }
       }
     }
   end
 
   private
+    TRANSCRIPT_EXCERPT_LIMIT = 240
+
     def load_student
       @student = current_organization.students.find(params[:student_id])
     end
@@ -45,6 +53,18 @@ class Students::PeriodizationsController < InertiaController
         name: workout.name,
         position: workout.position,
         content_md: workout.content_md
+      }
+    end
+
+    def version_summary(version, periodization)
+      transcript = version.voice_recording&.transcript.to_s
+      {
+        id: version.id,
+        created_at: version.created_at.iso8601,
+        current: version.id == periodization.current_version_id,
+        trainer: { id: version.trainer_id, email: version.trainer.email_address },
+        transcript_excerpt: transcript.truncate(TRANSCRIPT_EXCERPT_LIMIT),
+        path: periodization_version_path(version)
       }
     end
 end

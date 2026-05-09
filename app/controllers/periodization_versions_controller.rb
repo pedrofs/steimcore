@@ -89,6 +89,7 @@ class PeriodizationVersionsController < InertiaController
         body_md: version.body_md,
         error_message: version.error_message,
         promoted: version.promoted?,
+        read_only: version.promoted? || version.superseded?,
         periodization_id: version.periodization_id,
         workouts: version.workouts.order(:position).map { |w|
           { id: w.id, name: w.name, position: w.position, content_md: w.content_md }

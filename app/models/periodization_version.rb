@@ -27,6 +27,15 @@ class PeriodizationVersion < ApplicationRecord
     periodization.current_version_id == id
   end
 
+  # A version is "superseded" when another version was forked from it. In the
+  # edit flow, start_edit! sets parent_version on the new version to the prior
+  # current_version, so the prior current_version develops descendants the
+  # moment a successor is created. We use this as the signal that this version
+  # is locked-in history rather than an in-review draft.
+  def superseded?
+    PeriodizationVersion.where(parent_version_id: id).exists?
+  end
+
   private
     def set_default_status
       self.status ||= "pending"

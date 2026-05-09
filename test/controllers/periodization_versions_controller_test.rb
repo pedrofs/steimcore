@@ -30,6 +30,42 @@ class PeriodizationVersionsControllerTest < ActionDispatch::IntegrationTest
     assert_equal false, props[:promoted]
   end
 
+  test "show marks a superseded promoted version as read-only" do
+    apply_completed_plan
+    @version.periodization.update!(current_version: @version)
+
+    rec_v2 = VoiceRecording.create!(
+      organization: @organization, student: @student, trainer: @user,
+      kind: "periodization_edit_periodization"
+    )
+    v2 = @version.periodization.start_edit!(scope: :periodization, trainer: @user, voice_recording: rec_v2)
+    v2.fork_with!(scope: :periodization, patch: { body_md: "## v2", workouts: [
+      { name: "A", content_md: "ag", position: 1 }
+    ] }, trainer: @user, voice_recording: rec_v2)
+    v2.transition_to!(:completed)
+    @version.periodization.set_current_version!(v2)
+
+    sign_in_as(@user)
+
+    get periodization_version_path(@version)
+
+    assert_response :success
+    props = inertia.props[:version]
+    assert_equal true, props[:read_only]
+    assert_equal false, props[:promoted]
+  end
+
+  test "show leaves an in-review (just-generated, no descendants) version editable" do
+    apply_completed_plan
+    sign_in_as(@user)
+
+    get periodization_version_path(@version)
+
+    assert_response :success
+    props = inertia.props[:version]
+    assert_equal false, props[:read_only]
+  end
+
   test "show is scoped to the current organization" do
     other_org = Organization.create!(name: "Outro Gym")
     foreign_student = other_org.students.create!(name: "Externo")

@@ -32,10 +32,20 @@ type CurrentVersion = {
   workouts: Workout[]
 }
 
+type VersionSummary = {
+  id: string
+  createdAt: string
+  current: boolean
+  trainer: { id: string; email: string }
+  transcriptExcerpt: string
+  path: string
+}
+
 type Periodization = {
   id: string
   archived: boolean
   currentVersion: CurrentVersion | null
+  versions: VersionSummary[]
 }
 
 type Student = { id: string; name: string }
@@ -167,6 +177,8 @@ export default function ShowPeriodization({ student, periodization }: Props) {
               </p>
             )}
 
+            <VersionHistory versions={periodization.versions} />
+
             <div className="flex justify-start">
               <Button asChild variant="outline" className="h-11 sm:h-10">
                 <Link href={`/students/${student.id}`}>Voltar ao aluno</Link>
@@ -176,6 +188,58 @@ export default function ShowPeriodization({ student, periodization }: Props) {
         </SidebarInset>
       </SidebarProvider>
     </>
+  )
+}
+
+function VersionHistory({ versions }: { versions: VersionSummary[] }) {
+  if (versions.length === 0) {
+    return null
+  }
+  const dateFormatter = new Intl.DateTimeFormat("pt-BR", {
+    dateStyle: "short",
+    timeStyle: "short",
+  })
+  return (
+    <section className="flex flex-col gap-3">
+      <h2 className="text-lg font-medium">Histórico de versões</h2>
+      <ol className="flex flex-col gap-2">
+        {versions.map((v) => (
+          <li
+            key={v.id}
+            className={
+              "flex flex-col gap-1 rounded-xl border p-3 " +
+              (v.current ? "border-primary bg-primary/5" : "bg-muted/20")
+            }
+          >
+            <div className="flex flex-wrap items-center gap-2 text-sm">
+              <span className="font-medium">
+                {dateFormatter.format(new Date(v.createdAt))}
+              </span>
+              <span className="text-muted-foreground">·</span>
+              <span className="text-muted-foreground">{v.trainer.email}</span>
+              {v.current && (
+                <span className="ml-auto rounded-full bg-primary px-2 py-0.5 text-xs font-medium text-primary-foreground">
+                  Atual
+                </span>
+              )}
+            </div>
+            {v.transcriptExcerpt.length > 0 && (
+              <p className="text-sm text-muted-foreground italic">
+                "{v.transcriptExcerpt}"
+              </p>
+            )}
+            <div>
+              <Link
+                href={v.path}
+                className="text-sm font-medium text-primary underline-offset-4 hover:underline"
+              >
+                Ver versão
+              </Link>
+            </div>
+          </li>
+        ))}
+      </ol>
+    </section>
   )
 }
 

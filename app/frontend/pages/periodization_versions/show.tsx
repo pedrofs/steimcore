@@ -39,6 +39,7 @@ type Version = {
   bodyMd: string
   errorMessage: string | null
   promoted: boolean
+  readOnly: boolean
   periodizationId: string
   workouts: Workout[]
 }
@@ -115,7 +116,14 @@ export default function ShowPeriodizationVersion({ version, student }: Props) {
               />
             )}
 
-            {version.status === "completed" && (
+            {version.status === "completed" && version.readOnly && (
+              <ReadOnlyVersion
+                version={version}
+                student={student}
+              />
+            )}
+
+            {version.status === "completed" && !version.readOnly && (
               <Form method="patch" action={updatePath} className="flex flex-col gap-6">
                 {({ processing, errors }) => (
                   <>
@@ -129,7 +137,6 @@ export default function ShowPeriodizationVersion({ version, student }: Props) {
                         defaultValue={version.bodyMd}
                         rows={10}
                         className="min-h-48 font-mono text-sm"
-                        readOnly={version.promoted}
                       />
                       {errors.body_md && (
                         <p className="text-sm text-destructive">
@@ -156,7 +163,6 @@ export default function ShowPeriodizationVersion({ version, student }: Props) {
                           <Input
                             name={`workouts[${i}][name]`}
                             defaultValue={w.name}
-                            readOnly={version.promoted}
                           />
                           <label className="mt-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
                             Conteúdo (markdown)
@@ -166,57 +172,42 @@ export default function ShowPeriodizationVersion({ version, student }: Props) {
                             defaultValue={w.contentMd}
                             rows={8}
                             className="font-mono text-sm"
-                            readOnly={version.promoted}
                           />
                         </fieldset>
                       ))}
                     </section>
 
-                    {!version.promoted && (
-                      <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          className="h-11 sm:h-10"
-                          onClick={() => {
-                            if (confirm("Descartar esta versão?")) {
-                              router.delete(updatePath)
-                            }
-                          }}
-                          disabled={processing}
-                        >
-                          Descartar
-                        </Button>
-                        <Button
-                          type="submit"
-                          variant="outline"
-                          className="h-11 sm:h-10"
-                          disabled={processing}
-                        >
-                          {processing ? "Salvando..." : "Salvar alterações"}
-                        </Button>
-                        <Button
-                          type="button"
-                          className="h-11 sm:h-10"
-                          onClick={() => router.post(promotePath)}
-                          disabled={processing}
-                        >
-                          Salvar como ativa
-                        </Button>
-                      </div>
-                    )}
-
-                    {version.promoted && (
-                      <div className="flex justify-start">
-                        <Button asChild variant="outline" className="h-11 sm:h-10">
-                          <Link
-                            href={`/students/${student.id}/periodizations/${version.periodizationId}`}
-                          >
-                            Abrir periodização
-                          </Link>
-                        </Button>
-                      </div>
-                    )}
+                    <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="h-11 sm:h-10"
+                        onClick={() => {
+                          if (confirm("Descartar esta versão?")) {
+                            router.delete(updatePath)
+                          }
+                        }}
+                        disabled={processing}
+                      >
+                        Descartar
+                      </Button>
+                      <Button
+                        type="submit"
+                        variant="outline"
+                        className="h-11 sm:h-10"
+                        disabled={processing}
+                      >
+                        {processing ? "Salvando..." : "Salvar alterações"}
+                      </Button>
+                      <Button
+                        type="button"
+                        className="h-11 sm:h-10"
+                        onClick={() => router.post(promotePath)}
+                        disabled={processing}
+                      >
+                        Salvar como ativa
+                      </Button>
+                    </div>
                   </>
                 )}
               </Form>
@@ -225,6 +216,75 @@ export default function ShowPeriodizationVersion({ version, student }: Props) {
         </SidebarInset>
       </SidebarProvider>
     </>
+  )
+}
+
+function ReadOnlyVersion({
+  version,
+  student,
+}: {
+  version: Version
+  student: Student
+}) {
+  return (
+    <div className="flex flex-col gap-6">
+      <section className="flex flex-col gap-2">
+        <h2 className="text-lg font-medium">Plano</h2>
+        <Markdown content={version.bodyMd} placeholder="Plano sem conteúdo." />
+      </section>
+
+      <section className="flex flex-col gap-3">
+        <h2 className="text-lg font-medium">Treinos</h2>
+        {version.workouts.map((w) => (
+          <article
+            key={w.id}
+            className="flex flex-col gap-2 rounded-xl border bg-muted/20 p-4"
+          >
+            <h3 className="text-sm font-semibold uppercase tracking-wide">
+              Treino {w.name}
+            </h3>
+            <Markdown content={w.contentMd} placeholder="Sem conteúdo." />
+          </article>
+        ))}
+        {version.workouts.length === 0 && (
+          <p className="text-sm text-muted-foreground">
+            Nenhum treino registrado.
+          </p>
+        )}
+      </section>
+
+      <div className="flex justify-start">
+        <Button asChild variant="outline" className="h-11 sm:h-10">
+          <Link
+            href={`/students/${student.id}/periodizations/${version.periodizationId}`}
+          >
+            Voltar à periodização
+          </Link>
+        </Button>
+      </div>
+    </div>
+  )
+}
+
+function Markdown({
+  content,
+  placeholder,
+}: {
+  content: string
+  placeholder: string
+}) {
+  const trimmed = content.trim()
+  if (trimmed.length === 0) {
+    return (
+      <p className="rounded-xl border border-dashed bg-muted/20 p-4 text-sm text-muted-foreground">
+        {placeholder}
+      </p>
+    )
+  }
+  return (
+    <pre className="whitespace-pre-wrap rounded-xl border bg-muted/30 p-4 font-sans text-sm leading-relaxed">
+      {content}
+    </pre>
   )
 }
 
