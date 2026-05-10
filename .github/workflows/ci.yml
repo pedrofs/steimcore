@@ -81,6 +81,17 @@ jobs:
         with:
           bundler-cache: true
 
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Install JS dependencies
+        run: yarn install --immutable
+
       - name: Run tests
         env:
           RAILS_ENV: test
@@ -119,6 +130,17 @@ jobs:
         uses: ruby/setup-ruby@v1
         with:
           bundler-cache: true
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Install JS dependencies
+        run: yarn install --immutable
 
       - name: Run System Tests
         env:
