@@ -92,6 +92,11 @@ jobs:
       - name: Install JS dependencies
         run: yarn install --immutable
 
+      - name: Build Vite assets
+        env:
+          RAILS_ENV: test
+        run: bin/vite build --clear
+
       - name: Run tests
         env:
           RAILS_ENV: test
@@ -141,6 +146,11 @@ jobs:
 
       - name: Install JS dependencies
         run: yarn install --immutable
+
+      - name: Build Vite assets
+        env:
+          RAILS_ENV: test
+        run: bin/vite build --clear
 
       - name: Run System Tests
         env:
