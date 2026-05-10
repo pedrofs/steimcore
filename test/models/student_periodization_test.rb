@@ -34,7 +34,7 @@ class StudentPeriodizationTest < ActiveSupport::TestCase
       scope: :create,
       patch: {
         body_md: "x",
-        workouts: [ { name: "A", content_md: "y", position: 1 } ]
+        workouts: [ { name: "A", blocks: [ { kind: "exercise", name: "X", prescription: "3x5" } ], position: 1 } ]
       },
       trainer: @trainer,
       voice_recording: @recording
@@ -67,7 +67,7 @@ class StudentPeriodizationTest < ActiveSupport::TestCase
     parent_version = @student.start_periodization!(trainer: @trainer, voice_recording: @recording)
     parent_version.fork_with!(
       scope: :create,
-      patch: { body_md: "x", workouts: [ { name: "A", content_md: "y", position: 1 } ] },
+      patch: { body_md: "x", workouts: [ { name: "A", blocks: [ { kind: "exercise", name: "X", prescription: "3x5" } ], position: 1 } ] },
       trainer: @trainer,
       voice_recording: @recording
     )
@@ -97,7 +97,7 @@ class StudentPeriodizationTest < ActiveSupport::TestCase
     parent_version = @student.start_periodization!(trainer: @trainer, voice_recording: @recording)
     parent_version.fork_with!(
       scope: :create,
-      patch: { body_md: "x", workouts: [ { name: "A", content_md: "y", position: 1 } ] },
+      patch: { body_md: "x", workouts: [ { name: "A", blocks: [ { kind: "exercise", name: "X", prescription: "3x5" } ], position: 1 } ] },
       trainer: @trainer,
       voice_recording: @recording
     )

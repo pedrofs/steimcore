@@ -1,14 +1,17 @@
 import { Link, router } from "@inertiajs/react"
 import { PencilIcon, WandSparklesIcon } from "lucide-react"
 
+import { BlocksRenderer, type Block } from "@/components/blocks-renderer"
+import { Markdown } from "@/components/markdown"
 import { PageHeader } from "@/components/page-header"
 import { Button } from "@/components/ui/button"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 type Workout = {
   id: string
   name: string
   position: number
-  contentMd: string
+  blocks: Block[]
 }
 
 type CurrentVersion = {
@@ -67,51 +70,14 @@ export default function ShowPeriodization({ student, periodization }: Props) {
 
           <section className="flex flex-col gap-2">
             <h2 className="text-lg font-medium">Plano</h2>
-            <Markdown
-              content={version.bodyMd}
-              placeholder="Plano sem conteúdo."
-            />
+            <Markdown content={version.bodyMd} placeholder="Plano sem conteúdo." />
           </section>
 
-          <section className="flex flex-col gap-3">
-            <h2 className="text-lg font-medium">Treinos</h2>
-            <div className="grid grid-cols-1 gap-3">
-              {version.workouts.map((w) => (
-                <article
-                  key={w.id}
-                  className="flex flex-col gap-2 rounded-xl border bg-muted/20 p-4"
-                >
-                  <h3 className="text-sm font-semibold uppercase tracking-wide">
-                    Treino {w.name}
-                  </h3>
-                  <Markdown
-                    content={w.contentMd}
-                    placeholder="Sem conteúdo."
-                  />
-                  {!periodization.archived && (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="mt-2 h-11 w-full gap-2 sm:h-10 sm:w-auto sm:self-end"
-                      onClick={() =>
-                        router.post(
-                          `/periodization_versions/${version.id}/workouts/${w.id}/edit`,
-                        )
-                      }
-                    >
-                      <PencilIcon className="size-4" />
-                      Editar este treino
-                    </Button>
-                  )}
-                </article>
-              ))}
-              {version.workouts.length === 0 && (
-                <p className="text-sm text-muted-foreground">
-                  Nenhum treino registrado.
-                </p>
-              )}
-            </div>
-          </section>
+          <WorkoutsTabs
+            workouts={version.workouts}
+            archived={periodization.archived}
+            versionId={version.id}
+          />
         </>
       ) : (
         <p className="text-sm text-muted-foreground">
@@ -127,6 +93,65 @@ export default function ShowPeriodization({ student, periodization }: Props) {
         </Button>
       </div>
     </>
+  )
+}
+
+function WorkoutsTabs({
+  workouts,
+  archived,
+  versionId,
+}: {
+  workouts: Workout[]
+  archived: boolean
+  versionId: string
+}) {
+  if (workouts.length === 0) {
+    return (
+      <section className="flex flex-col gap-3">
+        <h2 className="text-lg font-medium">Treinos</h2>
+        <p className="text-sm text-muted-foreground">
+          Nenhum treino registrado.
+        </p>
+      </section>
+    )
+  }
+
+  return (
+    <section className="flex flex-col gap-3">
+      <h2 className="text-lg font-medium">Treinos</h2>
+      <Tabs defaultValue={workouts[0].id}>
+        <TabsList className="flex w-full flex-wrap justify-start gap-1">
+          {workouts.map((w) => (
+            <TabsTrigger key={w.id} value={w.id}>
+              {w.name}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+        {workouts.map((w) => (
+          <TabsContent key={w.id} value={w.id} className="flex flex-col gap-3">
+            <BlocksRenderer
+              blocks={w.blocks}
+              emptyPlaceholder="Treino sem conteúdo."
+            />
+            {!archived && (
+              <Button
+                type="button"
+                variant="outline"
+                className="mt-1 h-11 w-full gap-2 sm:h-10 sm:w-auto sm:self-end"
+                onClick={() =>
+                  router.post(
+                    `/periodization_versions/${versionId}/workouts/${w.id}/edit`,
+                  )
+                }
+              >
+                <PencilIcon className="size-4" />
+                Editar este treino
+              </Button>
+            )}
+          </TabsContent>
+        ))}
+      </Tabs>
+    </section>
   )
 }
 
@@ -179,27 +204,5 @@ function VersionHistory({ versions }: { versions: VersionSummary[] }) {
         ))}
       </ol>
     </section>
-  )
-}
-
-function Markdown({
-  content,
-  placeholder,
-}: {
-  content: string
-  placeholder: string
-}) {
-  const trimmed = content.trim()
-  if (trimmed.length === 0) {
-    return (
-      <p className="rounded-xl border border-dashed bg-muted/20 p-4 text-sm text-muted-foreground">
-        {placeholder}
-      </p>
-    )
-  }
-  return (
-    <pre className="whitespace-pre-wrap rounded-xl border bg-muted/30 p-4 font-sans text-sm leading-relaxed">
-      {content}
-    </pre>
   )
 }

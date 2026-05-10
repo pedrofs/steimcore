@@ -38,8 +38,8 @@ class Students::PeriodizationsControllerTest < ActionDispatch::IntegrationTest
       patch: {
         body_md: "## Plano",
         workouts: [
-          { name: "A", content_md: "ag 4x8", position: 1 },
-          { name: "B", content_md: "sup 4x8", position: 2 }
+          { name: "A", blocks: [ exercise_block("Agachamento", "4x8") ], position: 1 },
+          { name: "B", blocks: [ exercise_block("Supino", "4x8") ], position: 2 }
         ]
       },
       trainer: @user,
@@ -58,6 +58,7 @@ class Students::PeriodizationsControllerTest < ActionDispatch::IntegrationTest
     assert_equal periodization.id, props[:id]
     assert_equal "## Plano", props[:current_version][:body_md]
     assert_equal %w[A B], props[:current_version][:workouts].map { |w| w[:name] }
+    assert_equal "exercise", props[:current_version][:workouts].first[:blocks].first["kind"]
   end
 
   test "show is scoped to the current organization" do
@@ -80,7 +81,7 @@ class Students::PeriodizationsControllerTest < ActionDispatch::IntegrationTest
     )
     v1 = @student.start_periodization!(trainer: @user, voice_recording: rec_v1)
     v1.fork_with!(scope: :create, patch: { body_md: "## v1", workouts: [
-      { name: "A", content_md: "ag", position: 1 }
+      { name: "A", blocks: [ exercise_block("Agachamento", "4x8") ], position: 1 }
     ] }, trainer: @user, voice_recording: rec_v1)
     v1.transition_to!(:completed)
     periodization = v1.periodization
@@ -95,8 +96,8 @@ class Students::PeriodizationsControllerTest < ActionDispatch::IntegrationTest
     )
     v2 = periodization.start_edit!(scope: :periodization, trainer: other_trainer, voice_recording: rec_v2)
     v2.fork_with!(scope: :periodization, patch: { body_md: "## v2", workouts: [
-      { name: "A", content_md: "ag", position: 1 },
-      { name: "C", content_md: "leg", position: 2 }
+      { name: "A", blocks: [ exercise_block("Agachamento", "4x8") ], position: 1 },
+      { name: "C", blocks: [ exercise_block("Leg press", "4x10") ], position: 2 }
     ] }, trainer: other_trainer, voice_recording: rec_v2)
     v2.transition_to!(:completed)
     periodization.set_current_version!(v2)
@@ -117,4 +118,9 @@ class Students::PeriodizationsControllerTest < ActionDispatch::IntegrationTest
     assert_equal [ false, true ], versions.map { |v| v[:current] }
     assert_equal "Primeira versão: foco em hipertrofia para o aluno teste.", versions.first[:transcript_excerpt]
   end
+
+  private
+    def exercise_block(name, prescription)
+      { "kind" => "exercise", "name" => name, "prescription" => prescription }
+    end
 end

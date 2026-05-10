@@ -23,6 +23,67 @@ module PeriodizationVersion::Generatable
 
   MODEL = "claude-opus-4-7"
 
+  EXERCISE_BLOCK_SCHEMA = {
+    type: "object",
+    additionalProperties: false,
+    required: %w[kind name prescription],
+    properties: {
+      kind:         { type: "string", enum: [ "exercise" ] },
+      name:         { type: "string" },
+      prescription: { type: "string" },
+      rest_s:       { type: "integer" },
+      notes:        { type: "string" }
+    }
+  }.freeze
+
+  GROUP_ITEM_SCHEMA = {
+    type: "object",
+    additionalProperties: false,
+    required: %w[name prescription],
+    properties: {
+      name:         { type: "string" },
+      prescription: { type: "string" },
+      notes:        { type: "string" }
+    }
+  }.freeze
+
+  GROUP_BLOCK_SCHEMA = {
+    type: "object",
+    additionalProperties: false,
+    required: %w[kind items],
+    properties: {
+      kind:   { type: "string", enum: [ "group" ] },
+      label:  { type: "string" },
+      rounds: { type: "integer" },
+      items:  { type: "array", items: GROUP_ITEM_SCHEMA }
+    }
+  }.freeze
+
+  FREEFORM_BLOCK_SCHEMA = {
+    type: "object",
+    additionalProperties: false,
+    required: %w[kind text_md],
+    properties: {
+      kind:    { type: "string", enum: [ "freeform" ] },
+      text_md: { type: "string" }
+    }
+  }.freeze
+
+  BLOCK_SCHEMA = {
+    oneOf: [ EXERCISE_BLOCK_SCHEMA, GROUP_BLOCK_SCHEMA, FREEFORM_BLOCK_SCHEMA ]
+  }.freeze
+
+  WORKOUT_OBJECT_SCHEMA = {
+    type: "object",
+    additionalProperties: false,
+    required: %w[name blocks position],
+    properties: {
+      name:     { type: "string" },
+      blocks:   { type: "array", items: BLOCK_SCHEMA },
+      position: { type: "integer" }
+    }
+  }.freeze
+
   SCHEMA = {
     name: "periodization_plan",
     schema: {
@@ -30,20 +91,8 @@ module PeriodizationVersion::Generatable
       additionalProperties: false,
       required: %w[body_md workouts],
       properties: {
-        body_md: { type: "string" },
-        workouts: {
-          type: "array",
-          items: {
-            type: "object",
-            additionalProperties: false,
-            required: %w[name content_md position],
-            properties: {
-              name: { type: "string" },
-              content_md: { type: "string" },
-              position: { type: "integer" }
-            }
-          }
-        }
+        body_md:  { type: "string" },
+        workouts: { type: "array", items: WORKOUT_OBJECT_SCHEMA }
       }
     }
   }.freeze
@@ -58,15 +107,28 @@ module PeriodizationVersion::Generatable
         workout: {
           type: "object",
           additionalProperties: false,
-          required: %w[name content_md],
+          required: %w[name blocks],
           properties: {
-            name: { type: "string" },
-            content_md: { type: "string" }
+            name:   { type: "string" },
+            blocks: { type: "array", items: BLOCK_SCHEMA }
           }
         }
       }
     }
   }.freeze
+
+  BLOCKS_EXAMPLE = <<~JSON.freeze
+    [
+      { "kind": "freeform", "text_md": "Aquecimento livre 5-10 min" },
+      { "kind": "exercise", "name": "Supino reto",
+        "prescription": "3 × 8-10", "rest_s": 90, "notes": "tempo 3-0-1" },
+      { "kind": "group", "label": "Superset A", "rounds": 3,
+        "items": [
+          { "name": "Rosca direta", "prescription": "10 reps" },
+          { "name": "Tríceps testa", "prescription": "10 reps" }
+        ] }
+    ]
+  JSON
 
   class InvalidPlanError < StandardError; end
 
@@ -178,12 +240,14 @@ module PeriodizationVersion::Generatable
 
       workouts.each_with_index do |w, i|
         name = w["name"] || w[:name]
-        content_md = w["content_md"] || w[:content_md]
+        blocks = w["blocks"] || w[:blocks]
         position = w["position"] || w[:position]
 
         raise InvalidPlanError, "workout #{i}: nome inválido" unless name.is_a?(String) && !name.strip.empty?
-        raise InvalidPlanError, "workout #{i}: content_md inválido" unless content_md.is_a?(String)
         raise InvalidPlanError, "workout #{i}: position inválida" unless position.is_a?(Integer)
+
+        block_errors = Workout::Blocks.errors_for(blocks)
+        raise InvalidPlanError, "workout #{i}: #{block_errors.join('; ')}" if block_errors.any?
       end
     end
 
@@ -192,10 +256,12 @@ module PeriodizationVersion::Generatable
       raise InvalidPlanError, "campo workout ausente ou inválido" unless workout.is_a?(Hash)
 
       name = workout["name"] || workout[:name]
-      content_md = workout["content_md"] || workout[:content_md]
+      blocks = workout["blocks"] || workout[:blocks]
 
       raise InvalidPlanError, "workout: nome inválido" unless name.is_a?(String) && !name.strip.empty?
-      raise InvalidPlanError, "workout: content_md inválido" unless content_md.is_a?(String)
+
+      block_errors = Workout::Blocks.errors_for(blocks)
+      raise InvalidPlanError, "workout: #{block_errors.join('; ')}" if block_errors.any?
     end
 
     def create_system_prompt
@@ -204,11 +270,27 @@ module PeriodizationVersion::Generatable
         Sua tarefa é montar uma periodização de treino para um aluno, em
         português do Brasil. A saída deve ser um plano estruturado com um corpo
         em markdown (visão geral do mesociclo, princípios, progressão) e uma
-        lista de treinos (A, B, C, …), cada um com nome curto, conteúdo em
-        markdown (lista de exercícios, séries, repetições, observações) e uma
-        posição inteira a partir de 1. Use apenas equipamentos disponíveis na
-        academia. Não invente dados que o treinador não tenha mencionado. Não
-        mencione que você é uma IA.
+        lista de treinos (A, B, C, …), cada um com nome curto, posição inteira
+        a partir de 1 e uma lista estruturada de blocos.
+
+        Cada bloco é um dos três tipos:
+        - exercise: um exercício individual com name (nome do exercício),
+          prescription (volume/intensidade como "3 × 8-10", "5x5 @ 80%",
+          "EMOM 10min", incluindo RPE/RIR se relevante), e opcionalmente
+          rest_s (descanso em segundos) e notes (observação curta).
+        - group: rotações multi-exercício (superset, circuito, giant set).
+          Tem items (lista de exercícios { name, prescription, notes? }),
+          opcionalmente label (ex.: "Superset A") e rounds (rodadas).
+        - freeform: texto em markdown para conteúdo que não cabe em linha
+          (aquecimento, mobilidade, observações de bloco/deload).
+
+        Não inclua carga em kg — o treinador anota à mão por sessão. Não use
+        propriedades fora do esquema. Use apenas equipamentos disponíveis na
+        academia. Não invente dados que o treinador não tenha mencionado.
+        Não mencione que você é uma IA.
+
+        Exemplo de lista de blocos para um treino:
+        #{BLOCKS_EXAMPLE}
       PROMPT
     end
 
@@ -233,7 +315,9 @@ module PeriodizationVersion::Generatable
 
         ## Tarefa
         Gere a periodização estruturada. Inclua um body_md com o plano geral e
-        a lista de treinos (workouts) numerados em ordem de execução semanal.
+        a lista de treinos (workouts), cada um com name, position e blocks
+        (lista de blocos exercise/group/freeform), numerados em ordem de
+        execução semanal.
       PROMPT
     end
 
@@ -242,18 +326,27 @@ module PeriodizationVersion::Generatable
         Você é um assistente de um personal trainer numa academia de musculação.
         Sua tarefa é editar UM treino específico de uma periodização existente,
         em português do Brasil. Receberá o plano completo (body markdown e
-        todos os treinos) como contexto e a instrução do treinador. Devolva
-        apenas o conteúdo novo do treino em questão, com nome curto e conteúdo
-        em markdown (lista de exercícios, séries, repetições, observações).
-        Não devolva os outros treinos nem o body. Use apenas equipamentos
-        disponíveis na academia. Não invente dados que o treinador não tenha
-        mencionado. Não mencione que você é uma IA.
+        todos os treinos com seus blocos) como contexto e a instrução do
+        treinador. Devolva apenas o conteúdo novo do treino em questão, com
+        name curto e blocks (lista estruturada de blocos).
+
+        Cada bloco é um dos três tipos:
+        - exercise: { kind, name, prescription, rest_s?, notes? }
+        - group:    { kind, label?, rounds?, items: [{ name, prescription, notes? }] }
+        - freeform: { kind, text_md }
+
+        Não devolva os outros treinos nem o body. Não inclua carga em kg. Use
+        apenas equipamentos disponíveis na academia. Não invente dados que o
+        treinador não tenha mencionado. Não mencione que você é uma IA.
+
+        Exemplo de lista de blocos para um treino:
+        #{BLOCKS_EXAMPLE}
       PROMPT
     end
 
     def workout_user_prompt(student, organization, parent_version, target_workout, transcript)
       workouts_block = parent_version.workouts.order(:position).map { |w|
-        "### Treino #{w.name} (posição #{w.position})\n#{w.content_md.presence || '(vazio)'}"
+        "### Treino #{w.name} (posição #{w.position})\n#{format_blocks_for_prompt(w.blocks)}"
       }.join("\n\n")
 
       <<~PROMPT
@@ -286,7 +379,7 @@ module PeriodizationVersion::Generatable
 
         ## Tarefa
         Devolva apenas o novo conteúdo do treino na posição
-        #{target_workout.position}, no formato { workout: { name, content_md } }.
+        #{target_workout.position}, no formato { workout: { name, blocks } }.
       PROMPT
     end
 
@@ -297,18 +390,28 @@ module PeriodizationVersion::Generatable
         aplicando as instruções do treinador. Devolva o plano completo
         atualizado: body markdown (visão geral do mesociclo, princípios,
         progressão) e a lista completa de treinos (A, B, C, …), cada um com
-        nome curto, conteúdo em markdown (lista de exercícios, séries,
-        repetições, observações) e uma posição inteira a partir de 1. O
-        resultado substitui o plano anterior por inteiro: você pode adicionar,
-        remover, renomear ou reordenar treinos conforme necessário. Use apenas
-        equipamentos disponíveis na academia. Não invente dados que o treinador
-        não tenha mencionado. Não mencione que você é uma IA.
+        name curto, position inteira a partir de 1 e blocks (lista estruturada
+        de blocos).
+
+        Cada bloco é um dos três tipos:
+        - exercise: { kind, name, prescription, rest_s?, notes? }
+        - group:    { kind, label?, rounds?, items: [{ name, prescription, notes? }] }
+        - freeform: { kind, text_md }
+
+        O resultado substitui o plano anterior por inteiro: você pode
+        adicionar, remover, renomear ou reordenar treinos conforme necessário.
+        Não inclua carga em kg. Use apenas equipamentos disponíveis na
+        academia. Não invente dados que o treinador não tenha mencionado. Não
+        mencione que você é uma IA.
+
+        Exemplo de lista de blocos para um treino:
+        #{BLOCKS_EXAMPLE}
       PROMPT
     end
 
     def periodization_edit_user_prompt(student, organization, parent_version, transcript)
       workouts_block = parent_version.workouts.order(:position).map { |w|
-        "### Treino #{w.name} (posição #{w.position})\n#{w.content_md.presence || '(vazio)'}"
+        "### Treino #{w.name} (posição #{w.position})\n#{format_blocks_for_prompt(w.blocks)}"
       }.join("\n\n")
 
       <<~PROMPT
@@ -337,8 +440,14 @@ module PeriodizationVersion::Generatable
 
         ## Tarefa
         Devolva o plano completo atualizado, com body_md e a lista de workouts
-        (numerados em ordem de execução semanal). Você pode adicionar, remover
-        ou reordenar treinos conforme as instruções do treinador.
+        (cada um com name, position e blocks), numerados em ordem de execução
+        semanal. Você pode adicionar, remover ou reordenar treinos conforme as
+        instruções do treinador.
       PROMPT
+    end
+
+    def format_blocks_for_prompt(blocks)
+      return "(vazio)" if blocks.blank?
+      JSON.pretty_generate(blocks)
     end
 end

@@ -11,7 +11,7 @@ Rails.application.routes.draw do
     resources :periodizations, only: [ :new, :show ], module: :students
   end
 
-  resources :periodization_versions, only: [ :show, :update, :destroy ] do
+  resources :periodization_versions, only: [ :show, :destroy ] do
     resource :promotion, only: :create, module: :periodization_versions
     resources :workouts, only: [], module: :periodization_versions do
       resource :edit, only: :create, module: :workouts

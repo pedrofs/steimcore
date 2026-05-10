@@ -4,12 +4,13 @@
 # Scopes:
 #   :create        — first version of a periodization. parent_version must be
 #                    nil. patch is the full plan { body_md, workouts: [...] }.
+#                    Each workout carries { name, position, blocks: [...] }.
 #   :workout       — single-workout edit. parent_version is required and is
 #                    carried forward (body_md unchanged, all workouts copied
 #                    byte-identical). The workout at target_workout.position
-#                    is replaced with the patch's { name, content_md };
-#                    position is preserved from the parent so positions remain
-#                    stable across versions.
+#                    is replaced with the patch's { name, blocks }; position is
+#                    preserved from the parent so positions remain stable
+#                    across versions.
 #   :periodization — whole-plan edit. parent_version is required but only as a
 #                    parent pointer; body_md and the entire workouts array are
 #                    replaced from the patch. Previous workouts are NOT carried
@@ -54,7 +55,7 @@ module PeriodizationVersion::Forkable
         workouts_attrs.each do |attrs|
           workouts.build(
             name: (attrs[:name] || attrs["name"]).to_s,
-            content_md: (attrs[:content_md] || attrs["content_md"]).to_s,
+            blocks: normalize_blocks(attrs[:blocks] || attrs["blocks"]),
             position: (attrs[:position] || attrs["position"]).to_i
           )
         end
@@ -66,7 +67,7 @@ module PeriodizationVersion::Forkable
     def apply_workout!(patch, target_workout:, trainer:, voice_recording:)
       workout_patch = patch[:workout] || patch["workout"] || {}
       patch_name = (workout_patch[:name] || workout_patch["name"]).to_s
-      patch_content = (workout_patch[:content_md] || workout_patch["content_md"]).to_s
+      patch_blocks = normalize_blocks(workout_patch[:blocks] || workout_patch["blocks"])
       target_position = target_workout.position
 
       transaction do
@@ -82,13 +83,13 @@ module PeriodizationVersion::Forkable
           if parent_workout.position == target_position
             workouts.build(
               name: patch_name,
-              content_md: patch_content,
+              blocks: patch_blocks,
               position: parent_workout.position
             )
           else
             workouts.build(
               name: parent_workout.name,
-              content_md: parent_workout.content_md,
+              blocks: parent_workout.blocks,
               position: parent_workout.position
             )
           end
@@ -96,5 +97,10 @@ module PeriodizationVersion::Forkable
 
         save!
       end
+    end
+
+    def normalize_blocks(value)
+      return [] if value.nil?
+      value
     end
 end

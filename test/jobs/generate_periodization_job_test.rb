@@ -31,9 +31,24 @@ class GeneratePeriodizationJobTest < ActiveJob::TestCase
     valid_plan = {
       "body_md" => "## Mesociclo\n\nFoco em hipertrofia, 3 sessões/semana.",
       "workouts" => [
-        { "name" => "A", "content_md" => "- Agachamento 4x8", "position" => 1 },
-        { "name" => "B", "content_md" => "- Supino 4x8",      "position" => 2 },
-        { "name" => "C", "content_md" => "- Levantamento terra 4x6", "position" => 3 }
+        {
+          "name" => "A",
+          "position" => 1,
+          "blocks" => [ exercise_block("Agachamento", "4x8") ]
+        },
+        {
+          "name" => "B",
+          "position" => 2,
+          "blocks" => [ exercise_block("Supino", "4x8") ]
+        },
+        {
+          "name" => "C",
+          "position" => 3,
+          "blocks" => [
+            { "kind" => "freeform", "text_md" => "Aquecimento livre" },
+            exercise_block("Levantamento terra", "4x6")
+          ]
+        }
       ]
     }
 
@@ -50,6 +65,8 @@ class GeneratePeriodizationJobTest < ActiveJob::TestCase
     assert_match(/Mesociclo/, @version.body_md)
     assert_equal 3, @version.workouts.count
     assert_equal %w[A B C], @version.workouts.order(:position).pluck(:name)
+    assert_equal "Agachamento", @version.workouts.find_by(position: 1).blocks.first["name"]
+    assert_equal "freeform", @version.workouts.find_by(position: 3).blocks.first["kind"]
 
     assert_match(/Hipertrofia/, captured_user_prompt)
     assert_match(/Barra olímpica/, captured_user_prompt)
@@ -70,6 +87,41 @@ class GeneratePeriodizationJobTest < ActiveJob::TestCase
     assert_equal "failed", @version.status
     assert_match(/workouts/, @version.error_message)
     assert_equal 0, @version.workouts.count
+  end
+
+  test "marks the version failed when a workout has a malformed block" do
+    bad_plan = {
+      "body_md" => "## ok",
+      "workouts" => [
+        {
+          "name" => "A",
+          "position" => 1,
+          "blocks" => [ { "kind" => "exercise", "name" => "Supino" } ] # missing prescription
+        }
+      ]
+    }
+    fake_chat = build_fake_chat(content: bad_plan)
+
+    RubyLLM.stub :chat, ->(*) { fake_chat } do
+      GeneratePeriodizationJob.perform_now(@version)
+    end
+
+    @version.reload
+    assert_equal "failed", @version.status
+    assert_match(/prescription/, @version.error_message)
+    assert_equal 0, @version.workouts.count
+  end
+
+  test "marks the version failed when the LLM returns non-JSON content" do
+    fake_chat = build_fake_chat(content: "not json")
+
+    RubyLLM.stub :chat, ->(*) { fake_chat } do
+      GeneratePeriodizationJob.perform_now(@version)
+    end
+
+    @version.reload
+    assert_equal "failed", @version.status
+    assert_match(/JSON/, @version.error_message)
   end
 
   test "marks the version failed when RubyLLM raises" do
@@ -126,9 +178,9 @@ class GeneratePeriodizationJobTest < ActiveJob::TestCase
         patch: {
           body_md: "## Plano\n\nMesociclo base.",
           workouts: [
-            { name: "A", content_md: "Agachamento 4x8", position: 1 },
-            { name: "B", content_md: "Supino 4x8", position: 2 },
-            { name: "C", content_md: "Levantamento terra 3x5", position: 3 }
+            { name: "A", blocks: [ exercise_block("Agachamento", "4x8") ], position: 1 },
+            { name: "B", blocks: [ exercise_block("Supino reto", "4x8") ], position: 2 },
+            { name: "C", blocks: [ exercise_block("Levantamento terra", "3x5") ], position: 3 }
           ]
         },
         trainer: @trainer,
@@ -156,7 +208,10 @@ class GeneratePeriodizationJobTest < ActiveJob::TestCase
 
     test "applies a schema-valid workout patch, replaces only the targeted workout, and copies body_md from the parent" do
       valid_patch = {
-        "workout" => { "name" => "B'", "content_md" => "- Supino inclinado 4x10" }
+        "workout" => {
+          "name" => "B'",
+          "blocks" => [ exercise_block("Supino inclinado", "4x10") ]
+        }
       }
 
       captured_user_prompt = nil
@@ -178,14 +233,14 @@ class GeneratePeriodizationJobTest < ActiveJob::TestCase
       by_position = @edit_version.workouts.order(:position).index_by(&:position)
       assert_equal 3, by_position.size
       assert_equal "A", by_position[1].name
-      assert_equal "Agachamento 4x8", by_position[1].content_md
+      assert_equal "Agachamento", by_position[1].blocks.first["name"]
       assert_equal "B'", by_position[2].name
-      assert_equal "- Supino inclinado 4x10", by_position[2].content_md
+      assert_equal "Supino inclinado", by_position[2].blocks.first["name"]
       assert_equal "C", by_position[3].name
-      assert_equal "Levantamento terra 3x5", by_position[3].content_md
+      assert_equal "Levantamento terra", by_position[3].blocks.first["name"]
 
       assert_equal PeriodizationVersion::Generatable::WORKOUT_SCHEMA, captured_schema
-      assert_match(/Supino 4x8/, captured_user_prompt, "prompt must include the parent workouts as context")
+      assert_match(/Supino reto/, captured_user_prompt, "prompt must include the parent workouts as context")
       assert_match(/posição 2/, captured_user_prompt, "prompt must reference the target workout's position")
       assert_match(/inclinado/, captured_user_prompt, "prompt must include the trainer transcript")
     end
@@ -204,6 +259,25 @@ class GeneratePeriodizationJobTest < ActiveJob::TestCase
       assert_equal 0, @edit_version.workouts.count, "no workouts should be persisted on a failed edit"
     end
 
+    test "marks the edit version failed when the LLM returns a malformed block" do
+      bad_patch = {
+        "workout" => {
+          "name" => "B'",
+          "blocks" => [ { "kind" => "group" } ] # missing items
+        }
+      }
+      fake_chat = build_fake_chat(content: bad_patch)
+
+      RubyLLM.stub :chat, ->(*) { fake_chat } do
+        GeneratePeriodizationJob.perform_now(@edit_version)
+      end
+
+      @edit_version.reload
+      assert_equal "failed", @edit_version.status
+      assert_match(/items/, @edit_version.error_message)
+      assert_equal 0, @edit_version.workouts.count
+    end
+
     test "marks the edit version failed when RubyLLM raises" do
       fake_chat = Object.new
       fake_chat.define_singleton_method(:with_instructions) { |_| self }
@@ -220,6 +294,10 @@ class GeneratePeriodizationJobTest < ActiveJob::TestCase
     end
 
     private
+      def exercise_block(name, prescription)
+        { "kind" => "exercise", "name" => name, "prescription" => prescription }
+      end
+
       def build_fake_chat(content:, capture_prompt: nil, capture_schema: nil)
         response = Struct.new(:content).new(content)
         chat = Object.new
@@ -262,9 +340,9 @@ class GeneratePeriodizationJobTest < ActiveJob::TestCase
         patch: {
           body_md: "## Plano\n\nMesociclo base.",
           workouts: [
-            { name: "A", content_md: "Agachamento 4x8", position: 1 },
-            { name: "B", content_md: "Supino 4x8", position: 2 },
-            { name: "C", content_md: "Levantamento terra 3x5", position: 3 }
+            { name: "A", blocks: [ exercise_block("Agachamento", "4x8") ], position: 1 },
+            { name: "B", blocks: [ exercise_block("Supino", "4x8") ], position: 2 },
+            { name: "C", blocks: [ exercise_block("Levantamento terra", "3x5") ], position: 3 }
           ]
         },
         trainer: @trainer,
@@ -290,8 +368,8 @@ class GeneratePeriodizationJobTest < ActiveJob::TestCase
       valid_plan = {
         "body_md" => "## Novo plano\n\nFoco em força.",
         "workouts" => [
-          { "name" => "Push", "content_md" => "- Supino 5x5", "position" => 1 },
-          { "name" => "Pull", "content_md" => "- Remada 5x5", "position" => 2 }
+          { "name" => "Push", "position" => 1, "blocks" => [ exercise_block("Supino", "5x5") ] },
+          { "name" => "Pull", "position" => 2, "blocks" => [ exercise_block("Remada", "5x5") ] }
         ]
       }
 
@@ -318,7 +396,7 @@ class GeneratePeriodizationJobTest < ActiveJob::TestCase
 
       assert_equal PeriodizationVersion::Generatable::SCHEMA, captured_schema
       assert_match(/Mesociclo base/, captured_user_prompt, "prompt must include the parent body as context")
-      assert_match(/Supino 4x8/, captured_user_prompt, "prompt must include the parent workouts as context")
+      assert_match(/Supino/, captured_user_prompt, "prompt must include the parent workouts as context")
       assert_match(/foco em força/i, captured_user_prompt, "prompt must include the trainer transcript")
     end
 
@@ -334,6 +412,24 @@ class GeneratePeriodizationJobTest < ActiveJob::TestCase
       assert_equal "failed", @edit_version.status
       assert_match(/workouts/, @edit_version.error_message)
       assert_equal 0, @edit_version.workouts.count, "no workouts should be persisted on a failed edit"
+    end
+
+    test "marks the edit version failed when blocks are malformed" do
+      bad_plan = {
+        "body_md" => "## ok",
+        "workouts" => [
+          { "name" => "X", "position" => 1, "blocks" => [ { "kind" => "freeform" } ] } # missing text_md
+        ]
+      }
+      fake_chat = build_fake_chat(content: bad_plan)
+
+      RubyLLM.stub :chat, ->(*) { fake_chat } do
+        GeneratePeriodizationJob.perform_now(@edit_version)
+      end
+
+      @edit_version.reload
+      assert_equal "failed", @edit_version.status
+      assert_match(/text_md/, @edit_version.error_message)
     end
 
     test "marks the edit version failed when RubyLLM raises" do
@@ -352,6 +448,10 @@ class GeneratePeriodizationJobTest < ActiveJob::TestCase
     end
 
     private
+      def exercise_block(name, prescription)
+        { "kind" => "exercise", "name" => name, "prescription" => prescription }
+      end
+
       def build_fake_chat(content:, capture_prompt: nil, capture_schema: nil)
         response = Struct.new(:content).new(content)
         chat = Object.new
@@ -369,6 +469,10 @@ class GeneratePeriodizationJobTest < ActiveJob::TestCase
   end
 
   private
+    def exercise_block(name, prescription)
+      { "kind" => "exercise", "name" => name, "prescription" => prescription }
+    end
+
     def build_fake_chat(content:, capture_prompt: nil, capture_schema: nil)
       response = Struct.new(:content).new(content)
       chat = Object.new

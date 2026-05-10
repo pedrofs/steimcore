@@ -27,6 +27,7 @@ class PeriodizationVersionsControllerTest < ActionDispatch::IntegrationTest
     assert_equal "completed", props[:status]
     assert_equal "## Plano", props[:body_md]
     assert_equal 2, props[:workouts].size
+    assert_equal "exercise", props[:workouts].first[:blocks].first["kind"]
     assert_equal false, props[:promoted]
   end
 
@@ -40,7 +41,7 @@ class PeriodizationVersionsControllerTest < ActionDispatch::IntegrationTest
     )
     v2 = @version.periodization.start_edit!(scope: :periodization, trainer: @user, voice_recording: rec_v2)
     v2.fork_with!(scope: :periodization, patch: { body_md: "## v2", workouts: [
-      { name: "A", content_md: "ag", position: 1 }
+      { name: "A", blocks: [ exercise_block("Agachamento", "4x8") ], position: 1 }
     ] }, trainer: @user, voice_recording: rec_v2)
     v2.transition_to!(:completed)
     @version.periodization.set_current_version!(v2)
@@ -83,43 +84,6 @@ class PeriodizationVersionsControllerTest < ActionDispatch::IntegrationTest
     assert_response :not_found
   end
 
-  test "update edits body_md and workouts on a completed, unpromoted version" do
-    apply_completed_plan
-    sign_in_as(@user)
-
-    patch periodization_version_path(@version), params: {
-      body_md: "## Plano editado",
-      workouts: @version.workouts.order(:position).map.with_index do |w, i|
-        { id: w.id, name: w.name, content_md: "edit-#{i}" }
-      end
-    }
-
-    assert_redirected_to periodization_version_path(@version)
-    @version.reload
-    assert_equal "## Plano editado", @version.body_md
-    assert_equal %w[edit-0 edit-1], @version.workouts.order(:position).pluck(:content_md)
-  end
-
-  test "update refuses to edit a still-generating version" do
-    sign_in_as(@user)
-
-    patch periodization_version_path(@version), params: { body_md: "x", workouts: [] }
-
-    assert_redirected_to periodization_version_path(@version)
-    assert_equal "", @version.reload.body_md
-  end
-
-  test "update refuses to edit a promoted version" do
-    apply_completed_plan
-    @version.periodization.update!(current_version: @version)
-    sign_in_as(@user)
-
-    patch periodization_version_path(@version), params: { body_md: "edit", workouts: [] }
-
-    assert_redirected_to periodization_version_path(@version)
-    assert_equal "## Plano", @version.reload.body_md
-  end
-
   test "destroy discards an unpromoted version and archives a brand-new periodization" do
     sign_in_as(@user)
     periodization = @version.periodization
@@ -144,14 +108,18 @@ class PeriodizationVersionsControllerTest < ActionDispatch::IntegrationTest
   end
 
   private
+    def exercise_block(name, prescription)
+      { "kind" => "exercise", "name" => name, "prescription" => prescription }
+    end
+
     def apply_completed_plan
       @version.fork_with!(
         scope: :create,
         patch: {
           body_md: "## Plano",
           workouts: [
-            { name: "A", content_md: "ag", position: 1 },
-            { name: "B", content_md: "sup", position: 2 }
+            { name: "A", blocks: [ exercise_block("Agachamento", "4x8") ], position: 1 },
+            { name: "B", blocks: [ exercise_block("Supino", "4x8") ], position: 2 }
           ]
         },
         trainer: @user,

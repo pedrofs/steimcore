@@ -22,9 +22,9 @@ class WorkoutTest < ActiveSupport::TestCase
   end
 
   test "default scope orders by position" do
-    @version.workouts.create!(name: "B", position: 2, content_md: "")
-    @version.workouts.create!(name: "A", position: 1, content_md: "")
-    @version.workouts.create!(name: "C", position: 3, content_md: "")
+    @version.workouts.create!(name: "B", position: 2, blocks: [])
+    @version.workouts.create!(name: "A", position: 1, blocks: [])
+    @version.workouts.create!(name: "C", position: 3, blocks: [])
 
     assert_equal %w[A B C], @version.workouts.pluck(:name)
   end

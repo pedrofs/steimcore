@@ -52,7 +52,7 @@ class Students::PeriodizationsController < InertiaController
         id: workout.id,
         name: workout.name,
         position: workout.position,
-        content_md: workout.content_md
+        blocks: workout.blocks
       }
     end
 

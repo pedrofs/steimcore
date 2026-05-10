@@ -16,7 +16,7 @@ class PeriodizationVersions::PromotionsControllerTest < ActionDispatch::Integrat
       scope: :create,
       patch: {
         body_md: "## Plano",
-        workouts: [ { name: "A", content_md: "ag", position: 1 } ]
+        workouts: [ { name: "A", blocks: [ { kind: "exercise", name: "Agachamento", prescription: "4x8" } ], position: 1 } ]
       },
       trainer: @user,
       voice_recording: @recording

@@ -1,14 +1,13 @@
 # frozen_string_literal: true
 
 # Review surface for a single PeriodizationVersion. While :generating, the page
-# polls until the LLM finishes; while :completed and not yet promoted, the
-# trainer can edit body_md and any workout's markdown, then promote (via
-# Periodizations::PromotionsController) or discard (via #destroy). Only pending
-# (status == :generating) or :failed versions can be discarded; promoted
-# versions are immutable history.
+# polls until the LLM finishes; once :completed and not yet promoted, the
+# trainer reviews the generated blocks-based plan and either promotes it (via
+# PeriodizationVersions::PromotionsController) or discards it (via #destroy).
+# Workout content is no longer editable from a textarea — all changes flow
+# through the voice-edit pipeline. Promoted versions are immutable history.
 class PeriodizationVersionsController < InertiaController
   before_action :load_version
-  before_action :ensure_version_editable, only: :update
   before_action :ensure_version_destroyable, only: :destroy
 
   def show
@@ -23,21 +22,6 @@ class PeriodizationVersionsController < InertiaController
       version: version_props(@version),
       student: { id: student.id, name: student.name }
     }
-  end
-
-  def update
-    @version.transaction do
-      @version.update!(body_md: params[:body_md].to_s)
-      Array(params[:workouts]).each do |attrs|
-        workout = @version.workouts.find(attrs[:id])
-        workout.update!(
-          name: attrs[:name].to_s,
-          content_md: attrs[:content_md].to_s
-        )
-      end
-    end
-
-    redirect_to periodization_version_path(@version), notice: "Alterações salvas."
   end
 
   def destroy
@@ -62,16 +46,6 @@ class PeriodizationVersionsController < InertiaController
       raise ActiveRecord::RecordNotFound unless organization_id == current_organization.id
     end
 
-    def ensure_version_editable
-      if @version.promoted?
-        redirect_to periodization_version_path(@version),
-                    alert: "Esta versão já foi promovida e é imutável."
-      elsif @version.status != "completed"
-        redirect_to periodization_version_path(@version),
-                    alert: "A geração ainda não terminou."
-      end
-    end
-
     def ensure_version_destroyable
       return unless @version.promoted?
 
@@ -89,7 +63,7 @@ class PeriodizationVersionsController < InertiaController
         read_only: version.promoted? || version.superseded?,
         periodization_id: version.periodization_id,
         workouts: version.workouts.order(:position).map { |w|
-          { id: w.id, name: w.name, position: w.position, content_md: w.content_md }
+          { id: w.id, name: w.name, position: w.position, blocks: w.blocks }
         }
       }
     end

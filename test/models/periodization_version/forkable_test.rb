@@ -24,9 +24,9 @@ class PeriodizationVersion::ForkableTest < ActiveSupport::TestCase
     patch = {
       body_md: "## Plano\n\nMesociclo de hipertrofia.",
       workouts: [
-        { name: "A", content_md: "Agachamento 4x8", position: 1 },
-        { name: "B", content_md: "Supino 4x8",      position: 2 },
-        { name: "C", content_md: "Levantamento terra 3x5", position: 3 }
+        { name: "A", blocks: [ exercise("Agachamento", "4x8") ], position: 1 },
+        { name: "B", blocks: [ exercise("Supino", "4x8") ],      position: 2 },
+        { name: "C", blocks: [ exercise("Levantamento terra", "3x5") ], position: 3 }
       ]
     }
 
@@ -37,7 +37,7 @@ class PeriodizationVersion::ForkableTest < ActiveSupport::TestCase
     assert_equal 3, @version.workouts.count
     assert_equal %w[A B C], @version.workouts.order(:position).pluck(:name)
     assert_equal [ 1, 2, 3 ], @version.workouts.order(:position).pluck(:position)
-    assert_match(/Agachamento/, @version.workouts.find_by(name: "A").content_md)
+    assert_equal "Agachamento", @version.workouts.find_by(name: "A").blocks.first["name"]
   end
 
   test "rejects unknown scopes" do
@@ -63,7 +63,13 @@ class PeriodizationVersion::ForkableTest < ActiveSupport::TestCase
   test "create scope accepts string-keyed patches (RubyLLM JSON output)" do
     patch = {
       "body_md" => "Body",
-      "workouts" => [ { "name" => "A", "content_md" => "x", "position" => 1 } ]
+      "workouts" => [
+        {
+          "name" => "A",
+          "blocks" => [ { "kind" => "exercise", "name" => "Supino", "prescription" => "3x8" } ],
+          "position" => 1
+        }
+      ]
     }
 
     @version.fork_with!(scope: :create, patch: patch, trainer: @trainer, voice_recording: @recording)
@@ -71,6 +77,39 @@ class PeriodizationVersion::ForkableTest < ActiveSupport::TestCase
     @version.reload
     assert_equal "Body", @version.body_md
     assert_equal "A", @version.workouts.first.name
+    assert_equal "Supino", @version.workouts.first.blocks.first["name"]
+  end
+
+  test "create scope persists each of the three block kinds" do
+    patch = {
+      body_md: "## Plano",
+      workouts: [
+        {
+          name: "A",
+          position: 1,
+          blocks: [
+            { kind: "freeform", text_md: "Aquecimento 5 min" },
+            { kind: "exercise", name: "Agachamento", prescription: "5x5", rest_s: 120, notes: "tempo 3-0-1" },
+            {
+              kind: "group",
+              label: "Superset",
+              rounds: 3,
+              items: [
+                { name: "Rosca", prescription: "10 reps" },
+                { name: "Tríceps", prescription: "10 reps" }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+
+    @version.fork_with!(scope: :create, patch: patch, trainer: @trainer, voice_recording: @recording)
+
+    blocks = @version.reload.workouts.first.blocks
+    assert_equal %w[freeform exercise group], blocks.map { |b| b["kind"] }
+    assert_equal 3, blocks.last["rounds"]
+    assert_equal 2, blocks.last["items"].size
   end
 
   # --- :workout scope ---
@@ -89,7 +128,12 @@ class PeriodizationVersion::ForkableTest < ActiveSupport::TestCase
 
     new_version = build_child_version(voice_recording: edit_recording)
 
-    patch = { workout: { name: "B'", content_md: "Supino inclinado 4x10" } }
+    patch = {
+      workout: {
+        name: "B'",
+        blocks: [ exercise("Supino inclinado", "4x10") ]
+      }
+    }
 
     new_version.fork_with!(
       scope: :workout,
@@ -107,13 +151,13 @@ class PeriodizationVersion::ForkableTest < ActiveSupport::TestCase
     assert_equal [ 1, 2, 3 ], by_position.keys
 
     assert_equal "A", by_position[1].name
-    assert_equal "Agachamento 4x8", by_position[1].content_md
+    assert_equal "Agachamento", by_position[1].blocks.first["name"]
 
     assert_equal "B'", by_position[2].name
-    assert_equal "Supino inclinado 4x10", by_position[2].content_md
+    assert_equal "Supino inclinado", by_position[2].blocks.first["name"]
 
     assert_equal "C", by_position[3].name
-    assert_equal "Levantamento terra 3x5", by_position[3].content_md
+    assert_equal "Levantamento terra", by_position[3].blocks.first["name"]
   end
 
   test "workout scope sets parent_version_id, trainer, and voice_recording on the new version" do
@@ -132,7 +176,7 @@ class PeriodizationVersion::ForkableTest < ActiveSupport::TestCase
 
     new_version.fork_with!(
       scope: :workout,
-      patch: { workout: { name: "A2", content_md: "novo conteúdo" } },
+      patch: { workout: { name: "A2", blocks: [ exercise("Novo", "3x8") ] } },
       trainer: other_trainer,
       voice_recording: edit_recording,
       target_workout: target
@@ -151,7 +195,7 @@ class PeriodizationVersion::ForkableTest < ActiveSupport::TestCase
     assert_raises(ArgumentError) do
       new_version.fork_with!(
         scope: :workout,
-        patch: { workout: { name: "x", content_md: "y" } },
+        patch: { workout: { name: "x", blocks: [] } },
         trainer: @trainer,
         voice_recording: nil,
         target_workout: nil
@@ -160,7 +204,12 @@ class PeriodizationVersion::ForkableTest < ActiveSupport::TestCase
   end
 
   test "workout scope requires parent_version" do
-    @version.fork_with!(scope: :create, patch: { body_md: "x", workouts: [ { name: "A", content_md: "y", position: 1 } ] }, trainer: @trainer, voice_recording: @recording)
+    @version.fork_with!(
+      scope: :create,
+      patch: { body_md: "x", workouts: [ { name: "A", blocks: [ exercise("Supino", "3x8") ], position: 1 } ] },
+      trainer: @trainer,
+      voice_recording: @recording
+    )
     target = @version.reload.workouts.first
 
     orphan = @periodization.versions.build(
@@ -173,7 +222,7 @@ class PeriodizationVersion::ForkableTest < ActiveSupport::TestCase
     assert_raises(ArgumentError) do
       orphan.fork_with!(
         scope: :workout,
-        patch: { workout: { name: "x", content_md: "y" } },
+        patch: { workout: { name: "x", blocks: [] } },
         trainer: @trainer,
         voice_recording: nil,
         target_workout: target
@@ -188,7 +237,12 @@ class PeriodizationVersion::ForkableTest < ActiveSupport::TestCase
 
     new_version.fork_with!(
       scope: :workout,
-      patch: { "workout" => { "name" => "C2", "content_md" => "x" } },
+      patch: {
+        "workout" => {
+          "name" => "C2",
+          "blocks" => [ { "kind" => "exercise", "name" => "Foo", "prescription" => "3x5" } ]
+        }
+      },
       trainer: @trainer,
       voice_recording: nil,
       target_workout: target
@@ -197,7 +251,7 @@ class PeriodizationVersion::ForkableTest < ActiveSupport::TestCase
     new_version.reload
     workout = new_version.workouts.find_by(position: 3)
     assert_equal "C2", workout.name
-    assert_equal "x", workout.content_md
+    assert_equal "Foo", workout.blocks.first["name"]
   end
 
   # --- :periodization scope ---
@@ -217,8 +271,8 @@ class PeriodizationVersion::ForkableTest < ActiveSupport::TestCase
     patch = {
       body_md: "## Novo plano\n\nFoco em força.",
       workouts: [
-        { name: "Push", content_md: "Supino 5x5", position: 1 },
-        { name: "Pull", content_md: "Remada 5x5", position: 2 }
+        { name: "Push", blocks: [ exercise("Supino", "5x5") ], position: 1 },
+        { name: "Pull", blocks: [ exercise("Remada", "5x5") ], position: 2 }
       ]
     }
 
@@ -256,7 +310,7 @@ class PeriodizationVersion::ForkableTest < ActiveSupport::TestCase
       scope: :periodization,
       patch: {
         body_md: "x",
-        workouts: [ { name: "A", content_md: "y", position: 1 } ]
+        workouts: [ { name: "A", blocks: [ exercise("Supino", "3x8") ], position: 1 } ]
       },
       trainer: other_trainer,
       voice_recording: edit_recording
@@ -294,7 +348,13 @@ class PeriodizationVersion::ForkableTest < ActiveSupport::TestCase
       scope: :periodization,
       patch: {
         "body_md" => "Body",
-        "workouts" => [ { "name" => "X", "content_md" => "y", "position" => 1 } ]
+        "workouts" => [
+          {
+            "name" => "X",
+            "blocks" => [ { "kind" => "exercise", "name" => "Foo", "prescription" => "3x5" } ],
+            "position" => 1
+          }
+        ]
       },
       trainer: @trainer,
       voice_recording: nil
@@ -307,15 +367,19 @@ class PeriodizationVersion::ForkableTest < ActiveSupport::TestCase
   end
 
   private
+    def exercise(name, prescription)
+      { kind: "exercise", name: name, prescription: prescription }
+    end
+
     def setup_parent_with_three_workouts!
       @version.fork_with!(
         scope: :create,
         patch: {
           body_md: "## Plano\n\nMesociclo base.",
           workouts: [
-            { name: "A", content_md: "Agachamento 4x8", position: 1 },
-            { name: "B", content_md: "Supino 4x8", position: 2 },
-            { name: "C", content_md: "Levantamento terra 3x5", position: 3 }
+            { name: "A", blocks: [ exercise("Agachamento", "4x8") ], position: 1 },
+            { name: "B", blocks: [ exercise("Supino", "4x8") ], position: 2 },
+            { name: "C", blocks: [ exercise("Levantamento terra", "3x5") ], position: 3 }
           ]
         },
         trainer: @trainer,

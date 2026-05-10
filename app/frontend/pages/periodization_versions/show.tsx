@@ -1,26 +1,23 @@
-import { Form, Link, router } from "@inertiajs/react"
+import { Link, router } from "@inertiajs/react"
 import { Loader2Icon } from "lucide-react"
 
+import { BlocksRenderer, type Block } from "@/components/blocks-renderer"
+import { Markdown } from "@/components/markdown"
 import { PageHeader } from "@/components/page-header"
 import { Button } from "@/components/ui/button"
-import { Textarea } from "@/components/ui/textarea"
-import { Input } from "@/components/ui/input"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useJobStatus } from "@/hooks/use-job-status"
 
 type Workout = {
   id: string
   name: string
   position: number
-  contentMd: string
+  blocks: Block[]
 }
 
 type Version = {
   id: string
-  status:
-    | "pending"
-    | "generating"
-    | "completed"
-    | "failed"
+  status: "pending" | "generating" | "completed" | "failed"
   bodyMd: string
   errorMessage: string | null
   promoted: boolean
@@ -36,8 +33,8 @@ type Props = { version: Version; student: Student }
 export default function ShowPeriodizationVersion({ version, student }: Props) {
   useJobStatus(version.status, [ "version", "student", "flash", "errors" ])
 
-  const updatePath = `/periodization_versions/${version.id}`
-  const promotePath = `/periodization_versions/${version.id}/promotion`
+  const versionPath = `/periodization_versions/${version.id}`
+  const promotePath = `${versionPath}/promotion`
 
   return (
     <>
@@ -52,117 +49,33 @@ export default function ShowPeriodizationVersion({ version, student }: Props) {
       {version.status === "failed" && (
         <FailureBlock
           errorMessage={version.errorMessage}
-          onDiscard={() => router.delete(updatePath)}
+          onDiscard={() => router.delete(versionPath)}
           studentHref={`/students/${student.id}`}
         />
       )}
 
-      {version.status === "completed" && version.readOnly && (
-        <ReadOnlyVersion
+      {version.status === "completed" && (
+        <CompletedVersion
           version={version}
           student={student}
+          versionPath={versionPath}
+          promotePath={promotePath}
         />
-      )}
-
-      {version.status === "completed" && !version.readOnly && (
-        <Form method="patch" action={updatePath} className="flex flex-col gap-6">
-          {({ processing, errors }) => (
-            <>
-              <section className="flex flex-col gap-2">
-                <label htmlFor="body_md" className="text-sm font-medium">
-                  Plano (markdown)
-                </label>
-                <Textarea
-                  id="body_md"
-                  name="body_md"
-                  defaultValue={version.bodyMd}
-                  rows={10}
-                  className="min-h-48 font-mono text-sm"
-                />
-                {errors.body_md && (
-                  <p className="text-sm text-destructive">
-                    {errors.body_md.join(", ")}
-                  </p>
-                )}
-              </section>
-
-              <section className="flex flex-col gap-3">
-                <h2 className="text-lg font-medium">Treinos</h2>
-                {version.workouts.map((w, i) => (
-                  <fieldset
-                    key={w.id}
-                    className="flex flex-col gap-2 rounded-xl border bg-muted/20 p-4"
-                  >
-                    <input
-                      type="hidden"
-                      name={`workouts[${i}][id]`}
-                      value={w.id}
-                    />
-                    <label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                      Nome
-                    </label>
-                    <Input
-                      name={`workouts[${i}][name]`}
-                      defaultValue={w.name}
-                    />
-                    <label className="mt-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                      Conteúdo (markdown)
-                    </label>
-                    <Textarea
-                      name={`workouts[${i}][content_md]`}
-                      defaultValue={w.contentMd}
-                      rows={8}
-                      className="font-mono text-sm"
-                    />
-                  </fieldset>
-                ))}
-              </section>
-
-              <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="h-11 sm:h-10"
-                  onClick={() => {
-                    if (confirm("Descartar esta versão?")) {
-                      router.delete(updatePath)
-                    }
-                  }}
-                  disabled={processing}
-                >
-                  Descartar
-                </Button>
-                <Button
-                  type="submit"
-                  variant="outline"
-                  className="h-11 sm:h-10"
-                  disabled={processing}
-                >
-                  {processing ? "Salvando..." : "Salvar alterações"}
-                </Button>
-                <Button
-                  type="button"
-                  className="h-11 sm:h-10"
-                  onClick={() => router.post(promotePath)}
-                  disabled={processing}
-                >
-                  Salvar como ativa
-                </Button>
-              </div>
-            </>
-          )}
-        </Form>
       )}
     </>
   )
 }
 
-function ReadOnlyVersion({
+function CompletedVersion({
   version,
   student,
+  versionPath,
+  promotePath,
 }: {
   version: Version
   student: Student
+  versionPath: string
+  promotePath: string
 }) {
   return (
     <div className="flex flex-col gap-6">
@@ -171,58 +84,78 @@ function ReadOnlyVersion({
         <Markdown content={version.bodyMd} placeholder="Plano sem conteúdo." />
       </section>
 
-      <section className="flex flex-col gap-3">
-        <h2 className="text-lg font-medium">Treinos</h2>
-        {version.workouts.map((w) => (
-          <article
-            key={w.id}
-            className="flex flex-col gap-2 rounded-xl border bg-muted/20 p-4"
-          >
-            <h3 className="text-sm font-semibold uppercase tracking-wide">
-              Treino {w.name}
-            </h3>
-            <Markdown content={w.contentMd} placeholder="Sem conteúdo." />
-          </article>
-        ))}
-        {version.workouts.length === 0 && (
-          <p className="text-sm text-muted-foreground">
-            Nenhum treino registrado.
-          </p>
-        )}
-      </section>
+      <WorkoutsTabs workouts={version.workouts} />
 
-      <div className="flex justify-start">
-        <Button asChild variant="outline" className="h-11 sm:h-10">
-          <Link
-            href={`/students/${student.id}/periodizations/${version.periodizationId}`}
+      {version.readOnly ? (
+        <div className="flex justify-start">
+          <Button asChild variant="outline" className="h-11 sm:h-10">
+            <Link
+              href={`/students/${student.id}/periodizations/${version.periodizationId}`}
+            >
+              Voltar à periodização
+            </Link>
+          </Button>
+        </div>
+      ) : (
+        <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+          <Button
+            type="button"
+            variant="outline"
+            className="h-11 sm:h-10"
+            onClick={() => {
+              if (confirm("Descartar esta versão?")) {
+                router.delete(versionPath)
+              }
+            }}
           >
-            Voltar à periodização
-          </Link>
-        </Button>
-      </div>
+            Descartar
+          </Button>
+          <Button
+            type="button"
+            className="h-11 sm:h-10"
+            onClick={() => router.post(promotePath)}
+          >
+            Salvar como ativa
+          </Button>
+        </div>
+      )}
     </div>
   )
 }
 
-function Markdown({
-  content,
-  placeholder,
-}: {
-  content: string
-  placeholder: string
-}) {
-  const trimmed = content.trim()
-  if (trimmed.length === 0) {
+function WorkoutsTabs({ workouts }: { workouts: Workout[] }) {
+  if (workouts.length === 0) {
     return (
-      <p className="rounded-xl border border-dashed bg-muted/20 p-4 text-sm text-muted-foreground">
-        {placeholder}
-      </p>
+      <section className="flex flex-col gap-3">
+        <h2 className="text-lg font-medium">Treinos</h2>
+        <p className="text-sm text-muted-foreground">
+          Nenhum treino registrado.
+        </p>
+      </section>
     )
   }
+
   return (
-    <pre className="whitespace-pre-wrap rounded-xl border bg-muted/30 p-4 font-sans text-sm leading-relaxed">
-      {content}
-    </pre>
+    <section className="flex flex-col gap-3">
+      <h2 className="text-lg font-medium">Treinos</h2>
+      <Tabs defaultValue={workouts[0].id}>
+        <TabsList className="flex w-full flex-wrap justify-start gap-1">
+          {workouts.map((w) => (
+            <TabsTrigger key={w.id} value={w.id}>
+              {w.name}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+        {workouts.map((w) => (
+          <TabsContent key={w.id} value={w.id}>
+            <BlocksRenderer
+              blocks={w.blocks}
+              emptyPlaceholder="Treino sem conteúdo."
+            />
+          </TabsContent>
+        ))}
+      </Tabs>
+    </section>
   )
 }
 
