@@ -1,5 +1,6 @@
 import { createInertiaApp } from '@inertiajs/react'
 import { TooltipProvider } from '@/components/ui/tooltip'
+import { ApplicationLayout } from '@/layouts/application-layout'
 
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
@@ -8,6 +9,9 @@ if ("serviceWorker" in navigator) {
     })
   })
 }
+
+const isUnchromed = (name: string) =>
+  name.startsWith("sessions/") || name.startsWith("passwords/")
 
 void createInertiaApp({
   pages: "../pages",
@@ -25,6 +29,8 @@ void createInertiaApp({
       return { queryStringArrayFormat: "brackets" }
     },
   },
+
+  layout: (name) => (isUnchromed(name) ? undefined : ApplicationLayout),
 
   withApp: (app) => <TooltipProvider>{app}</TooltipProvider>,
 }).catch((error) => {

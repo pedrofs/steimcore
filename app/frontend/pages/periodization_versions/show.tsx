@@ -1,23 +1,8 @@
-import { Form, Head, Link, router, usePage } from "@inertiajs/react"
-import { Fragment } from "react"
+import { Form, Link, router } from "@inertiajs/react"
 import { Loader2Icon } from "lucide-react"
 
-import { AppSidebar } from "@/components/app-sidebar"
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb"
+import { PageHeader } from "@/components/page-header"
 import { Button } from "@/components/ui/button"
-import { Separator } from "@/components/ui/separator"
-import {
-  SidebarInset,
-  SidebarProvider,
-  SidebarTrigger,
-} from "@/components/ui/sidebar"
 import { Textarea } from "@/components/ui/textarea"
 import { Input } from "@/components/ui/input"
 import { useJobStatus } from "@/hooks/use-job-status"
@@ -49,10 +34,6 @@ type Student = { id: string; name: string }
 type Props = { version: Version; student: Student }
 
 export default function ShowPeriodizationVersion({ version, student }: Props) {
-  const { props } = usePage()
-  const title = props.title
-  const breadcrumbs = props.breadcrumbs
-
   useJobStatus(version.status, [ "version", "student", "flash", "errors" ])
 
   const updatePath = `/periodization_versions/${version.id}`
@@ -60,161 +41,118 @@ export default function ShowPeriodizationVersion({ version, student }: Props) {
 
   return (
     <>
-      <Head title={title ?? undefined} />
-      <SidebarProvider>
-        <AppSidebar />
-        <SidebarInset>
-          <header className="flex h-16 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12">
-            <div className="flex items-center gap-2 px-4">
-              <SidebarTrigger className="-ml-1 size-11 md:size-8" />
-              <Separator
-                orientation="vertical"
-                className="mr-2 data-vertical:h-4 data-vertical:self-auto"
-              />
-              <Breadcrumb>
-                <BreadcrumbList>
-                  {breadcrumbs.map((crumb, i) => {
-                    const isLast = i === breadcrumbs.length - 1
-                    return (
-                      <Fragment key={`${crumb.path}-${i}`}>
-                        <BreadcrumbItem>
-                          {isLast ? (
-                            <BreadcrumbPage>{crumb.label}</BreadcrumbPage>
-                          ) : (
-                            <BreadcrumbLink asChild>
-                              <Link href={crumb.path}>{crumb.label}</Link>
-                            </BreadcrumbLink>
-                          )}
-                        </BreadcrumbItem>
-                        {!isLast && <BreadcrumbSeparator />}
-                      </Fragment>
-                    )
-                  })}
-                </BreadcrumbList>
-              </Breadcrumb>
-            </div>
-          </header>
-          <div className="flex flex-1 flex-col gap-6 p-4 pt-0">
-            <div className="flex flex-col gap-1">
-              {title && (
-                <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
-                  {title}
-                </h1>
-              )}
-              <p className="text-sm text-muted-foreground">
-                Aluno: <span className="font-medium">{student.name}</span>
-              </p>
-            </div>
+      <PageHeader>
+        <p className="text-sm text-muted-foreground">
+          Aluno: <span className="font-medium">{student.name}</span>
+        </p>
+      </PageHeader>
 
-            <StatusBanner status={version.status} />
+      <StatusBanner status={version.status} />
 
-            {version.status === "failed" && (
-              <FailureBlock
-                errorMessage={version.errorMessage}
-                onDiscard={() => router.delete(updatePath)}
-                studentHref={`/students/${student.id}`}
-              />
-            )}
+      {version.status === "failed" && (
+        <FailureBlock
+          errorMessage={version.errorMessage}
+          onDiscard={() => router.delete(updatePath)}
+          studentHref={`/students/${student.id}`}
+        />
+      )}
 
-            {version.status === "completed" && version.readOnly && (
-              <ReadOnlyVersion
-                version={version}
-                student={student}
-              />
-            )}
+      {version.status === "completed" && version.readOnly && (
+        <ReadOnlyVersion
+          version={version}
+          student={student}
+        />
+      )}
 
-            {version.status === "completed" && !version.readOnly && (
-              <Form method="patch" action={updatePath} className="flex flex-col gap-6">
-                {({ processing, errors }) => (
-                  <>
-                    <section className="flex flex-col gap-2">
-                      <label htmlFor="body_md" className="text-sm font-medium">
-                        Plano (markdown)
-                      </label>
-                      <Textarea
-                        id="body_md"
-                        name="body_md"
-                        defaultValue={version.bodyMd}
-                        rows={10}
-                        className="min-h-48 font-mono text-sm"
-                      />
-                      {errors.body_md && (
-                        <p className="text-sm text-destructive">
-                          {errors.body_md.join(", ")}
-                        </p>
-                      )}
-                    </section>
-
-                    <section className="flex flex-col gap-3">
-                      <h2 className="text-lg font-medium">Treinos</h2>
-                      {version.workouts.map((w, i) => (
-                        <fieldset
-                          key={w.id}
-                          className="flex flex-col gap-2 rounded-xl border bg-muted/20 p-4"
-                        >
-                          <input
-                            type="hidden"
-                            name={`workouts[${i}][id]`}
-                            value={w.id}
-                          />
-                          <label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                            Nome
-                          </label>
-                          <Input
-                            name={`workouts[${i}][name]`}
-                            defaultValue={w.name}
-                          />
-                          <label className="mt-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                            Conteúdo (markdown)
-                          </label>
-                          <Textarea
-                            name={`workouts[${i}][content_md]`}
-                            defaultValue={w.contentMd}
-                            rows={8}
-                            className="font-mono text-sm"
-                          />
-                        </fieldset>
-                      ))}
-                    </section>
-
-                    <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        className="h-11 sm:h-10"
-                        onClick={() => {
-                          if (confirm("Descartar esta versão?")) {
-                            router.delete(updatePath)
-                          }
-                        }}
-                        disabled={processing}
-                      >
-                        Descartar
-                      </Button>
-                      <Button
-                        type="submit"
-                        variant="outline"
-                        className="h-11 sm:h-10"
-                        disabled={processing}
-                      >
-                        {processing ? "Salvando..." : "Salvar alterações"}
-                      </Button>
-                      <Button
-                        type="button"
-                        className="h-11 sm:h-10"
-                        onClick={() => router.post(promotePath)}
-                        disabled={processing}
-                      >
-                        Salvar como ativa
-                      </Button>
-                    </div>
-                  </>
+      {version.status === "completed" && !version.readOnly && (
+        <Form method="patch" action={updatePath} className="flex flex-col gap-6">
+          {({ processing, errors }) => (
+            <>
+              <section className="flex flex-col gap-2">
+                <label htmlFor="body_md" className="text-sm font-medium">
+                  Plano (markdown)
+                </label>
+                <Textarea
+                  id="body_md"
+                  name="body_md"
+                  defaultValue={version.bodyMd}
+                  rows={10}
+                  className="min-h-48 font-mono text-sm"
+                />
+                {errors.body_md && (
+                  <p className="text-sm text-destructive">
+                    {errors.body_md.join(", ")}
+                  </p>
                 )}
-              </Form>
-            )}
-          </div>
-        </SidebarInset>
-      </SidebarProvider>
+              </section>
+
+              <section className="flex flex-col gap-3">
+                <h2 className="text-lg font-medium">Treinos</h2>
+                {version.workouts.map((w, i) => (
+                  <fieldset
+                    key={w.id}
+                    className="flex flex-col gap-2 rounded-xl border bg-muted/20 p-4"
+                  >
+                    <input
+                      type="hidden"
+                      name={`workouts[${i}][id]`}
+                      value={w.id}
+                    />
+                    <label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                      Nome
+                    </label>
+                    <Input
+                      name={`workouts[${i}][name]`}
+                      defaultValue={w.name}
+                    />
+                    <label className="mt-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                      Conteúdo (markdown)
+                    </label>
+                    <Textarea
+                      name={`workouts[${i}][content_md]`}
+                      defaultValue={w.contentMd}
+                      rows={8}
+                      className="font-mono text-sm"
+                    />
+                  </fieldset>
+                ))}
+              </section>
+
+              <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-11 sm:h-10"
+                  onClick={() => {
+                    if (confirm("Descartar esta versão?")) {
+                      router.delete(updatePath)
+                    }
+                  }}
+                  disabled={processing}
+                >
+                  Descartar
+                </Button>
+                <Button
+                  type="submit"
+                  variant="outline"
+                  className="h-11 sm:h-10"
+                  disabled={processing}
+                >
+                  {processing ? "Salvando..." : "Salvar alterações"}
+                </Button>
+                <Button
+                  type="button"
+                  className="h-11 sm:h-10"
+                  onClick={() => router.post(promotePath)}
+                  disabled={processing}
+                >
+                  Salvar como ativa
+                </Button>
+              </div>
+            </>
+          )}
+        </Form>
+      )}
     </>
   )
 }

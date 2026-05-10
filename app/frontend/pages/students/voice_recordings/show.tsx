@@ -1,23 +1,8 @@
-import { Form, Head, Link, router, usePage } from "@inertiajs/react"
-import { Fragment } from "react"
+import { Form, Link, router } from "@inertiajs/react"
 import { Loader2Icon } from "lucide-react"
 
-import { AppSidebar } from "@/components/app-sidebar"
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb"
+import { PageHeader } from "@/components/page-header"
 import { Button } from "@/components/ui/button"
-import { Separator } from "@/components/ui/separator"
-import {
-  SidebarInset,
-  SidebarProvider,
-  SidebarTrigger,
-} from "@/components/ui/sidebar"
 import { Textarea } from "@/components/ui/textarea"
 import { useJobStatus } from "@/hooks/use-job-status"
 
@@ -41,10 +26,6 @@ type Student = { id: string; name: string; anamnesisMd: string }
 type Props = { student: Student; recording: Recording }
 
 export default function ShowVoiceRecording({ student, recording }: Props) {
-  const { props } = usePage()
-  const title = props.title
-  const breadcrumbs = props.breadcrumbs
-
   useJobStatus(recording.status, [
     "recording",
     "student",
@@ -58,80 +39,37 @@ export default function ShowVoiceRecording({ student, recording }: Props) {
 
   return (
     <>
-      <Head title={title ?? undefined} />
-      <SidebarProvider>
-        <AppSidebar />
-        <SidebarInset>
-          <header className="flex h-16 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12">
-            <div className="flex items-center gap-2 px-4">
-              <SidebarTrigger className="-ml-1 size-11 md:size-8" />
-              <Separator
-                orientation="vertical"
-                className="mr-2 data-vertical:h-4 data-vertical:self-auto"
-              />
-              <Breadcrumb>
-                <BreadcrumbList>
-                  {breadcrumbs.map((crumb, i) => {
-                    const isLast = i === breadcrumbs.length - 1
-                    return (
-                      <Fragment key={`${crumb.path}-${i}`}>
-                        <BreadcrumbItem>
-                          {isLast ? (
-                            <BreadcrumbPage>{crumb.label}</BreadcrumbPage>
-                          ) : (
-                            <BreadcrumbLink asChild>
-                              <Link href={crumb.path}>{crumb.label}</Link>
-                            </BreadcrumbLink>
-                          )}
-                        </BreadcrumbItem>
-                        {!isLast && <BreadcrumbSeparator />}
-                      </Fragment>
-                    )
-                  })}
-                </BreadcrumbList>
-              </Breadcrumb>
-            </div>
-          </header>
-          <div className="flex flex-1 flex-col gap-6 p-4 pt-0">
-            <div className="flex flex-col gap-1">
-              {title && (
-                <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
-                  {title}
-                </h1>
-              )}
-              <p className="text-sm text-muted-foreground">
-                Aluno: <span className="font-medium">{student.name}</span>
-              </p>
-            </div>
+      <PageHeader>
+        <p className="text-sm text-muted-foreground">
+          Aluno: <span className="font-medium">{student.name}</span>
+        </p>
+      </PageHeader>
 
-            <StatusBanner recording={recording} />
+      <StatusBanner recording={recording} />
 
-            {recording.status === "transcribed" && (
-              <TranscriptReview
-                action={transcriptConfirmationPath}
-                transcript={recording.transcript}
-                cancelHref={`/students/${student.id}`}
-              />
-            )}
+      {recording.status === "transcribed" && (
+        <TranscriptReview
+          action={transcriptConfirmationPath}
+          transcript={recording.transcript}
+          cancelHref={`/students/${student.id}`}
+        />
+      )}
 
-            {recording.status === "completed" && recording.kind === "anamnesis" && (
-              <AnamnesisReview
-                action={anamnesisCommitPath}
-                proposedAnamnesisMd={recording.proposedAnamnesisMd ?? ""}
-                cancelHref={`/students/${student.id}`}
-              />
-            )}
+      {recording.status === "completed" && recording.kind === "anamnesis" && (
+        <AnamnesisReview
+          action={anamnesisCommitPath}
+          proposedAnamnesisMd={recording.proposedAnamnesisMd ?? ""}
+          cancelHref={`/students/${student.id}`}
+        />
+      )}
 
-            {recording.status === "failed" && (
-              <FailureBlock
-                errorMessage={recording.errorMessage}
-                onRetry={() => router.post(transcriptionPath)}
-                studentHref={`/students/${student.id}`}
-              />
-            )}
-          </div>
-        </SidebarInset>
-      </SidebarProvider>
+      {recording.status === "failed" && (
+        <FailureBlock
+          errorMessage={recording.errorMessage}
+          onRetry={() => router.post(transcriptionPath)}
+          studentHref={`/students/${student.id}`}
+        />
+      )}
     </>
   )
 }
