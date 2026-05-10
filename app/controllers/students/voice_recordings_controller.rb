@@ -2,7 +2,8 @@
 
 class Students::VoiceRecordingsController < InertiaController
   before_action :load_student
-  before_action :load_recording, only: [ :show ]
+  before_action :load_recording, only: :show
+  before_action :ensure_audio_present, only: :create
 
   def new
     @kind = resolve_kind(params[:kind])
@@ -20,15 +21,7 @@ class Students::VoiceRecordingsController < InertiaController
   end
 
   def create
-    audio = params[:audio]
     kind = resolve_kind(params[:kind])
-
-    if audio.blank?
-      redirect_to new_student_voice_recording_path(@student, kind: kind, target_workout_id: params[:target_workout_id]),
-                  alert: "Nenhum áudio recebido. Tente gravar novamente."
-      return
-    end
-
     target_workout = (kind == "periodization_edit_workout") ? load_target_workout(params[:target_workout_id]) : nil
 
     recording = @student.voice_recordings.new(
@@ -37,7 +30,7 @@ class Students::VoiceRecordingsController < InertiaController
       kind: kind,
       target_workout: target_workout
     )
-    recording.audio.attach(audio)
+    recording.audio.attach(params[:audio])
     recording.save!
 
     TranscribeJob.perform_later(recording.id)
@@ -64,6 +57,13 @@ class Students::VoiceRecordingsController < InertiaController
 
     def load_recording
       @recording = @student.voice_recordings.find(params[:id])
+    end
+
+    def ensure_audio_present
+      return if params[:audio].present?
+
+      redirect_to new_student_voice_recording_path(@student, kind: resolve_kind(params[:kind]), target_workout_id: params[:target_workout_id]),
+                  alert: "Nenhum áudio recebido. Tente gravar novamente."
     end
 
     def resolve_kind(kind)

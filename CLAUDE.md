@@ -136,3 +136,53 @@ Four logical Postgres databases in production (single primary in dev/test): `pri
     - **System-boundary integrations are jobs or `lib/` adapters**, not services. `WhatsAppDeliveryJob` over `WhatsAppDispatcher`. The job IS the boundary; a "dispatcher service" wrapping a job is one indirection too many.
 
     Don't introduce `app/services/`. If you find yourself drafting `Foo::Bar.call(...)`, rephrase as `foo.bar(...)` and put it on the model. Almost every "service" we've considered turned out to be a method that wanted to live on a model.
+
+- **Guard preconditions in `before_action`, not inline early-returns** — when a controller action depends on a precondition (record state, presence of a parameter, scoping, etc.), express it as a `before_action` that redirects on failure. Rails halts the action whenever a filter renders or redirects, so the action body is reached only on the happy path. Load shared records into instance variables in their own filter and reference them with `@var`. Apply scoped filters with `only:` / `except:` when the controller has more than one action.
+
+    ```ruby
+    # Wrong: validation tangled into the action body
+    def create
+      student = current_organization.students.find(params[:student_id])
+      recording = student.voice_recordings.find(params[:voice_recording_id])
+      edited = params[:anamnesis_md].to_s
+
+      if recording.status != "completed" || edited.strip.empty?
+        redirect_to student_voice_recording_path(student, recording),
+                    alert: edited.strip.empty? ? "A anamnese não pode ficar em branco." : "A geração da anamnese ainda não terminou."
+        return
+      end
+
+      student.update!(anamnesis_md: edited)
+      redirect_to student_path(student), notice: "Anamnese atualizada."
+    end
+    ```
+
+    ```ruby
+    # Right: load + guards live in before_action; the action is just the happy path
+    before_action :load_student_and_recording
+    before_action :ensure_recording_completed_and_value_present
+
+    def create
+      @student.update!(anamnesis_md: edited_anamnesis)
+      redirect_to student_path(@student), notice: "Anamnese atualizada."
+    end
+
+    private
+      def load_student_and_recording
+        @student = current_organization.students.find(params[:student_id])
+        @recording = @student.voice_recordings.find(params[:voice_recording_id])
+      end
+
+      def edited_anamnesis
+        @edited_anamnesis ||= params[:anamnesis_md].to_s
+      end
+
+      def ensure_recording_completed_and_value_present
+        return if @recording.status == "completed" && !edited_anamnesis.strip.empty?
+
+        redirect_to student_voice_recording_path(@student, @recording),
+                    alert: edited_anamnesis.strip.empty? ? "A anamnese não pode ficar em branco." : "A geração da anamnese ainda não terminou."
+      end
+    ```
+
+    Name guard filters with an `ensure_` prefix so the precondition reads at the call site (`ensure_audio_present`, `ensure_version_editable`, `ensure_transcript_present`). When two actions need the same guard with different copy, prefer two narrow filters (`ensure_version_editable`, `ensure_version_destroyable`) over one filter that branches on `action_name`.
