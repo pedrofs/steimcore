@@ -30,7 +30,7 @@ class VoiceRecordingTest < ActiveSupport::TestCase
     recording.update!(transcript: "ascii fallback")
     recording.transition_to!(:transcribed)
 
-    assert_enqueued_with(job: RegenerateAnamnesisJob, args: [ recording.id ]) do
+    assert_enqueued_with(job: RegenerateAnamnesisJob, args: [ recording ]) do
       recording.confirm_transcript!("Aluno relatou dor na lombar há 3 meses.")
     end
 

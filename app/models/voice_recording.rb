@@ -1,5 +1,7 @@
 class VoiceRecording < ApplicationRecord
   include JobStatusable
+  include Transcribable
+  include AnamnesisRegeneratable
 
   KINDS = %w[anamnesis periodization_create periodization_edit_workout periodization_edit_periodization].freeze
 
@@ -57,10 +59,10 @@ class VoiceRecording < ApplicationRecord
     def enqueue_post_transcript_job!
       case kind
       when "anamnesis"
-        RegenerateAnamnesisJob.perform_later(id)
+        RegenerateAnamnesisJob.perform_later(self)
       when "periodization_create"
         version = student.start_periodization!(trainer: trainer, voice_recording: self)
-        GeneratePeriodizationJob.perform_later(version.id)
+        GeneratePeriodizationJob.perform_later(version)
       when "periodization_edit_workout"
         periodization = target_workout.periodization_version.periodization
         version = periodization.start_edit!(
@@ -69,7 +71,7 @@ class VoiceRecording < ApplicationRecord
           voice_recording: self,
           target_workout: target_workout
         )
-        GeneratePeriodizationJob.perform_later(version.id)
+        GeneratePeriodizationJob.perform_later(version)
       when "periodization_edit_periodization"
         periodization = student.active_periodization
         raise "no active periodization to edit for student=#{student_id}" if periodization.nil?
@@ -78,7 +80,7 @@ class VoiceRecording < ApplicationRecord
           trainer: trainer,
           voice_recording: self
         )
-        GeneratePeriodizationJob.perform_later(version.id)
+        GeneratePeriodizationJob.perform_later(version)
       else
         raise "No post-transcript job for kind=#{kind.inspect}"
       end

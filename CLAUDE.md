@@ -186,3 +186,42 @@ Four logical Postgres databases in production (single primary in dev/test): `pri
     ```
 
     Name guard filters with an `ensure_` prefix so the precondition reads at the call site (`ensure_audio_present`, `ensure_version_editable`, `ensure_transcript_present`). When two actions need the same guard with different copy, prefer two narrow filters (`ensure_version_editable`, `ensure_version_destroyable`) over one filter that branches on `action_name`.
+
+- **Jobs are dummy wrappers; pass ActiveRecord records, not ids** — a job's `#perform` should be a one-liner that calls a domain method on the record(s) it's given. The job is the boundary (when/where it runs, queue, retries); the work itself belongs on the model as a concern. This keeps the work testable as a model method, callable synchronously from a console or a test, and reusable from multiple call sites.
+
+    ```ruby
+    # Wrong: id-based, business logic inlined into the job
+    class TranscribeJob < ApplicationJob
+      def perform(voice_recording_id)
+        recording = VoiceRecording.find(voice_recording_id)
+        return unless recording.status == "pending"
+        recording.transition_to!(:transcribing)
+        text = recording.audio.blob.open { |f| RubyLLM.transcribe(f.path, language: "pt").text }
+        recording.update!(transcript: text)
+        recording.transition_to!(:transcribed)
+      rescue StandardError => e
+        recording&.fail!(e.message)
+      end
+    end
+    ```
+
+    ```ruby
+    # Right: AR record arg + thin wrapper around a model concern
+    module VoiceRecording::Transcribable
+      def transcribe!
+        return unless status == "pending"
+        transition_to!(:transcribing)
+        # ... real work on self ...
+      rescue StandardError => e
+        fail!(e.message.presence || e.class.name)
+      end
+    end
+
+    class TranscribeJob < ApplicationJob
+      def perform(voice_recording)
+        voice_recording.transcribe!
+      end
+    end
+    ```
+
+    Always `perform_later(record)`, never `perform_later(record.id)` — ActiveJob's GlobalID serialization handles the round-trip and the deserialized record arrives at `#perform` already loaded. If the record has been deleted between enqueue and execution, ActiveJob raises `ActiveJob::DeserializationError` before `#perform` runs, which the queue adapter handles per its own retry/discard policy. Don't manually `Model.find(id)` in `#perform`.

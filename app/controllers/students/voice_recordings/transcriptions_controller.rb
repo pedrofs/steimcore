@@ -11,7 +11,7 @@ class Students::VoiceRecordings::TranscriptionsController < InertiaController
     if recording.status == "failed"
       recording.transition_to!(:transcribing)
       recording.update!(error_message: nil)
-      TranscribeJob.perform_later(recording.id)
+      TranscribeJob.perform_later(recording)
     end
 
     redirect_to student_voice_recording_path(student, recording)

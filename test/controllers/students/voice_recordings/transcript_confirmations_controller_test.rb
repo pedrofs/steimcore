@@ -19,7 +19,7 @@ class Students::VoiceRecordings::TranscriptConfirmationsControllerTest < ActionD
   test "create writes the edited transcript and enqueues RegenerateAnamnesisJob" do
     sign_in_as(@user)
 
-    assert_enqueued_with(job: RegenerateAnamnesisJob, args: [ @recording.id ]) do
+    assert_enqueued_with(job: RegenerateAnamnesisJob, args: [ @recording ]) do
       post student_voice_recording_transcript_confirmation_path(@student, @recording),
            params: { transcript: "Aluno relatou dor lombar." }
     end

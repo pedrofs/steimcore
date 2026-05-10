@@ -33,7 +33,7 @@ class Students::VoiceRecordingsController < InertiaController
     recording.audio.attach(params[:audio])
     recording.save!
 
-    TranscribeJob.perform_later(recording.id)
+    TranscribeJob.perform_later(recording)
 
     redirect_to student_voice_recording_path(@student, recording)
   end

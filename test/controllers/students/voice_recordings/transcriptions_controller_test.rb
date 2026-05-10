@@ -18,7 +18,7 @@ class Students::VoiceRecordings::TranscriptionsControllerTest < ActionDispatch::
     @recording.transition_to!(:failed)
     sign_in_as(@user)
 
-    assert_enqueued_with(job: TranscribeJob, args: [ @recording.id ]) do
+    assert_enqueued_with(job: TranscribeJob, args: [ @recording ]) do
       post student_voice_recording_transcription_path(@student, @recording)
     end
 

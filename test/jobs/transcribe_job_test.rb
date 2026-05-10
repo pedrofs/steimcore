@@ -22,7 +22,7 @@ class TranscribeJobTest < ActiveJob::TestCase
       assert_equal "pt", language
       transcribe_response
     } do
-      TranscribeJob.perform_now(@recording.id)
+      TranscribeJob.perform_now(@recording)
     end
 
     @recording.reload
@@ -33,7 +33,7 @@ class TranscribeJobTest < ActiveJob::TestCase
 
   test "marks the recording as failed and preserves the error message when RubyLLM raises" do
     RubyLLM.stub :transcribe, ->(*) { raise RuntimeError, "Whisper indisponível" } do
-      TranscribeJob.perform_now(@recording.id)
+      TranscribeJob.perform_now(@recording)
     end
 
     @recording.reload
@@ -47,7 +47,7 @@ class TranscribeJobTest < ActiveJob::TestCase
 
     called = false
     RubyLLM.stub :transcribe, ->(*) { called = true; Struct.new(:text).new("x") } do
-      TranscribeJob.perform_now(@recording.id)
+      TranscribeJob.perform_now(@recording)
     end
 
     assert_not called, "RubyLLM.transcribe should not be called for a recording already in :transcribing"

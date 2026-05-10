@@ -42,7 +42,7 @@ class GeneratePeriodizationJobTest < ActiveJob::TestCase
     fake_chat = build_fake_chat(content: valid_plan, capture_prompt: ->(p) { captured_user_prompt = p }, capture_schema: ->(s) { captured_schema = s })
 
     RubyLLM.stub :chat, ->(*) { fake_chat } do
-      GeneratePeriodizationJob.perform_now(@version.id)
+      GeneratePeriodizationJob.perform_now(@version)
     end
 
     @version.reload
@@ -54,7 +54,7 @@ class GeneratePeriodizationJobTest < ActiveJob::TestCase
     assert_match(/Hipertrofia/, captured_user_prompt)
     assert_match(/Barra olímpica/, captured_user_prompt)
     assert_match(/três treinos/, captured_user_prompt)
-    assert_equal GeneratePeriodizationJob::SCHEMA, captured_schema
+    assert_equal PeriodizationVersion::Generatable::SCHEMA, captured_schema
   end
 
   test "marks the version failed when the LLM response is missing required keys" do
@@ -63,7 +63,7 @@ class GeneratePeriodizationJobTest < ActiveJob::TestCase
     fake_chat = build_fake_chat(content: invalid_plan)
 
     RubyLLM.stub :chat, ->(*) { fake_chat } do
-      GeneratePeriodizationJob.perform_now(@version.id)
+      GeneratePeriodizationJob.perform_now(@version)
     end
 
     @version.reload
@@ -79,7 +79,7 @@ class GeneratePeriodizationJobTest < ActiveJob::TestCase
     fake_chat.define_singleton_method(:ask) { |_| raise RuntimeError, "Anthropic indisponível" }
 
     RubyLLM.stub :chat, ->(*) { fake_chat } do
-      GeneratePeriodizationJob.perform_now(@version.id)
+      GeneratePeriodizationJob.perform_now(@version)
     end
 
     @version.reload
@@ -93,7 +93,7 @@ class GeneratePeriodizationJobTest < ActiveJob::TestCase
 
     called = false
     RubyLLM.stub :chat, ->(*) { called = true; Object.new } do
-      GeneratePeriodizationJob.perform_now(@version.id)
+      GeneratePeriodizationJob.perform_now(@version)
     end
 
     assert_not called
@@ -168,7 +168,7 @@ class GeneratePeriodizationJobTest < ActiveJob::TestCase
       )
 
       RubyLLM.stub :chat, ->(*) { fake_chat } do
-        GeneratePeriodizationJob.perform_now(@edit_version.id)
+        GeneratePeriodizationJob.perform_now(@edit_version)
       end
 
       @edit_version.reload
@@ -184,7 +184,7 @@ class GeneratePeriodizationJobTest < ActiveJob::TestCase
       assert_equal "C", by_position[3].name
       assert_equal "Levantamento terra 3x5", by_position[3].content_md
 
-      assert_equal GeneratePeriodizationJob::WORKOUT_SCHEMA, captured_schema
+      assert_equal PeriodizationVersion::Generatable::WORKOUT_SCHEMA, captured_schema
       assert_match(/Supino 4x8/, captured_user_prompt, "prompt must include the parent workouts as context")
       assert_match(/posição 2/, captured_user_prompt, "prompt must reference the target workout's position")
       assert_match(/inclinado/, captured_user_prompt, "prompt must include the trainer transcript")
@@ -195,7 +195,7 @@ class GeneratePeriodizationJobTest < ActiveJob::TestCase
       fake_chat = build_fake_chat(content: invalid_patch)
 
       RubyLLM.stub :chat, ->(*) { fake_chat } do
-        GeneratePeriodizationJob.perform_now(@edit_version.id)
+        GeneratePeriodizationJob.perform_now(@edit_version)
       end
 
       @edit_version.reload
@@ -211,7 +211,7 @@ class GeneratePeriodizationJobTest < ActiveJob::TestCase
       fake_chat.define_singleton_method(:ask) { |_| raise RuntimeError, "Anthropic indisponível" }
 
       RubyLLM.stub :chat, ->(*) { fake_chat } do
-        GeneratePeriodizationJob.perform_now(@edit_version.id)
+        GeneratePeriodizationJob.perform_now(@edit_version)
       end
 
       @edit_version.reload
@@ -304,7 +304,7 @@ class GeneratePeriodizationJobTest < ActiveJob::TestCase
       )
 
       RubyLLM.stub :chat, ->(*) { fake_chat } do
-        GeneratePeriodizationJob.perform_now(@edit_version.id)
+        GeneratePeriodizationJob.perform_now(@edit_version)
       end
 
       @edit_version.reload
@@ -316,7 +316,7 @@ class GeneratePeriodizationJobTest < ActiveJob::TestCase
       assert_equal %w[Push Pull], by_position.values.map(&:name)
       assert_equal [ 1, 2 ], by_position.keys
 
-      assert_equal GeneratePeriodizationJob::SCHEMA, captured_schema
+      assert_equal PeriodizationVersion::Generatable::SCHEMA, captured_schema
       assert_match(/Mesociclo base/, captured_user_prompt, "prompt must include the parent body as context")
       assert_match(/Supino 4x8/, captured_user_prompt, "prompt must include the parent workouts as context")
       assert_match(/foco em força/i, captured_user_prompt, "prompt must include the trainer transcript")
@@ -327,7 +327,7 @@ class GeneratePeriodizationJobTest < ActiveJob::TestCase
       fake_chat = build_fake_chat(content: invalid_plan)
 
       RubyLLM.stub :chat, ->(*) { fake_chat } do
-        GeneratePeriodizationJob.perform_now(@edit_version.id)
+        GeneratePeriodizationJob.perform_now(@edit_version)
       end
 
       @edit_version.reload
@@ -343,7 +343,7 @@ class GeneratePeriodizationJobTest < ActiveJob::TestCase
       fake_chat.define_singleton_method(:ask) { |_| raise RuntimeError, "Anthropic indisponível" }
 
       RubyLLM.stub :chat, ->(*) { fake_chat } do
-        GeneratePeriodizationJob.perform_now(@edit_version.id)
+        GeneratePeriodizationJob.perform_now(@edit_version)
       end
 
       @edit_version.reload

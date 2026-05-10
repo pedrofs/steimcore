@@ -37,7 +37,7 @@ class RegenerateAnamnesisJobTest < ActiveJob::TestCase
     original_anamnesis = @student.anamnesis_md
 
     RubyLLM.stub :chat, ->(*) { fake_chat } do
-      RegenerateAnamnesisJob.perform_now(@recording.id)
+      RegenerateAnamnesisJob.perform_now(@recording)
     end
 
     @recording.reload
@@ -61,7 +61,7 @@ class RegenerateAnamnesisJobTest < ActiveJob::TestCase
     original_anamnesis = @student.anamnesis_md
 
     RubyLLM.stub :chat, ->(*) { fake_chat } do
-      RegenerateAnamnesisJob.perform_now(@recording.id)
+      RegenerateAnamnesisJob.perform_now(@recording)
     end
 
     @recording.reload
@@ -79,7 +79,7 @@ class RegenerateAnamnesisJobTest < ActiveJob::TestCase
 
     called = false
     RubyLLM.stub :chat, ->(*) { called = true; Object.new } do
-      RegenerateAnamnesisJob.perform_now(@recording.id)
+      RegenerateAnamnesisJob.perform_now(@recording)
     end
 
     assert_not called
