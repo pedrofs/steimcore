@@ -88,8 +88,7 @@ production:
   primary: &primary_production
     <<: *default
     database: steim_core_production
-    username: steim_core
-    password: <%= ENV["STEIM_CORE_DATABASE_PASSWORD"] %>
+    url: <%= ENV["DATABASE_URL"] %>
   cache:
     <<: *primary_production
     database: steim_core_production_cache
