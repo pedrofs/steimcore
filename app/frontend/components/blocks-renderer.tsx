@@ -80,6 +80,7 @@ function ExerciseRow({ block }: { block: ExerciseBlock }) {
           {block.notes && <span className="exercise-notes">{block.notes}</span>}
         </div>
       )}
+      <LoadCell />
     </div>
   )
 }
@@ -114,6 +115,7 @@ function GroupRow({ block }: { block: GroupBlock }) {
             {item.notes && (
               <span className="text-xs text-muted-foreground">{item.notes}</span>
             )}
+            <LoadCell />
           </div>
         ))}
       </div>
@@ -126,5 +128,15 @@ function FreeformBlockRow({ block }: { block: FreeformBlock }) {
     <div className="workout-block freeform rounded-lg border bg-background p-3">
       <Markdown content={block.textMd} />
     </div>
+  )
+}
+
+// Visible only on print: a blank cell the trainer pencils a load into per session.
+function LoadCell() {
+  return (
+    <span className="exercise-load hidden print:flex print:items-baseline print:gap-1 print:mt-0.5 print:text-[8pt] print:text-neutral-700">
+      <span className="uppercase tracking-wide">Carga:</span>
+      <span className="inline-block flex-1 border-b border-neutral-500 min-w-[20mm]"></span>
+    </span>
   )
 }

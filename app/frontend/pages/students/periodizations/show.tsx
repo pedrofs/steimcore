@@ -1,11 +1,16 @@
 import { Link, router } from "@inertiajs/react"
-import { PencilIcon, WandSparklesIcon } from "lucide-react"
+import { PencilIcon, PrinterIcon, WandSparklesIcon } from "lucide-react"
 
 import { BlocksRenderer, type Block } from "@/components/blocks-renderer"
 import { Markdown } from "@/components/markdown"
 import { PageHeader } from "@/components/page-header"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 
 type Workout = {
   id: string
@@ -42,6 +47,7 @@ type Props = { student: Student; periodization: Periodization }
 
 export default function ShowPeriodization({ student, periodization }: Props) {
   const version = periodization.currentVersion
+  const printablePath = `/students/${student.id}/periodization/printable`
 
   return (
     <>
@@ -56,16 +62,19 @@ export default function ShowPeriodization({ student, periodization }: Props) {
       {version ? (
         <>
           {!periodization.archived && (
-            <Button
-              type="button"
-              className="h-11 w-full gap-2 sm:h-10 sm:w-auto sm:self-start"
-              onClick={() =>
-                router.post(`/periodizations/${periodization.id}/edit`)
-              }
-            >
-              <WandSparklesIcon className="size-4" />
-              Modificar periodização
-            </Button>
+            <div className="no-print flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+              <Button
+                type="button"
+                className="h-11 w-full gap-2 sm:h-10 sm:w-auto"
+                onClick={() =>
+                  router.post(`/periodizations/${periodization.id}/edit`)
+                }
+              >
+                <WandSparklesIcon className="size-4" />
+                Modificar periodização
+              </Button>
+              <PrintButton enabled href={printablePath} />
+            </div>
           )}
 
           <section className="flex flex-col gap-2">
@@ -80,9 +89,14 @@ export default function ShowPeriodization({ student, periodization }: Props) {
           />
         </>
       ) : (
-        <p className="text-sm text-muted-foreground">
-          Esta periodização ainda não tem uma versão ativa.
-        </p>
+        <div className="flex flex-col gap-3">
+          <p className="text-sm text-muted-foreground">
+            Esta periodização ainda não tem uma versão ativa.
+          </p>
+          <div className="no-print">
+            <PrintButton enabled={false} href={printablePath} />
+          </div>
+        </div>
       )}
 
       <VersionHistory versions={periodization.versions} />
@@ -152,6 +166,32 @@ function WorkoutsTabs({
         ))}
       </Tabs>
     </section>
+  )
+}
+
+function PrintButton({ enabled, href }: { enabled: boolean; href: string }) {
+  const button = (
+    <Button
+      type="button"
+      variant="outline"
+      className="h-11 w-full gap-2 sm:h-10 sm:w-auto"
+      disabled={!enabled}
+      onClick={() => enabled && window.open(href, "_blank", "noopener")}
+    >
+      <PrinterIcon className="size-4" />
+      Imprimir
+    </Button>
+  )
+  if (enabled) return button
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <span tabIndex={0}>{button}</span>
+      </TooltipTrigger>
+      <TooltipContent>
+        Aguarde a versão atual ficar pronta para imprimir.
+      </TooltipContent>
+    </Tooltip>
   )
 }
 

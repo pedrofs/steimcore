@@ -1,11 +1,16 @@
 import { Link, router } from "@inertiajs/react"
-import { Loader2Icon } from "lucide-react"
+import { Loader2Icon, PrinterIcon } from "lucide-react"
 
 import { BlocksRenderer, type Block } from "@/components/blocks-renderer"
 import { Markdown } from "@/components/markdown"
 import { PageHeader } from "@/components/page-header"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 import { useJobStatus } from "@/hooks/use-job-status"
 
 type Workout = {
@@ -29,6 +34,32 @@ type Version = {
 type Student = { id: string; name: string }
 
 type Props = { version: Version; student: Student }
+
+function PrintButton({ enabled, href }: { enabled: boolean; href: string }) {
+  const button = (
+    <Button
+      type="button"
+      variant="outline"
+      className="h-11 w-full gap-2 sm:h-10 sm:w-auto"
+      disabled={!enabled}
+      onClick={() => enabled && window.open(href, "_blank", "noopener")}
+    >
+      <PrinterIcon className="size-4" />
+      Imprimir
+    </Button>
+  )
+  if (enabled) return button
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <span tabIndex={0}>{button}</span>
+      </TooltipTrigger>
+      <TooltipContent>
+        Salve esta versão como ativa antes de imprimir.
+      </TooltipContent>
+    </Tooltip>
+  )
+}
 
 export default function ShowPeriodizationVersion({ version, student }: Props) {
   useJobStatus(version.status, [ "version", "student", "flash", "errors" ])
@@ -77,6 +108,8 @@ function CompletedVersion({
   versionPath: string
   promotePath: string
 }) {
+  const printablePath = `/students/${student.id}/periodization/printable`
+
   return (
     <div className="flex flex-col gap-6">
       <section className="flex flex-col gap-2">
@@ -87,7 +120,7 @@ function CompletedVersion({
       <WorkoutsTabs workouts={version.workouts} />
 
       {version.readOnly ? (
-        <div className="flex justify-start">
+        <div className="no-print flex flex-col-reverse gap-2 sm:flex-row sm:justify-between">
           <Button asChild variant="outline" className="h-11 sm:h-10">
             <Link
               href={`/students/${student.id}/periodizations/${version.periodizationId}`}
@@ -95,9 +128,11 @@ function CompletedVersion({
               Voltar à periodização
             </Link>
           </Button>
+          <PrintButton enabled={version.promoted} href={printablePath} />
         </div>
       ) : (
-        <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+        <div className="no-print flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+          <PrintButton enabled={version.promoted} href={printablePath} />
           <Button
             type="button"
             variant="outline"

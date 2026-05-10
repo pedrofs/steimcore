@@ -9,6 +9,9 @@ Rails.application.routes.draw do
       resource :anamnesis_commit, only: :create, module: :voice_recordings
     end
     resources :periodizations, only: [ :new, :show ], module: :students
+    resource :periodization, only: [], module: :students do
+      resource :printable, only: :show, module: :periodizations
+    end
   end
 
   resources :periodization_versions, only: [ :show, :destroy ] do

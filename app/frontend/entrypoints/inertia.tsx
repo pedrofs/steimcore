@@ -11,7 +11,9 @@ if ("serviceWorker" in navigator) {
 }
 
 const isUnchromed = (name: string) =>
-  name.startsWith("sessions/") || name.startsWith("passwords/")
+  name.startsWith("sessions/") ||
+  name.startsWith("passwords/") ||
+  name.startsWith("students/periodizations/printables/")
 
 void createInertiaApp({
   pages: "../pages",

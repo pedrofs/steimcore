@@ -131,3 +131,54 @@
     @apply font-sans;
     }
 }
+
+/* Print layout — applies to the chrome-free printable view (Students::Periodizations::PrintablesController#show)
+   and is keyed to the semantic classes emitted by app/frontend/pages/students/periodizations/printables/show.tsx
+   and app/frontend/components/blocks-renderer.tsx. */
+.print-page .workouts-masonry {
+  column-count: 2;
+  column-fill: auto;
+  column-gap: 6mm;
+  height: 100%;
+}
+
+.print-page .workout-card {
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+.print-page .workout-blocks .workout-block {
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+@page {
+  size: A4 portrait;
+  margin: 0;
+}
+
+@media print {
+  html, body {
+    background: white;
+    margin: 0;
+    padding: 0;
+  }
+
+  .print-page {
+    width: 210mm;
+    min-height: 297mm;
+    margin: 0;
+  }
+
+  .print-face {
+    page-break-after: always;
+  }
+
+  .attendance-grid {
+    page-break-before: always;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+}
