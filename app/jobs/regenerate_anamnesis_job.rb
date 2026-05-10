@@ -7,7 +7,7 @@
 class RegenerateAnamnesisJob < ApplicationJob
   queue_as :default
 
-  MODEL = "claude-sonnet-4-5"
+  MODEL = "claude-opus-4-7"
 
   def perform(voice_recording_id)
     recording = VoiceRecording.find(voice_recording_id)

@@ -24,7 +24,7 @@
 class GeneratePeriodizationJob < ApplicationJob
   queue_as :default
 
-  MODEL = "claude-sonnet-4-5"
+  MODEL = "claude-opus-4-7"
 
   SCHEMA = {
     name: "periodization_plan",

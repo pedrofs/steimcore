@@ -4,7 +4,7 @@
 
 Each entry shows the issue number, title, and the verbatim "Blocked by" line from the body so you can tell at a glance which issues are pickable.
 
-!`gh issue list --repo pedrofs/fielize --label ready-for-agent --state open --limit 50 --json number,title,body --jq '.[] | "#\(.number) — \(.title)\n  Blocked by: \(.body | capture("## Blocked by\n\n(?<b>[^\n]+)").b // "see body")"'`
+!`gh issue list --repo pedrofs/steimcore --label ready-for-agent --state open --limit 50 --json number,title,body --jq '.[] | "#\(.number) — \(.title)\n  Blocked by: \(.body | capture("## Blocked by\n\n(?<b>[^\n]+)").b // "see body")"'`
 
 ## Recent RALPH commits (last 10)
 
@@ -30,9 +30,9 @@ Pick the highest-priority open issue that is not blocked by another open issue.
 **IMPORTANT**: You should not work on PRD issues. Often prefixed with [PRD].
 
 - **List candidates**: see "Open issues" above (already prefiltered to `ready-for-agent`, open). Each line shows `#N — title` and the "Blocked by" line.
-- **Verify a candidate is unblocked**: an issue's "Blocked by" line names other issues by number (e.g. `#10`). For each named blocker, run `gh issue view <N> --repo pedrofs/fielize --json state --jq .state` — if any blocker is `OPEN`, skip this candidate. Only proceed when every blocker is `CLOSED`.
-- **Read the issue body**: `gh issue view <N> --repo pedrofs/fielize` for the body and metadata. Add `--comments` to include any review feedback. The body's `## Parent` section will reference a parent PRD issue (e.g. `#9`); read that too with `gh issue view <PARENT> --repo pedrofs/fielize`.
-- **Optional JSON access**: `gh issue view <N> --repo pedrofs/fielize --json number,title,body,labels,state` for scripting.
+- **Verify a candidate is unblocked**: an issue's "Blocked by" line names other issues by number (e.g. `#10`). For each named blocker, run `gh issue view <N> --repo pedrofs/steimcore --json state --jq .state` — if any blocker is `OPEN`, skip this candidate. Only proceed when every blocker is `CLOSED`.
+- **Read the issue body**: `gh issue view <N> --repo pedrofs/steimcore` for the body and metadata. Add `--comments` to include any review feedback. The body's `## Parent` section will reference a parent PRD issue (e.g. `#9`); read that too with `gh issue view <PARENT> --repo pedrofs/steimcore`.
+- **Optional JSON access**: `gh issue view <N> --repo pedrofs/steimcore --json number,title,body,labels,state` for scripting.
 
 ## Workflow
 
@@ -46,7 +46,7 @@ Pick the highest-priority open issue that is not blocked by another open issue.
    - List key decisions made
    - List files changed
    - Note any blockers for the next iteration
-6. **Close** — close the issue with `gh issue close <N> --repo pedrofs/fielize --comment "<one paragraph explaining what was done, key decisions, and any follow-ups>"`. The closing comment is the durable trail for the next iteration; do not skip it.
+6. **Close** — close the issue with `gh issue close <N> --repo pedrofs/steimcore --comment "<one paragraph explaining what was done, key decisions, and any follow-ups>"`. The closing comment is the durable trail for the next iteration; do not skip it.
 7. **Stop after one issue** — after closing or blocking exactly one issue, stop. Do not pick another issue in the same Claude process. The outer Ralph loop will start a fresh iteration and refresh the issue list.
 
 ## Rules
