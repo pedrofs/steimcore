@@ -3,6 +3,7 @@ import { Link, router, usePage } from "@inertiajs/react"
 import { ChevronsUpDown, DumbbellIcon, HomeIcon, InboxIcon, LogOut, UsersIcon } from "lucide-react"
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { Badge } from "@/components/ui/badge"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -30,6 +31,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { state } = useSidebar()
   const collapsed = state === "collapsed"
   const user = pageProps.currentUser
+  const inboxCount = pageProps.inboxCount
   const initials = (user?.email ?? "?").slice(0, 2).toUpperCase()
 
   return (
@@ -72,6 +74,11 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                 <Link href="/inbox">
                   <InboxIcon />
                   <span>Inbox</span>
+                  {inboxCount > 0 && (
+                    <Badge variant="secondary" className="ml-auto">
+                      {inboxCount}
+                    </Badge>
+                  )}
                 </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>

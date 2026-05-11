@@ -235,6 +235,48 @@ class InboxTest < ActiveSupport::TestCase
     assert_match(/periodização/i, row.display_status)
   end
 
+  test "count is zero when the trainer has no recordings" do
+    assert_equal 0, Inbox.new(trainer: @trainer).count
+  end
+
+  test "count includes failed-not-dismissed recordings" do
+    build_failed_anamnesis_recording
+
+    assert_equal 1, Inbox.new(trainer: @trainer).count
+  end
+
+  test "count excludes failed-dismissed recordings" do
+    failed = build_failed_anamnesis_recording
+    failed.update!(dismissed_at: Time.current)
+
+    assert_equal 0, Inbox.new(trainer: @trainer).count
+  end
+
+  test "count includes ready (completed + unacted) recordings" do
+    build_completed_anamnesis_recording(proposed: "## Proposta")
+
+    assert_equal 1, Inbox.new(trainer: @trainer).count
+  end
+
+  test "count excludes in-flight recordings" do
+    recording = build_recording(kind: "anamnesis")
+    recording.transition_to!(:transcribing)
+
+    assert_equal 0, Inbox.new(trainer: @trainer).count
+  end
+
+  test "count is scoped to the given trainer" do
+    other_recording = VoiceRecording.create!(
+      organization: @organization, student: @student, trainer: @other_trainer,
+      kind: "anamnesis"
+    )
+    other_recording.transition_to!(:transcribing)
+    other_recording.fail!("nope")
+
+    assert_equal 0, Inbox.new(trainer: @trainer).count
+    assert_equal 1, Inbox.new(trainer: @other_trainer).count
+  end
+
   private
     def build_recording(kind:)
       VoiceRecording.create!(

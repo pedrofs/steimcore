@@ -33,6 +33,12 @@ class InertiaController < ApplicationController
   inertia_share title: -> { @title }
   inertia_share breadcrumbs: -> { @breadcrumbs || [] }
 
+  inertia_share inbox_count: -> {
+    next 0 unless Current.user
+
+    Inbox.new(trainer: Current.user).count
+  }
+
   private
     def current_organization
       Current.organization

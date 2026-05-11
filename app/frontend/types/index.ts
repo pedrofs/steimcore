@@ -24,4 +24,5 @@ export type SharedProps = {
   flash: FlashData
   title: string | null
   breadcrumbs: Breadcrumb[]
+  inboxCount: number
 }

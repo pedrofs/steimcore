@@ -27,6 +27,16 @@ class Inbox
     }
   end
 
+  # Count of actionable items (failed-not-dismissed + ready). Used by the
+  # sidebar badge via `inertia_share :inbox_count`. In-flight rows do not
+  # contribute — the badge surfaces only items needing trainer action.
+  def count
+    recordings = base_scope.includes(:periodization_version).to_a
+    failed = recordings.count { |r| r.status == "failed" && r.dismissed_at.nil? }
+    ready = recordings.count { |r| ready?(r) }
+    failed + ready
+  end
+
   private
     def base_scope
       VoiceRecording.where(trainer_id: @trainer.id)
