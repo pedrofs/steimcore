@@ -4,6 +4,7 @@ import { Loader2Icon, PrinterIcon } from "lucide-react"
 import { BlocksRenderer, type Block } from "@/components/blocks-renderer"
 import { Markdown } from "@/components/markdown"
 import { PageHeader } from "@/components/page-header"
+import { TranscriptDetails } from "@/components/transcript-details"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent } from "@/components/ui/tabs"
 import { WorkoutsTabsList } from "@/components/workouts-tabs-list"
@@ -29,6 +30,7 @@ type Version = {
   promoted: boolean
   readOnly: boolean
   periodizationId: string
+  transcript: string | null
   workouts: Workout[]
 }
 
@@ -77,6 +79,8 @@ export default function ShowPeriodizationVersion({ version, student }: Props) {
       </PageHeader>
 
       <StatusBanner status={version.status} />
+
+      <TranscriptDetails transcript={version.transcript} />
 
       {version.status === "failed" && (
         <FailureBlock

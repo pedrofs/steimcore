@@ -31,6 +31,28 @@ class PeriodizationVersionsControllerTest < ActionDispatch::IntegrationTest
     assert_equal false, props[:promoted]
   end
 
+  test "show exposes the originating recording transcript when the version has a voice recording" do
+    @recording.update!(transcript: "Quero três treinos semanais com foco em força.")
+    apply_completed_plan
+    sign_in_as(@user)
+
+    get periodization_version_path(@version)
+
+    assert_response :success
+    assert_equal "Quero três treinos semanais com foco em força.", inertia.props[:version][:transcript]
+  end
+
+  test "show omits the transcript when the version has no associated voice recording" do
+    apply_completed_plan
+    @version.update!(voice_recording: nil)
+    sign_in_as(@user)
+
+    get periodization_version_path(@version)
+
+    assert_response :success
+    assert_nil inertia.props[:version][:transcript]
+  end
+
   test "show marks a superseded promoted version as read-only" do
     apply_completed_plan
     @version.periodization.update!(current_version: @version)

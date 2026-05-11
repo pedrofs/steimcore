@@ -2,6 +2,7 @@ import { Form, Link, router } from "@inertiajs/react"
 import { Loader2Icon } from "lucide-react"
 
 import { PageHeader } from "@/components/page-header"
+import { TranscriptDetails } from "@/components/transcript-details"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { useJobStatus } from "@/hooks/use-job-status"
@@ -47,11 +48,14 @@ export default function ShowVoiceRecording({ student, recording }: Props) {
       <StatusBanner recording={recording} />
 
       {recording.status === "completed" && recording.kind === "anamnesis" && (
-        <AnamnesisReview
-          action={anamnesisCommitPath}
-          proposedAnamnesisMd={recording.proposedAnamnesisMd ?? ""}
-          cancelHref={`/students/${student.id}`}
-        />
+        <>
+          <TranscriptDetails transcript={recording.transcript} />
+          <AnamnesisReview
+            action={anamnesisCommitPath}
+            proposedAnamnesisMd={recording.proposedAnamnesisMd ?? ""}
+            cancelHref={`/students/${student.id}`}
+          />
+        </>
       )}
 
       {recording.status === "failed" && (
