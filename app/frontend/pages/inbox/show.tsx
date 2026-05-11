@@ -1,9 +1,16 @@
 import { Link, router } from "@inertiajs/react"
 import { AlertCircleIcon, InboxIcon, Loader2Icon } from "lucide-react"
+import { type ReactNode } from "react"
 
 import { PageHeader } from "@/components/page-header"
 import { Button } from "@/components/ui/button"
 import { usePollProps } from "@/hooks/use-poll-props"
+import { cn } from "@/lib/utils"
+
+type InitiatedBy = {
+  id: string
+  display: string
+}
 
 type Row = {
   voiceRecordingId: string
@@ -15,6 +22,7 @@ type Row = {
   errorMessage: string | null
   timestamp: string
   url: string | null
+  initiatedBy: InitiatedBy
 }
 
 type Groups = {
@@ -23,9 +31,11 @@ type Groups = {
   inFlight: Row[]
 }
 
-type Props = { groups: Groups }
+type Scope = "mine" | "org"
 
-export default function InboxShow({ groups }: Props) {
+type Props = { groups: Groups; scope: Scope }
+
+export default function InboxShow({ groups, scope }: Props) {
   usePollProps(["groups"])
 
   const isEmpty =
@@ -33,24 +43,81 @@ export default function InboxShow({ groups }: Props) {
     groups.ready.length === 0 &&
     groups.inFlight.length === 0
 
+  const showAttribution = scope === "org"
+
   return (
     <>
-      <PageHeader />
+      <PageHeader actions={<ScopeToggle scope={scope} />} />
 
       {isEmpty && <EmptyState />}
 
       {groups.failed.length > 0 && (
-        <FailedSection rows={groups.failed} />
+        <FailedSection rows={groups.failed} showAttribution={showAttribution} />
       )}
 
       {groups.ready.length > 0 && (
-        <ReadySection rows={groups.ready} />
+        <ReadySection rows={groups.ready} showAttribution={showAttribution} />
       )}
 
       {groups.inFlight.length > 0 && (
-        <InFlightSection rows={groups.inFlight} />
+        <InFlightSection rows={groups.inFlight} showAttribution={showAttribution} />
       )}
     </>
+  )
+}
+
+function ScopeToggle({ scope }: { scope: Scope }) {
+  const select = (next: Scope) => {
+    if (next === scope) return
+    router.get("/inbox", next === "org" ? { scope: "org" } : {}, {
+      preserveScroll: true,
+      preserveState: false,
+    })
+  }
+
+  return (
+    <div className="inline-flex rounded-lg border bg-muted/40 p-1 text-sm">
+      <ToggleButton active={scope === "mine"} onClick={() => select("mine")}>
+        Apenas meus
+      </ToggleButton>
+      <ToggleButton active={scope === "org"} onClick={() => select("org")}>
+        Toda a organização
+      </ToggleButton>
+    </div>
+  )
+}
+
+function ToggleButton({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean
+  onClick: () => void
+  children: ReactNode
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={cn(
+        "rounded-md px-3 py-1.5 transition-colors",
+        active
+          ? "bg-background font-medium shadow-sm"
+          : "text-muted-foreground hover:text-foreground",
+      )}
+    >
+      {children}
+    </button>
+  )
+}
+
+function Attribution({ row }: { row: Row }) {
+  return (
+    <p className="text-xs text-muted-foreground">
+      iniciado por {row.initiatedBy.display}
+    </p>
   )
 }
 
@@ -63,7 +130,13 @@ function EmptyState() {
   )
 }
 
-function FailedSection({ rows }: { rows: Row[] }) {
+function FailedSection({
+  rows,
+  showAttribution,
+}: {
+  rows: Row[]
+  showAttribution: boolean
+}) {
   return (
     <section className="flex flex-col gap-3">
       <h2 className="text-lg font-medium">Falhas</h2>
@@ -90,6 +163,7 @@ function FailedSection({ rows }: { rows: Row[] }) {
                 <p className="text-xs text-muted-foreground">
                   {formatRelative(row.timestamp)}
                 </p>
+                {showAttribution && <Attribution row={row} />}
               </div>
             </div>
             <div className="flex justify-end gap-2">
@@ -124,7 +198,13 @@ function FailedSection({ rows }: { rows: Row[] }) {
   )
 }
 
-function ReadySection({ rows }: { rows: Row[] }) {
+function ReadySection({
+  rows,
+  showAttribution,
+}: {
+  rows: Row[]
+  showAttribution: boolean
+}) {
   return (
     <section className="flex flex-col gap-3">
       <h2 className="text-lg font-medium">Prontos para revisar</h2>
@@ -142,6 +222,7 @@ function ReadySection({ rows }: { rows: Row[] }) {
                 <p className="text-xs text-muted-foreground">
                   {formatRelative(row.timestamp)}
                 </p>
+                {showAttribution && <Attribution row={row} />}
               </div>
               <Button
                 asChild
@@ -159,7 +240,13 @@ function ReadySection({ rows }: { rows: Row[] }) {
   )
 }
 
-function InFlightSection({ rows }: { rows: Row[] }) {
+function InFlightSection({
+  rows,
+  showAttribution,
+}: {
+  rows: Row[]
+  showAttribution: boolean
+}) {
   return (
     <section className="flex flex-col gap-3">
       <h2 className="text-lg font-medium">Em andamento</h2>
@@ -180,6 +267,7 @@ function InFlightSection({ rows }: { rows: Row[] }) {
               <p className="text-xs text-muted-foreground">
                 {row.displayStatus}
               </p>
+              {showAttribution && <Attribution row={row} />}
             </div>
           </li>
         ))}

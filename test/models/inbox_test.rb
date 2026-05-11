@@ -277,6 +277,77 @@ class InboxTest < ActiveSupport::TestCase
     assert_equal 1, Inbox.new(trainer: @other_trainer).count
   end
 
+  test "default scope is :mine (rows from other trainers in the same org are excluded)" do
+    other_recording = VoiceRecording.create!(
+      organization: @organization, student: @student, trainer: @other_trainer,
+      kind: "anamnesis"
+    )
+    other_recording.transition_to!(:transcribing)
+    other_recording.fail!("boom")
+
+    groups = Inbox.new(trainer: @trainer).groups
+
+    refute_includes groups[:failed].map(&:voice_recording_id), other_recording.id
+  end
+
+  test "scope :org includes rows from every trainer in the same organization" do
+    own_recording = build_failed_anamnesis_recording
+    other_recording = VoiceRecording.create!(
+      organization: @organization, student: @student, trainer: @other_trainer,
+      kind: "anamnesis"
+    )
+    other_recording.transition_to!(:transcribing)
+    other_recording.fail!("kaboom")
+
+    groups = Inbox.new(trainer: @trainer, scope: :org).groups
+
+    ids = groups[:failed].map(&:voice_recording_id)
+    assert_includes ids, own_recording.id
+    assert_includes ids, other_recording.id
+  end
+
+  test "scope :org excludes recordings from other organizations" do
+    other_org = Organization.create!(name: "Other Gym", equipment_list_md: "")
+    other_org_trainer = User.create!(
+      email_address: "other-org@example.com",
+      password: "password",
+      organization: other_org
+    )
+    other_org_student = other_org.students.create!(name: "Foreign Student")
+    foreign_recording = VoiceRecording.create!(
+      organization: other_org, student: other_org_student, trainer: other_org_trainer,
+      kind: "anamnesis"
+    )
+    foreign_recording.transition_to!(:transcribing)
+    foreign_recording.fail!("nope")
+
+    groups = Inbox.new(trainer: @trainer, scope: :org).groups
+
+    refute_includes groups[:failed].map(&:voice_recording_id), foreign_recording.id
+  end
+
+  test "row carries initiated_by attribution (id + display)" do
+    recording = build_failed_anamnesis_recording
+
+    row = Inbox.new(trainer: @trainer, scope: :org).groups[:failed].first
+
+    assert_equal @trainer.id, row.initiated_by[:id]
+    assert_equal @trainer.email_address, row.initiated_by[:display]
+  end
+
+  test "count remains personal scope regardless of scope arg" do
+    # Other trainer in the same org has a failed (actionable) row
+    other_recording = VoiceRecording.create!(
+      organization: @organization, student: @student, trainer: @other_trainer,
+      kind: "anamnesis"
+    )
+    other_recording.transition_to!(:transcribing)
+    other_recording.fail!("nope")
+
+    # Current trainer has none; their personal badge count must stay at 0
+    assert_equal 0, Inbox.new(trainer: @trainer).count
+  end
+
   private
     def build_recording(kind:)
       VoiceRecording.create!(

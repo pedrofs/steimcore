@@ -7,18 +7,23 @@ class Inbox
   Row = Struct.new(
     :voice_recording_id, :kind, :student_id, :student_name,
     :label, :display_status, :error_message, :timestamp, :url,
+    :initiated_by,
     keyword_init: true
   )
 
   IN_FLIGHT_STATUSES = %w[pending transcribing transcribed generating].freeze
   PERIODIZATION_KINDS = %w[periodization_create periodization_edit_workout periodization_edit_periodization].freeze
+  SCOPES = %i[mine org].freeze
 
-  def initialize(trainer:)
+  def initialize(trainer:, scope: :mine)
     @trainer = trainer
+    @scope = SCOPES.include?(scope) ? scope : :mine
   end
 
   def groups
-    recordings = base_scope.includes(:student, :target_workout, periodization_version: :periodization).to_a
+    recordings = groups_scope
+      .includes(:student, :trainer, :target_workout, periodization_version: :periodization)
+      .to_a
 
     {
       failed: failed_rows(recordings),
@@ -30,15 +35,23 @@ class Inbox
   # Count of actionable items (failed-not-dismissed + ready). Used by the
   # sidebar badge via `inertia_share :inbox_count`. In-flight rows do not
   # contribute — the badge surfaces only items needing trainer action.
+  # Always personal scope, even when the inbox view is widened to :org.
   def count
-    recordings = base_scope.includes(:periodization_version).to_a
+    recordings = personal_scope.includes(:periodization_version).to_a
     failed = recordings.count { |r| r.status == "failed" && r.dismissed_at.nil? }
     ready = recordings.count { |r| ready?(r) }
     failed + ready
   end
 
   private
-    def base_scope
+    def groups_scope
+      case @scope
+      when :org then VoiceRecording.where(organization_id: @trainer.organization_id)
+      else           personal_scope
+      end
+    end
+
+    def personal_scope
       VoiceRecording.where(trainer_id: @trainer.id)
     end
 
@@ -84,7 +97,8 @@ class Inbox
         display_status: display_status_for(recording),
         error_message: recording.error_message,
         timestamp: recording.created_at,
-        url: url_for(recording)
+        url: url_for(recording),
+        initiated_by: { id: recording.trainer_id, display: recording.trainer.email_address }
       )
     end
 

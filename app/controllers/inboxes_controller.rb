@@ -9,9 +9,11 @@ class InboxesController < InertiaController
     @title = "Inbox"
     add_breadcrumb(label: "Inbox", path: inbox_path)
 
-    groups = Inbox.new(trainer: Current.user).groups
+    scope = (params[:scope] == "org") ? :org : :mine
+    groups = Inbox.new(trainer: Current.user, scope: scope).groups
 
     render inertia: "inbox/show", props: {
+      scope: scope.to_s,
       groups: {
         failed: groups[:failed].map { |row| row.to_h },
         ready: groups[:ready].map { |row| row.to_h },

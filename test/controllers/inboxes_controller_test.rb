@@ -40,6 +40,48 @@ class InboxesControllerTest < ActionDispatch::IntegrationTest
     refute_includes in_flight.map { |r| r[:voice_recording_id] }, other_recording.id
   end
 
+  test "show defaults to personal scope (other trainers' rows excluded)" do
+    other_user = users(:two)
+    other_recording = VoiceRecording.create!(
+      organization: @organization, student: @student, trainer: other_user,
+      kind: "anamnesis"
+    )
+    other_recording.transition_to!(:transcribing)
+    other_recording.fail!("boom")
+    sign_in_as(@user)
+
+    get inbox_path
+
+    failed = inertia.props[:groups][:failed]
+    refute_includes failed.map { |r| r[:voice_recording_id] }, other_recording.id
+    assert_equal "mine", inertia.props[:scope]
+  end
+
+  test "show with scope=org includes rows from other trainers in the same org" do
+    other_user = users(:two)
+    other_recording = VoiceRecording.create!(
+      organization: @organization, student: @student, trainer: other_user,
+      kind: "anamnesis"
+    )
+    other_recording.transition_to!(:transcribing)
+    other_recording.fail!("boom")
+    sign_in_as(@user)
+
+    get inbox_path(scope: "org")
+
+    failed = inertia.props[:groups][:failed]
+    assert_includes failed.map { |r| r[:voice_recording_id] }, other_recording.id
+    assert_equal "org", inertia.props[:scope]
+  end
+
+  test "show with an unknown scope value falls back to personal scope" do
+    sign_in_as(@user)
+
+    get inbox_path(scope: "bogus")
+
+    assert_equal "mine", inertia.props[:scope]
+  end
+
   test "show row shape includes the expected fields" do
     recording = VoiceRecording.create!(
       organization: @organization, student: @student, trainer: @user,
@@ -59,5 +101,6 @@ class InboxesControllerTest < ActionDispatch::IntegrationTest
     assert row.key?(:display_status)
     assert row.key?(:timestamp)
     assert row.key?(:url)
+    assert row.key?(:initiated_by)
   end
 end
