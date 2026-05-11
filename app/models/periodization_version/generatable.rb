@@ -284,6 +284,10 @@ module PeriodizationVersion::Generatable
         lista de treinos (A, B, C, …), cada um com nome curto, posição inteira
         a partir de 1 e uma lista estruturada de blocos.
 
+        O body_md não deve começar com um título de nível 1
+        (ex.: "# Periodização — <nome>"); comece direto pelas seções de
+        nível 2 (##).
+
         Cada bloco é um dos três tipos:
         - exercise: um exercício individual com name (nome do exercício),
           prescription (volume/intensidade como "3 × 8-10", "5x5 @ 80%",
@@ -415,6 +419,10 @@ module PeriodizationVersion::Generatable
         progressão) e a lista completa de treinos (A, B, C, …), cada um com
         name curto, position inteira a partir de 1 e blocks (lista estruturada
         de blocos).
+
+        O body_md não deve começar com um título de nível 1
+        (ex.: "# Periodização — <nome>"); comece direto pelas seções de
+        nível 2 (##).
 
         Cada bloco é um dos três tipos:
         - exercise: { kind, name, prescription, rest_s?, notes? }

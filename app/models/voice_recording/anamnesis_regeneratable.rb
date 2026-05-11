@@ -35,7 +35,9 @@ module VoiceRecording::AnamnesisRegeneratable
         anamnese completa atualizada — não apenas as mudanças. Preserve
         informações antigas que continuam relevantes; substitua o que foi
         corrigido; integre o que é novo. Use seções markdown claras (Histórico,
-        Restrições, Objetivos, Observações). Não invente dados que o treinador
+        Restrições, Objetivos, Observações). Não inicie o documento com um
+        título de nível 1 (ex.: "# Anamnese — <nome>") — comece direto pela
+        primeira seção de nível 2 (##). Não invente dados que o treinador
         não tenha mencionado. Não mencione que você é uma IA.
       PROMPT
     end
