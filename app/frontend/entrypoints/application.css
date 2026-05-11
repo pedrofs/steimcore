@@ -137,8 +137,8 @@
    and app/frontend/components/blocks-renderer.tsx. */
 .print-page .workouts-masonry {
   column-count: 2;
-  column-fill: auto;
-  column-gap: 6mm;
+  column-fill: balance;
+  column-gap: 4mm;
   height: 100%;
 }
 
@@ -166,16 +166,7 @@
 
   .print-page {
     width: 210mm;
-    min-height: 297mm;
     margin: 0;
-  }
-
-  .print-face {
-    page-break-after: always;
-  }
-
-  .attendance-grid {
-    page-break-before: always;
   }
 
   .no-print {

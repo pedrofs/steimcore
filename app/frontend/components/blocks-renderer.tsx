@@ -31,15 +31,26 @@ export type Block = ExerciseBlock | GroupBlock | FreeformBlock
 type Props = {
   blocks: Block[]
   emptyPlaceholder?: string
+  dense?: boolean
 }
 
-export function BlocksRenderer({ blocks, emptyPlaceholder }: Props) {
+export function BlocksRenderer({ blocks, emptyPlaceholder, dense }: Props) {
   if (!blocks || blocks.length === 0) {
     if (!emptyPlaceholder) return null
     return (
       <p className="workout-blocks-empty rounded-xl border border-dashed bg-muted/20 p-4 text-sm text-muted-foreground">
         {emptyPlaceholder}
       </p>
+    )
+  }
+
+  if (dense) {
+    return (
+      <div className="workout-blocks flex flex-col">
+        {blocks.map((block, index) => (
+          <DenseBlockItem key={index} block={block} />
+        ))}
+      </div>
     )
   }
 
@@ -60,6 +71,17 @@ function BlockItem({ block }: { block: Block }) {
       return <GroupRow block={block} />
     case "freeform":
       return <FreeformBlockRow block={block} />
+  }
+}
+
+function DenseBlockItem({ block }: { block: Block }) {
+  switch (block.kind) {
+    case "exercise":
+      return <DenseExerciseRow block={block} />
+    case "group":
+      return <DenseGroupRow block={block} />
+    case "freeform":
+      return <DenseFreeformBlock block={block} />
   }
 }
 
@@ -138,5 +160,68 @@ function LoadCell() {
       <span className="uppercase tracking-wide">Carga:</span>
       <span className="inline-block flex-1 border-b border-neutral-500 min-w-[20mm]"></span>
     </span>
+  )
+}
+
+function DenseExerciseRow({ block }: { block: ExerciseBlock }) {
+  return (
+    <div className="workout-block exercise-row flex flex-wrap items-baseline gap-x-1.5 py-px text-[8pt] leading-tight">
+      <span className="exercise-name font-semibold">{block.name}</span>
+      <span className="exercise-prescription text-neutral-700">
+        {block.prescription}
+      </span>
+      {block.restS != null && (
+        <span className="exercise-rest text-neutral-600">· {block.restS}s</span>
+      )}
+      {block.notes && (
+        <span className="exercise-notes text-neutral-600 italic">
+          · {block.notes}
+        </span>
+      )}
+    </div>
+  )
+}
+
+function DenseGroupRow({ block }: { block: GroupBlock }) {
+  const header = [
+    block.label,
+    block.rounds != null ? `${block.rounds}x` : null,
+  ]
+    .filter(Boolean)
+    .join(" · ")
+
+  return (
+    <div className="workout-block group py-px">
+      {header.length > 0 && (
+        <div className="group-header text-[7.5pt] font-semibold uppercase tracking-wide text-neutral-700 leading-tight">
+          {header}
+        </div>
+      )}
+      <div className="group-items flex flex-col">
+        {block.items.map((item, i) => (
+          <div
+            key={i}
+            className="group-item flex flex-wrap items-baseline gap-x-1.5 pl-2 text-[8pt] leading-tight"
+          >
+            <span className="font-semibold">{item.name}</span>
+            <span className="text-neutral-700">{item.prescription}</span>
+            {item.notes && (
+              <span className="text-neutral-600 italic">· {item.notes}</span>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function DenseFreeformBlock({ block }: { block: FreeformBlock }) {
+  return (
+    <div className="workout-block freeform py-px">
+      <Markdown
+        content={block.textMd}
+        className="text-[8pt] leading-tight [&_h1]:text-[9pt] [&_h1]:font-semibold [&_h1]:my-0 [&_h2]:text-[8.5pt] [&_h2]:font-semibold [&_h2]:my-0 [&_h3]:text-[8pt] [&_h3]:font-semibold [&_h3]:my-0 [&_p]:my-0 [&_p]:leading-tight [&_ul]:my-0 [&_ul]:pl-3 [&_ol]:my-0 [&_ol]:pl-3 [&_li]:my-0 [&_li]:leading-tight [&_li>p]:my-0"
+      />
+    </div>
   )
 }

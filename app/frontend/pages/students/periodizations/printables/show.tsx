@@ -53,19 +53,20 @@ export default function PrintablePeriodization({
   return (
     <>
       <Head title={`Imprimir — ${student.name}`} />
-      <article className="print-page mx-auto flex w-[210mm] min-h-[297mm] flex-col bg-white text-black">
-        <FrontFace
+      <article className="print-page mx-auto flex w-[210mm] flex-col bg-white text-black">
+        <PeriodizationHalf
           student={student}
           organization={organization}
           periodization={periodization}
         />
-        <AttendanceGrid rowCount={ATTENDANCE_ROWS} />
+        <AttendanceHalf rowCount={ATTENDANCE_ROWS} />
+        <WorkoutsFull workouts={periodization.workouts} />
       </article>
     </>
   )
 }
 
-function FrontFace({
+function PeriodizationHalf({
   student,
   organization,
   periodization,
@@ -75,27 +76,38 @@ function FrontFace({
   periodization: Periodization
 }) {
   return (
-    <section className="print-face print-front flex h-[297mm] flex-col">
-      <div className="print-half print-half-top flex flex-1 basis-1/2 flex-col gap-3 overflow-hidden p-[10mm] border-b border-dashed border-neutral-400">
-        <PrintHeader
-          student={student}
-          organization={organization}
-          periodization={periodization}
+    <section className="print-half print-half-periodization flex h-[148.5mm] flex-col gap-1 overflow-hidden px-[8mm] pt-[8mm] pb-[4mm]">
+      <PrintHeader
+        student={student}
+        organization={organization}
+        periodization={periodization}
+      />
+      <div className="print-body flex-1 overflow-hidden">
+        <Markdown
+          content={periodization.bodyMd}
+          placeholder="Plano sem conteúdo."
+          className="print-body-md text-[8.5pt] leading-tight [&_h1]:hidden [&_h2]:text-[10pt] [&_h2]:font-semibold [&_h2]:mt-1.5 [&_h2]:mb-0.5 [&_h3]:text-[9pt] [&_h3]:font-semibold [&_h3]:mt-1 [&_h3]:mb-0 [&_p]:my-0.5 [&_p]:leading-tight [&_ul]:my-0.5 [&_ul]:pl-4 [&_ol]:my-0.5 [&_ol]:pl-4 [&_li]:my-0 [&_li]:leading-tight [&_li>p]:my-0 [&_strong]:font-semibold [&_hr]:my-1"
         />
-        <div className="print-body flex-1 overflow-hidden">
-          <Markdown
-            content={periodization.bodyMd}
-            placeholder="Plano sem conteúdo."
-            className="print-body-md text-[10pt] leading-snug"
-          />
+      </div>
+    </section>
+  )
+}
+
+function WorkoutsFull({ workouts }: { workouts: Workout[] }) {
+  const splitIdx = Math.ceil(workouts.length / 2)
+  const topHalf = workouts.slice(0, splitIdx)
+  const bottomHalf = workouts.slice(splitIdx)
+
+  return (
+    <section className="print-workouts-full flex h-[297mm] flex-col break-before-page">
+      <div className="workouts-half h-[148.5mm] overflow-hidden px-[8mm] pt-[8mm] pb-[4mm]">
+        <WorkoutsMasonry workouts={topHalf} />
+      </div>
+      {bottomHalf.length > 0 && (
+        <div className="workouts-half h-[148.5mm] overflow-hidden px-[8mm] pt-[4mm] pb-[8mm] border-t border-dashed border-neutral-400">
+          <WorkoutsMasonry workouts={bottomHalf} />
         </div>
-      </div>
-      <div className="print-half print-half-bottom flex flex-1 basis-1/2 flex-col gap-2 overflow-hidden p-[10mm]">
-        <h2 className="text-[10pt] font-semibold uppercase tracking-wide text-neutral-700">
-          Treinos
-        </h2>
-        <WorkoutsMasonry workouts={periodization.workouts} />
-      </div>
+      )}
     </section>
   )
 }
@@ -150,49 +162,58 @@ function WorkoutsMasonry({ workouts }: { workouts: Workout[] }) {
   return (
     <div className="workouts-masonry">
       {workouts.map((w) => (
-        <article key={w.id} className="workout-card mb-2">
-          <h3 className="workout-card-title mb-1 text-[10pt] font-semibold">
+        <article key={w.id} className="workout-card mb-1">
+          <h3 className="workout-card-title text-[9pt] font-semibold leading-tight border-b border-neutral-400 pb-0.5 mb-0.5">
             {w.name}
           </h3>
-          <BlocksRenderer blocks={w.blocks} />
+          <BlocksRenderer blocks={w.blocks} dense />
         </article>
       ))}
     </div>
   )
 }
 
-function AttendanceGrid({ rowCount }: { rowCount: number }) {
+function AttendanceHalf({ rowCount }: { rowCount: number }) {
   const rows = Array.from({ length: rowCount }, (_, i) => i)
   return (
-    <section className="attendance-grid flex h-[297mm] flex-col gap-2 p-[10mm]">
-      <h2 className="text-[10pt] font-semibold uppercase tracking-wide text-neutral-700">
+    <section className="attendance-half flex h-[148.5mm] flex-col gap-1 overflow-hidden px-[8mm] pt-[4mm] pb-[8mm] border-t border-dashed border-neutral-400">
+      <h2 className="text-[9pt] font-semibold uppercase tracking-wide text-neutral-700">
         Registro de sessões
       </h2>
-      <table className="w-full border-collapse text-[9pt]">
-        <thead>
-          <tr>
-            <th className="border border-neutral-700 px-2 py-1 text-left font-semibold w-[22mm]">
-              Data
-            </th>
-            <th className="border border-neutral-700 px-2 py-1 text-left font-semibold w-[24mm]">
-              Treino
-            </th>
-            <th className="border border-neutral-700 px-2 py-1 text-left font-semibold">
-              Observações
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((i) => (
-            <tr key={i}>
-              <td className="border border-neutral-400 px-2 py-1 h-[7mm]"></td>
-              <td className="border border-neutral-400 px-2 py-1"></td>
-              <td className="border border-neutral-400 px-2 py-1"></td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      <div className="attendance-columns flex flex-1 gap-3">
+        <AttendanceTable rows={rows} />
+        <AttendanceTable rows={rows} />
+      </div>
     </section>
+  )
+}
+
+function AttendanceTable({ rows }: { rows: number[] }) {
+  return (
+    <table className="attendance-table flex-1 border-collapse text-[7.5pt]">
+      <thead>
+        <tr>
+          <th className="border border-neutral-700 px-1 py-0.5 text-left font-semibold w-[18mm]">
+            Data
+          </th>
+          <th className="border border-neutral-700 px-1 py-0.5 text-left font-semibold w-[16mm]">
+            Treino
+          </th>
+          <th className="border border-neutral-700 px-1 py-0.5 text-left font-semibold">
+            Observações
+          </th>
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map((i) => (
+          <tr key={i}>
+            <td className="border border-neutral-400 px-1 py-0 h-[3.7mm]"></td>
+            <td className="border border-neutral-400 px-1 py-0"></td>
+            <td className="border border-neutral-400 px-1 py-0"></td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
   )
 }
 
