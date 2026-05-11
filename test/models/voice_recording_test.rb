@@ -67,6 +67,114 @@ class VoiceRecordingTest < ActiveSupport::TestCase
     assert_equal "generating", recording.reload.status
   end
 
+  test "retry! on failed recording with blank transcript transitions to :pending and re-enqueues TranscribeJob" do
+    recording = build_recording
+    recording.transition_to!(:transcribing)
+    recording.fail!("Whisper indisponível")
+
+    assert_equal "failed", recording.reload.status
+    assert recording.transcript.blank?
+
+    assert_enqueued_with(job: TranscribeJob, args: [ recording ]) do
+      recording.retry!
+    end
+
+    recording.reload
+    assert_equal "pending", recording.status
+    assert_nil recording.error_message
+  end
+
+  test "retry! on failed anamnesis recording with transcript present transitions to :generating and re-enqueues RegenerateAnamnesisJob" do
+    recording = build_recording
+    recording.transition_to!(:transcribing)
+    recording.update!(transcript: "Aluno cita dor lombar.")
+    recording.transition_to!(:transcribed)
+    recording.transition_to!(:generating)
+    recording.fail!("LLM indisponível")
+
+    assert_enqueued_with(job: RegenerateAnamnesisJob, args: [ recording ]) do
+      recording.retry!
+    end
+
+    recording.reload
+    assert_equal "generating", recording.status
+    assert_nil recording.error_message
+  end
+
+  test "retry! on failed periodization_create recording with transcript present resets associated version and re-enqueues GeneratePeriodizationJob" do
+    recording = VoiceRecording.create!(
+      organization: @organization, student: @student, trainer: @trainer,
+      kind: "periodization_create"
+    )
+    recording.transition_to!(:transcribing)
+    recording.update!(transcript: "Quero ganhar massa muscular.")
+    recording.transition_to!(:transcribed)
+    recording.transition_to!(:generating)
+    version = @student.start_periodization!(trainer: @trainer, voice_recording: recording)
+    version.fail!("LLM indisponível")
+
+    assert_equal "failed", recording.reload.status
+    assert_equal "failed", version.reload.status
+
+    assert_enqueued_with(job: GeneratePeriodizationJob, args: [ version ]) do
+      recording.retry!
+    end
+
+    assert_equal "generating", recording.reload.status
+    assert_nil recording.error_message
+    assert_equal "generating", version.reload.status
+    assert_nil version.error_message
+  end
+
+  test "retry! on failed periodization_edit_workout recording with transcript present resets version and re-enqueues GeneratePeriodizationJob" do
+    create_recording = VoiceRecording.create!(
+      organization: @organization, student: @student, trainer: @trainer,
+      kind: "periodization_create"
+    )
+    create_recording.transition_to!(:transcribing)
+    create_recording.update!(transcript: "Cria.")
+    create_recording.transition_to!(:transcribed)
+    create_recording.transition_to!(:generating)
+    base_version = @student.start_periodization!(trainer: @trainer, voice_recording: create_recording)
+    base_version.workouts.create!(name: "A", position: 1, blocks: [])
+    base_version.complete!
+    periodization = base_version.periodization
+    periodization.set_current_version!(base_version)
+    target_workout = base_version.workouts.first
+
+    edit_recording = VoiceRecording.create!(
+      organization: @organization, student: @student, trainer: @trainer,
+      kind: "periodization_edit_workout", target_workout: target_workout
+    )
+    edit_recording.transition_to!(:transcribing)
+    edit_recording.update!(transcript: "Troca o supino.")
+    edit_recording.transition_to!(:transcribed)
+    edit_recording.transition_to!(:generating)
+    edit_version = periodization.start_edit!(
+      scope: :workout, trainer: @trainer,
+      voice_recording: edit_recording, target_workout: target_workout
+    )
+    edit_version.fail!("LLM indisponível")
+
+    assert_enqueued_with(job: GeneratePeriodizationJob, args: [ edit_version ]) do
+      edit_recording.retry!
+    end
+
+    assert_equal "generating", edit_recording.reload.status
+    assert_equal "generating", edit_version.reload.status
+  end
+
+  test "retry! on a recording not in :failed is a no-op" do
+    recording = build_recording
+    assert_equal "pending", recording.status
+
+    assert_no_enqueued_jobs do
+      recording.retry!
+    end
+
+    assert_equal "pending", recording.reload.status
+  end
+
   test "exposes the associated periodization_version through has_one" do
     recording = VoiceRecording.create!(
       organization: @organization, student: @student, trainer: @trainer,

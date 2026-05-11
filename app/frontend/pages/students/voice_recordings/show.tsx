@@ -34,7 +34,7 @@ export default function ShowVoiceRecording({ student, recording }: Props) {
     "errors",
   ])
 
-  const transcriptionPath = `/students/${student.id}/voice_recordings/${recording.id}/transcription`
+  const retryPath = `/students/${student.id}/voice_recordings/${recording.id}/retry`
   const anamnesisCommitPath = `/students/${student.id}/voice_recordings/${recording.id}/anamnesis_commit`
 
   return (
@@ -61,7 +61,7 @@ export default function ShowVoiceRecording({ student, recording }: Props) {
       {recording.status === "failed" && (
         <FailureBlock
           errorMessage={recording.errorMessage}
-          onRetry={() => router.post(transcriptionPath)}
+          onRetry={() => router.post(retryPath)}
           studentHref={`/students/${student.id}`}
         />
       )}
@@ -181,7 +181,7 @@ function FailureBlock({
           <Link href={studentHref}>Voltar ao aluno</Link>
         </Button>
         <Button type="button" onClick={onRetry} className="h-11 sm:h-10">
-          Tentar transcrever novamente
+          Tentar novamente
         </Button>
       </div>
     </div>

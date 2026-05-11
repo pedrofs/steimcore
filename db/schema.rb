@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.2].define(version: 2026_05_10_120000) do
+ActiveRecord::Schema[8.2].define(version: 2026_05_11_174440) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -115,6 +115,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_05_10_120000) do
 
   create_table "voice_recordings", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
     t.datetime "created_at", null: false
+    t.datetime "dismissed_at"
     t.text "error_message"
     t.string "kind", null: false
     t.uuid "organization_id", null: false

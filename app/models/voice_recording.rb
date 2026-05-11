@@ -2,6 +2,7 @@ class VoiceRecording < ApplicationRecord
   include JobStatusable
   include Transcribable
   include AnamnesisRegeneratable
+  include Retryable
 
   KINDS = %w[anamnesis periodization_create periodization_edit_workout periodization_edit_periodization].freeze
 
@@ -25,7 +26,7 @@ class VoiceRecording < ApplicationRecord
     transcribed:  %i[generating failed],
     generating:   %i[completed failed],
     completed:    [],
-    failed:       %i[transcribing generating]
+    failed:       %i[pending transcribing generating]
   }
 
   after_initialize :set_default_status, if: :new_record?
