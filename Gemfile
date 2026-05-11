@@ -1,6 +1,7 @@
 source "https://rubygems.org"
 
 gem "inertia_rails", "~> 3.21"
+gem "aws-sdk-s3", require: false
 
 # Use specific branch of Rails
 gem "rails", github: "rails/rails", branch: "main"
