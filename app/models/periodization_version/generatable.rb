@@ -112,6 +112,35 @@ module PeriodizationVersion::Generatable
     ]
   JSON
 
+  EXERCISE_NAMING = <<~TEXT.freeze
+    Diretrizes para o campo `name` de exercícios (vale tanto em blocos
+    `exercise` quanto em `items` de blocos `group`):
+    - Use o nome canônico e curto do exercício, do jeito que um treinador
+      escreveria numa ficha. Inclua apenas variações que mudam o estímulo
+      principal — ângulo do banco (inclinado/declinado), tipo de carga
+      quando há outra versão clássica (c/ halteres, c/ barra, na polia,
+      na máquina), unilateral, pegada quando muda o exercício.
+    - Use "c/" como abreviação de "com".
+    - NÃO coloque no `name`: postura específica, alternativas de
+      equipamento, tradução em inglês entre parênteses, descrição da
+      pegada/apoio quando é a padrão, intensidade da carga, tempo, ou
+      qualquer detalhe secundário. Tudo isso vai em `notes` (uma frase
+      curta).
+    - Omita `notes` quando não há detalhe relevante.
+
+    Exemplos de normalização:
+    - "Elevação pélvica com barra olímpica no suporte (hip thrust)"
+      → name: "Elevação pélvica"  (omitir notes)
+    - "Afundo (lunge) com halteres em suspensão, em apoio fixo no step"
+      → name: "Afundo c/ halteres", notes: "apoio fixo no step"
+    - "Panturrilha em pé na máquina ou no step com halteres em suspensão"
+      → name: "Panturrilha em pé"  (omitir notes)
+    - "Crucifixo na polia baixa (cross-over), tronco levemente inclinado"
+      → name: "Crucifixo na polia", notes: "tronco levemente inclinado"
+    - "Supino com halteres leves no banco inclinado baixo (≤ 30°)"
+      → name: "Supino inclinado c/ halteres", notes: "banco baixo (≤ 30°), carga leve"
+  TEXT
+
   class InvalidPlanError < StandardError; end
 
   def generate!
@@ -276,6 +305,7 @@ module PeriodizationVersion::Generatable
         academia. Não invente dados que o treinador não tenha mencionado.
         Não mencione que você é uma IA.
 
+        #{EXERCISE_NAMING}
         Exemplo de lista de blocos para um treino:
         #{BLOCKS_EXAMPLE}
       PROMPT
@@ -331,6 +361,7 @@ module PeriodizationVersion::Generatable
         apenas equipamentos disponíveis na academia. Não invente dados que o
         treinador não tenha mencionado. Não mencione que você é uma IA.
 
+        #{EXERCISE_NAMING}
         Exemplo de lista de blocos para um treino:
         #{BLOCKS_EXAMPLE}
       PROMPT
@@ -401,6 +432,7 @@ module PeriodizationVersion::Generatable
         academia. Não invente dados que o treinador não tenha mencionado. Não
         mencione que você é uma IA.
 
+        #{EXERCISE_NAMING}
         Exemplo de lista de blocos para um treino:
         #{BLOCKS_EXAMPLE}
       PROMPT
