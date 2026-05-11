@@ -4,7 +4,6 @@ Rails.application.routes.draw do
   resource :organization, only: [ :show, :edit, :update ]
   resources :students, only: [ :index, :new, :create, :show, :edit, :update ] do
     resources :voice_recordings, only: [ :new, :create, :show ], module: :students do
-      resource :transcript_confirmation, only: :create, module: :voice_recordings
       resource :transcription, only: :create, module: :voice_recordings
       resource :anamnesis_commit, only: :create, module: :voice_recordings
     end

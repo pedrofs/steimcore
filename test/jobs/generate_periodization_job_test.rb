@@ -23,6 +23,7 @@ class GeneratePeriodizationJobTest < ActiveJob::TestCase
       kind: "periodization_create",
       transcript: "Foco em hipertrofia, três treinos divididos por padrão de movimento."
     )
+    walk_recording_to_generating!(@recording)
 
     @version = @student.start_periodization!(trainer: @trainer, voice_recording: @recording)
   end
@@ -152,6 +153,34 @@ class GeneratePeriodizationJobTest < ActiveJob::TestCase
     assert_equal "failed", @version.reload.status
   end
 
+  test "successful generation bubbles :completed up to the owning voice recording" do
+    valid_plan = {
+      "body_md" => "## Mesociclo",
+      "workouts" => [ { "name" => "A", "position" => 1, "blocks" => [ exercise_block("Agachamento", "4x8") ] } ]
+    }
+    fake_chat = build_fake_chat(content: valid_plan)
+
+    RubyLLM.stub :chat, ->(*) { fake_chat } do
+      GeneratePeriodizationJob.perform_now(@version)
+    end
+
+    assert_equal "completed", @version.reload.status
+    assert_equal "completed", @recording.reload.status, "version completion must bubble up to the voice recording"
+  end
+
+  test "failed generation bubbles :failed and the error message up to the owning voice recording" do
+    fake_chat = build_fake_chat(content: { "body_md" => "ok" }) # workouts missing
+
+    RubyLLM.stub :chat, ->(*) { fake_chat } do
+      GeneratePeriodizationJob.perform_now(@version)
+    end
+
+    assert_equal "failed", @version.reload.status
+    @recording.reload
+    assert_equal "failed", @recording.status, "version failure must bubble up to the voice recording"
+    assert_equal @version.error_message, @recording.error_message
+  end
+
   # --- :workout scope ---
 
   class WorkoutScopeTest < ActiveJob::TestCase
@@ -197,6 +226,7 @@ class GeneratePeriodizationJobTest < ActiveJob::TestCase
         target_workout: @target_workout,
         transcript: "Mudar o supino reto por supino inclinado, 4x10."
       )
+      walk_recording_to_generating!(@edit_recording)
 
       @edit_version = @parent_version.periodization.start_edit!(
         scope: :workout,
@@ -298,6 +328,12 @@ class GeneratePeriodizationJobTest < ActiveJob::TestCase
         { "kind" => "exercise", "name" => name, "prescription" => prescription }
       end
 
+      def walk_recording_to_generating!(recording)
+        recording.transition_to!(:transcribing)
+        recording.transition_to!(:transcribed)
+        recording.transition_to!(:generating)
+      end
+
       def build_fake_chat(content:, capture_prompt: nil, capture_schema: nil)
         response = Struct.new(:content).new(content)
         chat = Object.new
@@ -356,6 +392,7 @@ class GeneratePeriodizationJobTest < ActiveJob::TestCase
         kind: "periodization_edit_periodization",
         transcript: "Reescrever para foco em força, dois treinos por semana."
       )
+      walk_recording_to_generating!(@edit_recording)
 
       @edit_version = @parent_version.periodization.start_edit!(
         scope: :periodization,
@@ -452,6 +489,12 @@ class GeneratePeriodizationJobTest < ActiveJob::TestCase
         { "kind" => "exercise", "name" => name, "prescription" => prescription }
       end
 
+      def walk_recording_to_generating!(recording)
+        recording.transition_to!(:transcribing)
+        recording.transition_to!(:transcribed)
+        recording.transition_to!(:generating)
+      end
+
       def build_fake_chat(content:, capture_prompt: nil, capture_schema: nil)
         response = Struct.new(:content).new(content)
         chat = Object.new
@@ -471,6 +514,12 @@ class GeneratePeriodizationJobTest < ActiveJob::TestCase
   private
     def exercise_block(name, prescription)
       { "kind" => "exercise", "name" => name, "prescription" => prescription }
+    end
+
+    def walk_recording_to_generating!(recording)
+      recording.transition_to!(:transcribing)
+      recording.transition_to!(:transcribed)
+      recording.transition_to!(:generating)
     end
 
     def build_fake_chat(content:, capture_prompt: nil, capture_schema: nil)

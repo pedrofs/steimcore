@@ -45,12 +45,49 @@ class PeriodizationVersionTest < ActiveSupport::TestCase
     assert version.reload.promoted?
   end
 
+  test "complete! transitions the version to :completed and bubbles to the voice recording" do
+    recording = build_recording_in_generating
+    version = build_version(voice_recording: recording)
+    version.transition_to!(:generating)
+
+    version.complete!
+
+    assert_equal "completed", version.reload.status
+    assert_equal "completed", recording.reload.status, "complete! must bubble to the voice recording"
+  end
+
+  test "fail! transitions the version to :failed and bubbles failure (with the same message) to the voice recording" do
+    recording = build_recording_in_generating
+    version = build_version(voice_recording: recording)
+    version.transition_to!(:generating)
+
+    version.fail!("Anthropic indisponível")
+
+    assert_equal "failed", version.reload.status
+    recording.reload
+    assert_equal "failed", recording.status
+    assert_equal "Anthropic indisponível", recording.error_message
+  end
+
   private
-    def build_version
+    def build_version(voice_recording: nil)
       @periodization.versions.create!(
         trainer: @trainer,
-        voice_recording: nil,
+        voice_recording: voice_recording,
         parent_version: nil
       )
+    end
+
+    def build_recording_in_generating
+      recording = VoiceRecording.create!(
+        organization: @organization,
+        student: @student,
+        trainer: @trainer,
+        kind: "periodization_create"
+      )
+      recording.transition_to!(:transcribing)
+      recording.transition_to!(:transcribed)
+      recording.transition_to!(:generating)
+      recording
     end
 end

@@ -19,9 +19,26 @@ class PeriodizationVersion < ApplicationRecord
 
   after_initialize :set_default_status, if: :new_record?
 
+  # Terminal transitions bubble up to the owning voice_recording so that
+  # VoiceRecording#status is the single source of truth for end-to-end
+  # pipeline state. The recording is expected to be in :generating at this
+  # point (the production pipeline walks it there before generation begins);
+  # tests that fixture versions in non-pipeline states use a nil
+  # voice_recording.
+
+  def complete!
+    transaction do
+      transition_to!(:completed)
+      voice_recording.transition_to!(:completed) if voice_recording.present?
+    end
+  end
+
   def fail!(message)
     self.error_message = message
-    transition_to!(:failed)
+    transaction do
+      transition_to!(:failed)
+      voice_recording.fail!(message) if voice_recording.present? && voice_recording.status != "failed"
+    end
   end
 
   def promoted?

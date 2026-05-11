@@ -12,6 +12,8 @@ class VoiceRecording < ApplicationRecord
   belongs_to :trainer, class_name: "User"
   belongs_to :target_workout, class_name: "Workout", optional: true
 
+  has_one :periodization_version, dependent: :nullify
+
   has_one_attached :audio
 
   validates :kind, presence: true, inclusion: { in: KINDS }
@@ -23,21 +25,10 @@ class VoiceRecording < ApplicationRecord
     transcribed:  %i[generating failed],
     generating:   %i[completed failed],
     completed:    [],
-    failed:       %i[transcribing]
+    failed:       %i[transcribing generating]
   }
 
   after_initialize :set_default_status, if: :new_record?
-
-  # Persist the trainer-edited transcript and dispatch the next job in the
-  # pipeline. The dispatched job is determined by `kind`.
-  def confirm_transcript!(text)
-    transaction do
-      update!(transcript: text, transcript_edited_at: Time.current)
-      transition_to!(:generating)
-      enqueue_post_transcript_job!
-    end
-    self
-  end
 
   def fail!(message)
     self.error_message = message
@@ -54,6 +45,17 @@ class VoiceRecording < ApplicationRecord
   private
     def set_default_status
       self.status ||= "pending"
+    end
+
+    # Auto-confirm the transcript and dispatch the kind-appropriate generation
+    # job. Called by Transcribable#transcribe! once Whisper finishes; not part
+    # of the public surface.
+    def confirm_transcript!
+      transaction do
+        transition_to!(:generating)
+        enqueue_post_transcript_job!
+      end
+      self
     end
 
     def enqueue_post_transcript_job!

@@ -33,7 +33,6 @@ export default function ShowVoiceRecording({ student, recording }: Props) {
     "errors",
   ])
 
-  const transcriptConfirmationPath = `/students/${student.id}/voice_recordings/${recording.id}/transcript_confirmation`
   const transcriptionPath = `/students/${student.id}/voice_recordings/${recording.id}/transcription`
   const anamnesisCommitPath = `/students/${student.id}/voice_recordings/${recording.id}/anamnesis_commit`
 
@@ -46,14 +45,6 @@ export default function ShowVoiceRecording({ student, recording }: Props) {
       </PageHeader>
 
       <StatusBanner recording={recording} />
-
-      {recording.status === "transcribed" && (
-        <TranscriptReview
-          action={transcriptConfirmationPath}
-          transcript={recording.transcript}
-          cancelHref={`/students/${student.id}`}
-        />
-      )}
 
       {recording.status === "completed" && recording.kind === "anamnesis" && (
         <AnamnesisReview
@@ -75,103 +66,51 @@ export default function ShowVoiceRecording({ student, recording }: Props) {
 }
 
 function StatusBanner({ recording }: { recording: Recording }) {
-  const messages: Record<Recording["status"], string> =
-    recording.kind === "periodization_create"
-      ? {
-          pending: "Áudio recebido. Iniciando transcrição...",
-          transcribing: "Transcrevendo áudio...",
-          transcribed: "Transcrição pronta. Revise antes de gerar a periodização.",
-          generating: "Gerando periodização com IA...",
-          completed: "Periodização gerada. Abra a versão para revisar.",
-          failed: "Algo deu errado.",
-        }
-      : recording.kind === "periodization_edit_workout"
-        ? {
-            pending: "Áudio recebido. Iniciando transcrição...",
-            transcribing: "Transcrevendo áudio...",
-            transcribed: "Transcrição pronta. Revise antes de gerar a edição do treino.",
-            generating: "Gerando edição do treino com IA...",
-            completed: "Edição gerada. Abra a nova versão para revisar.",
-            failed: "Algo deu errado.",
-          }
-        : recording.kind === "periodization_edit_periodization"
-          ? {
-              pending: "Áudio recebido. Iniciando transcrição...",
-              transcribing: "Transcrevendo áudio...",
-              transcribed: "Transcrição pronta. Revise antes de gerar a edição da periodização.",
-              generating: "Gerando edição da periodização com IA...",
-              completed: "Edição gerada. Abra a nova versão para revisar.",
-              failed: "Algo deu errado.",
-            }
-          : {
-              pending: "Áudio recebido. Iniciando transcrição...",
-              transcribing: "Transcrevendo áudio...",
-              transcribed: "Transcrição pronta. Revise antes de gerar a anamnese.",
-              generating: "Gerando anamnese atualizada com IA...",
-              completed: "Anamnese gerada. Revise e salve para atualizar o aluno.",
-              failed: "Algo deu errado.",
-            }
-  const showSpinner = ["pending", "transcribing", "generating"].includes(
+  if (recording.status === "failed") return null
+
+  const inFlight = ["pending", "transcribing", "transcribed", "generating"].includes(
     recording.status,
   )
-
-  if (recording.status === "failed") return null
+  const message = inFlight
+    ? workingMessage(recording.kind)
+    : readyMessage(recording.kind)
 
   return (
     <div className="flex items-center gap-3 rounded-xl border bg-muted/30 p-4 text-sm">
-      {showSpinner && (
+      {inFlight && (
         <Loader2Icon
           className="size-5 shrink-0 animate-spin text-muted-foreground"
           aria-hidden
         />
       )}
-      <span>{messages[recording.status]}</span>
+      <span>{message}</span>
     </div>
   )
 }
 
-function TranscriptReview({
-  action,
-  transcript,
-  cancelHref,
-}: {
-  action: string
-  transcript: string
-  cancelHref: string
-}) {
-  return (
-    <Form method="post" action={action} className="flex flex-col gap-3">
-      {({ processing, errors }) => (
-        <>
-          <div className="flex flex-col gap-2">
-            <label htmlFor="transcript" className="text-sm font-medium">
-              Transcrição
-            </label>
-            <Textarea
-              id="transcript"
-              name="transcript"
-              defaultValue={transcript}
-              rows={10}
-              className="min-h-48 font-mono text-sm"
-            />
-            {errors.transcript && (
-              <p className="text-sm text-destructive">
-                {errors.transcript.join(", ")}
-              </p>
-            )}
-          </div>
-          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-            <Button asChild variant="outline" className="h-11 sm:h-10">
-              <Link href={cancelHref}>Cancelar</Link>
-            </Button>
-            <Button type="submit" disabled={processing} className="h-11 sm:h-10">
-              {processing ? "Confirmando..." : "Confirmar transcrição"}
-            </Button>
-          </div>
-        </>
-      )}
-    </Form>
-  )
+function workingMessage(kind: string): string {
+  switch (kind) {
+    case "periodization_create":
+      return "Gerando periodização com IA..."
+    case "periodization_edit_workout":
+      return "Gerando edição do treino com IA..."
+    case "periodization_edit_periodization":
+      return "Gerando edição da periodização com IA..."
+    default:
+      return "Gerando anamnese atualizada com IA..."
+  }
+}
+
+function readyMessage(kind: string): string {
+  switch (kind) {
+    case "periodization_create":
+      return "Periodização gerada. Abra a versão para revisar."
+    case "periodization_edit_workout":
+    case "periodization_edit_periodization":
+      return "Edição gerada. Abra a nova versão para revisar."
+    default:
+      return "Anamnese gerada. Revise e salve para atualizar o aluno."
+  }
 }
 
 function AnamnesisReview({

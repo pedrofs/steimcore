@@ -24,20 +24,11 @@ class VoiceRecordingTest < ActiveSupport::TestCase
     assert_includes recording.errors[:kind].join, "is not included"
   end
 
-  test "confirm_transcript! writes the edited transcript and enqueues the next job" do
+  test "confirm_transcript! is not part of the public surface" do
     recording = build_recording
-    recording.transition_to!(:transcribing)
-    recording.update!(transcript: "ascii fallback")
-    recording.transition_to!(:transcribed)
 
-    assert_enqueued_with(job: RegenerateAnamnesisJob, args: [ recording ]) do
-      recording.confirm_transcript!("Aluno relatou dor na lombar há 3 meses.")
-    end
-
-    recording.reload
-    assert_equal "Aluno relatou dor na lombar há 3 meses.", recording.transcript
-    assert_not_nil recording.transcript_edited_at
-    assert_equal "generating", recording.status
+    assert_not recording.public_methods.include?(:confirm_transcript!),
+      "confirm_transcript! must be private (invoked by Transcribable#transcribe!), not a public action"
   end
 
   test "periodization_edit_workout requires a target_workout" do
@@ -50,82 +41,6 @@ class VoiceRecordingTest < ActiveSupport::TestCase
     assert_includes recording.errors[:target_workout], "can't be blank"
   end
 
-  test "confirm_transcript! for periodization_edit_workout starts a pending edit version and enqueues GeneratePeriodizationJob" do
-    parent_version = @student.start_periodization!(
-      trainer: @trainer,
-      voice_recording: VoiceRecording.create!(
-        organization: @organization, student: @student, trainer: @trainer,
-        kind: "periodization_create"
-      )
-    )
-    parent_version.fork_with!(
-      scope: :create,
-      patch: { body_md: "x", workouts: [ { name: "A", blocks: [ { kind: "exercise", name: "X", prescription: "3x5" } ], position: 1 } ] },
-      trainer: @trainer,
-      voice_recording: parent_version.voice_recording
-    )
-    parent_version.transition_to!(:completed)
-    parent_version.periodization.set_current_version!(parent_version)
-    target = parent_version.workouts.first
-
-    edit = VoiceRecording.create!(
-      organization: @organization, student: @student, trainer: @trainer,
-      kind: "periodization_edit_workout", target_workout: target
-    )
-    edit.transition_to!(:transcribing)
-    edit.update!(transcript: "tweak")
-    edit.transition_to!(:transcribed)
-
-    assert_difference "PeriodizationVersion.count", 1 do
-      assert_enqueued_jobs 1, only: GeneratePeriodizationJob do
-        edit.confirm_transcript!("Trocar supino por supino inclinado.")
-      end
-    end
-
-    new_version = PeriodizationVersion.find_by!(voice_recording_id: edit.id)
-    assert_equal "generating", new_version.status
-    assert_equal parent_version.id, new_version.parent_version_id
-    assert_equal "Trocar supino por supino inclinado.", edit.reload.transcript
-  end
-
-  test "confirm_transcript! for periodization_edit_periodization starts a pending edit version and enqueues GeneratePeriodizationJob" do
-    parent_version = @student.start_periodization!(
-      trainer: @trainer,
-      voice_recording: VoiceRecording.create!(
-        organization: @organization, student: @student, trainer: @trainer,
-        kind: "periodization_create"
-      )
-    )
-    parent_version.fork_with!(
-      scope: :create,
-      patch: { body_md: "x", workouts: [ { name: "A", blocks: [ { kind: "exercise", name: "X", prescription: "3x5" } ], position: 1 } ] },
-      trainer: @trainer,
-      voice_recording: parent_version.voice_recording
-    )
-    parent_version.transition_to!(:completed)
-    parent_version.periodization.set_current_version!(parent_version)
-
-    edit = VoiceRecording.create!(
-      organization: @organization, student: @student, trainer: @trainer,
-      kind: "periodization_edit_periodization"
-    )
-    edit.transition_to!(:transcribing)
-    edit.update!(transcript: "tweak")
-    edit.transition_to!(:transcribed)
-
-    assert_difference "PeriodizationVersion.count", 1 do
-      assert_enqueued_jobs 1, only: GeneratePeriodizationJob do
-        edit.confirm_transcript!("Reescrever a periodização inteira focando em força.")
-      end
-    end
-
-    new_version = PeriodizationVersion.find_by!(voice_recording_id: edit.id)
-    assert_equal "generating", new_version.status
-    assert_equal parent_version.id, new_version.parent_version_id
-    assert_equal parent_version.periodization_id, new_version.periodization_id
-    assert_equal "Reescrever a periodização inteira focando em força.", edit.reload.transcript
-  end
-
   test "fail! moves to :failed with error_message" do
     recording = build_recording
     recording.transition_to!(:transcribing)
@@ -135,6 +50,31 @@ class VoiceRecordingTest < ActiveSupport::TestCase
     recording.reload
     assert_equal "failed", recording.status
     assert_equal "Whisper indisponível", recording.error_message
+  end
+
+  test "allows the new failed -> generating transition (smart retry under transcript-present failures)" do
+    recording = build_recording
+    recording.transition_to!(:transcribing)
+    recording.update!(transcript: "Aluno cita dor lombar.")
+    recording.transition_to!(:transcribed)
+    recording.transition_to!(:generating)
+    recording.fail!("LLM indisponível")
+
+    assert_equal "failed", recording.reload.status
+    recording.error_message = nil
+    recording.transition_to!(:generating)
+
+    assert_equal "generating", recording.reload.status
+  end
+
+  test "exposes the associated periodization_version through has_one" do
+    recording = VoiceRecording.create!(
+      organization: @organization, student: @student, trainer: @trainer,
+      kind: "periodization_create"
+    )
+    version = @student.start_periodization!(trainer: @trainer, voice_recording: recording)
+
+    assert_equal version, recording.reload.periodization_version
   end
 
   test "purge_audio_older_than purges only recordings older than the cutoff with audio attached, leaving transcripts intact" do

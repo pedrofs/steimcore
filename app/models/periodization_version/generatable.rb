@@ -177,7 +177,7 @@ module PeriodizationVersion::Generatable
         trainer: trainer,
         voice_recording: recording
       )
-      transition_to!(:completed)
+      complete!
     end
 
     def run_workout_edit!
@@ -204,7 +204,7 @@ module PeriodizationVersion::Generatable
         voice_recording: recording,
         target_workout: target_workout
       )
-      transition_to!(:completed)
+      complete!
     end
 
     def run_periodization_edit!
@@ -226,7 +226,7 @@ module PeriodizationVersion::Generatable
         trainer: trainer,
         voice_recording: recording
       )
-      transition_to!(:completed)
+      complete!
     end
 
     def parse_response(content)
