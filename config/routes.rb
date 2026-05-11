@@ -8,6 +8,7 @@ Rails.application.routes.draw do
       resource :transcription, only: :create, module: :voice_recordings
       resource :anamnesis_commit, only: :create, module: :voice_recordings
       resource :retry, only: :create, module: :voice_recordings
+      resource :dismissal, only: :create, module: :voice_recordings
     end
     resources :periodizations, only: [ :new, :show ], module: :students
     resource :periodization, only: [], module: :students do

@@ -175,6 +175,152 @@ class VoiceRecordingTest < ActiveSupport::TestCase
     assert_equal "pending", recording.reload.status
   end
 
+  test "dismiss! on a failed anamnesis recording sets dismissed_at without touching the student" do
+    @student.update!(anamnesis_md: "## Histórico\n\nLesão antiga.")
+    recording = build_recording
+    recording.transition_to!(:transcribing)
+    recording.fail!("Whisper indisponível")
+
+    freeze_time do
+      recording.dismiss!
+
+      assert_equal Time.current, recording.reload.dismissed_at
+    end
+
+    assert_equal "## Histórico\n\nLesão antiga.", @student.reload.anamnesis_md
+  end
+
+  test "dismiss! on a failed periodization_create archives the periodization when no other completed versions exist" do
+    recording = VoiceRecording.create!(
+      organization: @organization, student: @student, trainer: @trainer,
+      kind: "periodization_create"
+    )
+    recording.transition_to!(:transcribing)
+    recording.update!(transcript: "Quero ganhar massa.")
+    recording.transition_to!(:transcribed)
+    recording.transition_to!(:generating)
+    version = @student.start_periodization!(trainer: @trainer, voice_recording: recording)
+    version.fail!("LLM indisponível")
+
+    recording.dismiss!
+
+    assert_not_nil recording.reload.dismissed_at
+    assert version.reload.periodization.archived?
+  end
+
+  test "dismiss! on a failed periodization_create leaves the periodization unarchived when another completed version exists" do
+    recording = VoiceRecording.create!(
+      organization: @organization, student: @student, trainer: @trainer,
+      kind: "periodization_create"
+    )
+    recording.transition_to!(:transcribing)
+    recording.update!(transcript: "Quero ganhar massa.")
+    recording.transition_to!(:transcribed)
+    recording.transition_to!(:generating)
+    version = @student.start_periodization!(trainer: @trainer, voice_recording: recording)
+    version.complete!
+    periodization = version.periodization
+    # Force a second failed version on the same periodization to simulate the
+    # branch where the dismissed recording is failed but its parent already
+    # has a completed sibling — periodization stays alive.
+    failed_version = periodization.versions.create!(trainer: @trainer, parent_version: version)
+    failed_version.transition_to!(:generating)
+    failed_version.fail!("LLM indisponível")
+    failed_version_recording = VoiceRecording.create!(
+      organization: @organization, student: @student, trainer: @trainer,
+      kind: "periodization_create"
+    )
+    failed_version_recording.transition_to!(:transcribing)
+    failed_version_recording.fail!("LLM indisponível")
+    failed_version.update!(voice_recording: failed_version_recording)
+
+    failed_version_recording.dismiss!
+
+    assert_not_nil failed_version_recording.reload.dismissed_at
+    refute periodization.reload.archived?
+  end
+
+  test "dismiss! on a failed periodization_edit_workout leaves the parent periodization and current version untouched" do
+    base_recording = VoiceRecording.create!(
+      organization: @organization, student: @student, trainer: @trainer,
+      kind: "periodization_create"
+    )
+    base_recording.transition_to!(:transcribing)
+    base_recording.update!(transcript: "Cria.")
+    base_recording.transition_to!(:transcribed)
+    base_recording.transition_to!(:generating)
+    base_version = @student.start_periodization!(trainer: @trainer, voice_recording: base_recording)
+    base_version.workouts.create!(name: "A", position: 1, blocks: [])
+    base_version.complete!
+    periodization = base_version.periodization
+    periodization.set_current_version!(base_version)
+    target_workout = base_version.workouts.first
+
+    edit_recording = VoiceRecording.create!(
+      organization: @organization, student: @student, trainer: @trainer,
+      kind: "periodization_edit_workout", target_workout: target_workout
+    )
+    edit_recording.transition_to!(:transcribing)
+    edit_recording.update!(transcript: "Troca o supino.")
+    edit_recording.transition_to!(:transcribed)
+    edit_recording.transition_to!(:generating)
+    edit_version = periodization.start_edit!(
+      scope: :workout, trainer: @trainer,
+      voice_recording: edit_recording, target_workout: target_workout
+    )
+    edit_version.fail!("LLM indisponível")
+
+    edit_recording.dismiss!
+
+    assert_not_nil edit_recording.reload.dismissed_at
+    refute periodization.reload.archived?
+    assert_equal base_version.id, periodization.current_version_id
+  end
+
+  test "dismiss! on a failed periodization_edit_periodization leaves the parent periodization and current version untouched" do
+    base_recording = VoiceRecording.create!(
+      organization: @organization, student: @student, trainer: @trainer,
+      kind: "periodization_create"
+    )
+    base_recording.transition_to!(:transcribing)
+    base_recording.update!(transcript: "Cria.")
+    base_recording.transition_to!(:transcribed)
+    base_recording.transition_to!(:generating)
+    base_version = @student.start_periodization!(trainer: @trainer, voice_recording: base_recording)
+    base_version.complete!
+    periodization = base_version.periodization
+    periodization.set_current_version!(base_version)
+
+    edit_recording = VoiceRecording.create!(
+      organization: @organization, student: @student, trainer: @trainer,
+      kind: "periodization_edit_periodization"
+    )
+    edit_recording.transition_to!(:transcribing)
+    edit_recording.update!(transcript: "Refaz a periodização.")
+    edit_recording.transition_to!(:transcribed)
+    edit_recording.transition_to!(:generating)
+    edit_version = periodization.start_edit!(
+      scope: :periodization, trainer: @trainer,
+      voice_recording: edit_recording
+    )
+    edit_version.fail!("LLM indisponível")
+
+    edit_recording.dismiss!
+
+    assert_not_nil edit_recording.reload.dismissed_at
+    refute periodization.reload.archived?
+    assert_equal base_version.id, periodization.current_version_id
+  end
+
+  test "dismiss! on a recording not in :failed is a no-op" do
+    recording = build_recording
+    assert_equal "pending", recording.status
+
+    recording.dismiss!
+
+    assert_nil recording.reload.dismissed_at
+  end
+
   test "exposes the associated periodization_version through has_one" do
     recording = VoiceRecording.create!(
       organization: @organization, student: @student, trainer: @trainer,

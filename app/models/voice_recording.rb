@@ -3,6 +3,7 @@ class VoiceRecording < ApplicationRecord
   include Transcribable
   include AnamnesisRegeneratable
   include Retryable
+  include Dismissable
 
   KINDS = %w[anamnesis periodization_create periodization_edit_workout periodization_edit_periodization].freeze
 

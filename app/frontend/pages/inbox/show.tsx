@@ -92,7 +92,19 @@ function FailedSection({ rows }: { rows: Row[] }) {
                 </p>
               </div>
             </div>
-            <div className="flex justify-end">
+            <div className="flex justify-end gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                className="h-11 sm:h-10"
+                onClick={() =>
+                  router.post(
+                    `/students/${row.studentId}/voice_recordings/${row.voiceRecordingId}/dismissal`,
+                  )
+                }
+              >
+                Descartar
+              </Button>
               <Button
                 type="button"
                 className="h-11 sm:h-10"
