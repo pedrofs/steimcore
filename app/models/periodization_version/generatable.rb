@@ -23,19 +23,6 @@ module PeriodizationVersion::Generatable
 
   MODEL = "claude-opus-4-7"
 
-  EXERCISE_BLOCK_SCHEMA = {
-    type: "object",
-    additionalProperties: false,
-    required: %w[kind name prescription],
-    properties: {
-      kind:         { type: "string", enum: [ "exercise" ] },
-      name:         { type: "string" },
-      prescription: { type: "string" },
-      rest_s:       { type: "integer" },
-      notes:        { type: "string" }
-    }
-  }.freeze
-
   GROUP_ITEM_SCHEMA = {
     type: "object",
     additionalProperties: false,
@@ -47,30 +34,25 @@ module PeriodizationVersion::Generatable
     }
   }.freeze
 
-  GROUP_BLOCK_SCHEMA = {
-    type: "object",
-    additionalProperties: false,
-    required: %w[kind items],
-    properties: {
-      kind:   { type: "string", enum: [ "group" ] },
-      label:  { type: "string" },
-      rounds: { type: "integer" },
-      items:  { type: "array", items: GROUP_ITEM_SCHEMA }
-    }
-  }.freeze
-
-  FREEFORM_BLOCK_SCHEMA = {
-    type: "object",
-    additionalProperties: false,
-    required: %w[kind text_md],
-    properties: {
-      kind:    { type: "string", enum: [ "freeform" ] },
-      text_md: { type: "string" }
-    }
-  }.freeze
-
+  # Flat discriminated union — `kind` selects which other fields apply.
+  # Per-kind requirements and field-omission rules are enforced post-parse by
+  # Workout::Blocks.errors_for; the schema only constrains the vocabulary
+  # because most LLMs do not support JSON Schema `oneOf`.
   BLOCK_SCHEMA = {
-    oneOf: [ EXERCISE_BLOCK_SCHEMA, GROUP_BLOCK_SCHEMA, FREEFORM_BLOCK_SCHEMA ]
+    type: "object",
+    additionalProperties: false,
+    required: %w[kind],
+    properties: {
+      kind:         { type: "string", enum: %w[exercise group freeform] },
+      name:         { type: "string" },
+      prescription: { type: "string" },
+      rest_s:       { type: "integer" },
+      notes:        { type: "string" },
+      label:        { type: "string" },
+      rounds:       { type: "integer" },
+      items:        { type: "array", items: GROUP_ITEM_SCHEMA },
+      text_md:      { type: "string" }
+    }
   }.freeze
 
   WORKOUT_OBJECT_SCHEMA = {
@@ -284,6 +266,11 @@ module PeriodizationVersion::Generatable
         - freeform: texto em markdown para conteúdo que não cabe em linha
           (aquecimento, mobilidade, observações de bloco/deload).
 
+        Cada bloco deve conter APENAS as propriedades listadas para o seu
+        kind. Não misture campos de kinds diferentes (ex.: não inclua
+        text_md num exercise, nem items num freeform). Campos opcionais
+        devem ser omitidos quando não se aplicam.
+
         Não inclua carga em kg — o treinador anota à mão por sessão. Não use
         propriedades fora do esquema. Use apenas equipamentos disponíveis na
         academia. Não invente dados que o treinador não tenha mencionado.
@@ -334,6 +321,11 @@ module PeriodizationVersion::Generatable
         - exercise: { kind, name, prescription, rest_s?, notes? }
         - group:    { kind, label?, rounds?, items: [{ name, prescription, notes? }] }
         - freeform: { kind, text_md }
+
+        Cada bloco deve conter APENAS as propriedades listadas para o seu
+        kind. Não misture campos de kinds diferentes (ex.: não inclua
+        text_md num exercise, nem items num freeform). Campos opcionais
+        devem ser omitidos quando não se aplicam.
 
         Não devolva os outros treinos nem o body. Não inclua carga em kg. Use
         apenas equipamentos disponíveis na academia. Não invente dados que o
@@ -397,6 +389,11 @@ module PeriodizationVersion::Generatable
         - exercise: { kind, name, prescription, rest_s?, notes? }
         - group:    { kind, label?, rounds?, items: [{ name, prescription, notes? }] }
         - freeform: { kind, text_md }
+
+        Cada bloco deve conter APENAS as propriedades listadas para o seu
+        kind. Não misture campos de kinds diferentes (ex.: não inclua
+        text_md num exercise, nem items num freeform). Campos opcionais
+        devem ser omitidos quando não se aplicam.
 
         O resultado substitui o plano anterior por inteiro: você pode
         adicionar, remover, renomear ou reordenar treinos conforme necessário.
