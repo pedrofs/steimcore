@@ -5,7 +5,8 @@ import { BlocksRenderer, type Block } from "@/components/blocks-renderer"
 import { Markdown } from "@/components/markdown"
 import { PageHeader } from "@/components/page-header"
 import { Button } from "@/components/ui/button"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Tabs, TabsContent } from "@/components/ui/tabs"
+import { WorkoutsTabsList } from "@/components/workouts-tabs-list"
 import {
   Tooltip,
   TooltipContent,
@@ -134,13 +135,7 @@ function WorkoutsTabs({
     <section className="flex flex-col gap-3">
       <h2 className="text-lg font-medium">Treinos</h2>
       <Tabs defaultValue={workouts[0].id}>
-        <TabsList className="flex w-full flex-wrap justify-start gap-1">
-          {workouts.map((w) => (
-            <TabsTrigger key={w.id} value={w.id}>
-              {w.name}
-            </TabsTrigger>
-          ))}
-        </TabsList>
+        <WorkoutsTabsList workouts={workouts} />
         {workouts.map((w) => (
           <TabsContent key={w.id} value={w.id} className="flex flex-col gap-3">
             <BlocksRenderer
