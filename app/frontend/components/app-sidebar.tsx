@@ -1,6 +1,6 @@
 import * as React from "react"
 import { Link, router, usePage } from "@inertiajs/react"
-import { ChevronsUpDown, DumbbellIcon, HomeIcon, LogOut, UsersIcon } from "lucide-react"
+import { ChevronsUpDown, DumbbellIcon, HomeIcon, InboxIcon, LogOut, UsersIcon } from "lucide-react"
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import {
@@ -59,6 +59,19 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                 <Link href="/">
                   <HomeIcon />
                   <span>Home</span>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                asChild
+                tooltip="Inbox"
+                isActive={url.startsWith("/inbox")}
+                className="h-11 md:h-8"
+              >
+                <Link href="/inbox">
+                  <InboxIcon />
+                  <span>Inbox</span>
                 </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>

@@ -10,7 +10,10 @@ class Students::VoiceRecordings::AnamnesisCommitsController < InertiaController
   before_action :ensure_recording_completed_and_value_present
 
   def create
-    @student.update!(anamnesis_md: edited_anamnesis)
+    ActiveRecord::Base.transaction do
+      @student.update!(anamnesis_md: edited_anamnesis)
+      @recording.update!(proposed_anamnesis_md: nil)
+    end
 
     redirect_to student_path(@student), notice: "Anamnese atualizada."
   end

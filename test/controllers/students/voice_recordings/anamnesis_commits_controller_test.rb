@@ -30,6 +30,15 @@ class Students::VoiceRecordings::AnamnesisCommitsControllerTest < ActionDispatch
     assert_redirected_to student_path(@student)
   end
 
+  test "create clears proposed_anamnesis_md on the recording so the inbox stops surfacing it" do
+    sign_in_as(@user)
+
+    post student_voice_recording_anamnesis_commit_path(@student, @recording),
+         params: { anamnesis_md: "## Histórico\n\nLesão antiga." }
+
+    assert_nil @recording.reload.proposed_anamnesis_md
+  end
+
   test "create rejects an empty anamnesis_md" do
     original = @student.anamnesis_md
     sign_in_as(@user)

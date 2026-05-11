@@ -40,7 +40,7 @@ class Students::VoiceRecordingsControllerTest < ActionDispatch::IntegrationTest
     assert_equal @user.id, recording.trainer_id
     assert_equal @organization.id, recording.organization_id
     assert recording.audio.attached?
-    assert_redirected_to student_voice_recording_path(@student, recording)
+    assert_redirected_to inbox_path
   end
 
   test "create rejects requests without an audio attachment" do
@@ -77,6 +77,35 @@ class Students::VoiceRecordingsControllerTest < ActionDispatch::IntegrationTest
     assert_equal recording.id, props[:id]
     assert_equal "pending", props[:status]
     assert_equal @student.id, inertia.props[:student][:id]
+  end
+
+  test "show redirects periodization-kind recordings to the version's show page when a version exists" do
+    recording = VoiceRecording.create!(
+      organization: @organization, student: @student, trainer: @user,
+      kind: "periodization_create"
+    )
+    recording.transition_to!(:transcribing)
+    recording.update!(transcript: "x")
+    recording.transition_to!(:transcribed)
+    recording.transition_to!(:generating)
+    version = @student.start_periodization!(trainer: @user, voice_recording: recording)
+    sign_in_as(@user)
+
+    get student_voice_recording_path(@student, recording)
+
+    assert_redirected_to periodization_version_path(version)
+  end
+
+  test "show redirects periodization-kind recordings to /inbox when no version exists yet" do
+    recording = VoiceRecording.create!(
+      organization: @organization, student: @student, trainer: @user,
+      kind: "periodization_create"
+    )
+    sign_in_as(@user)
+
+    get student_voice_recording_path(@student, recording)
+
+    assert_redirected_to inbox_path
   end
 
   test "show is scoped to the current organization" do

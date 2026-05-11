@@ -2,6 +2,7 @@ Rails.application.routes.draw do
   resource :session, only: [ :new, :create, :destroy ]
   resources :passwords, param: :token, only: [ :new, :create, :edit, :update ]
   resource :organization, only: [ :show, :edit, :update ]
+  resource :inbox, only: :show
   resources :students, only: [ :index, :new, :create, :show, :edit, :update ] do
     resources :voice_recordings, only: [ :new, :create, :show ], module: :students do
       resource :transcription, only: :create, module: :voice_recordings

@@ -4,6 +4,7 @@ class Students::VoiceRecordingsController < InertiaController
   before_action :load_student
   before_action :load_recording, only: :show
   before_action :ensure_audio_present, only: :create
+  before_action :redirect_periodization_kinds, only: :show
 
   def new
     @kind = resolve_kind(params[:kind])
@@ -35,7 +36,7 @@ class Students::VoiceRecordingsController < InertiaController
 
     TranscribeJob.perform_later(recording)
 
-    redirect_to student_voice_recording_path(@student, recording)
+    redirect_to inbox_path
   end
 
   def show
@@ -64,6 +65,13 @@ class Students::VoiceRecordingsController < InertiaController
 
       redirect_to new_student_voice_recording_path(@student, kind: resolve_kind(params[:kind]), target_workout_id: params[:target_workout_id]),
                   alert: "Nenhum áudio recebido. Tente gravar novamente."
+    end
+
+    def redirect_periodization_kinds
+      return if @recording.kind == "anamnesis"
+
+      version = @recording.periodization_version
+      redirect_to(version ? periodization_version_path(version) : inbox_path)
     end
 
     def resolve_kind(kind)
