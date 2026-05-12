@@ -1,4 +1,5 @@
 class TrainingSession < ApplicationRecord
+  include Blockable
   include Finishable
 
   belongs_to :student

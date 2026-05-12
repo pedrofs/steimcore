@@ -1,6 +1,6 @@
-import { Head, Link, router } from "@inertiajs/react"
+import { Head, Link, router, usePage } from "@inertiajs/react"
 import { PlusIcon, XIcon } from "lucide-react"
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import ReactMarkdown from "react-markdown"
 
 import { Button } from "@/components/ui/button"
@@ -89,13 +89,17 @@ function paletteColorFor(index: number) {
   return AVATAR_PALETTE[index % AVATAR_PALETTE.length]
 }
 
-function reloadProps() {
-  return {
-    only: ["trainingSessions", "pickerCandidates"],
-    preserveState: true,
-    preserveScroll: true,
-  } as const
-}
+const TOGGLE_RELOAD = {
+  only: ["trainingSessions"],
+  preserveState: true,
+  preserveScroll: true,
+} as const
+
+const PICKER_RELOAD = {
+  only: ["trainingSessions", "pickerCandidates"],
+  preserveState: true,
+  preserveScroll: true,
+} as const
 
 export default function TrainingSessionsIndex({
   trainingSessions,
@@ -106,6 +110,9 @@ export default function TrainingSessionsIndex({
     () => trainingSessions[0]?.id ?? null,
   )
   const prevIdsRef = useRef<string[]>(trainingSessions.map((s) => s.id))
+  const [pendingToggles, setPendingToggles] = useState<Map<string, boolean>>(
+    () => new Map(),
+  )
 
   useEffect(() => {
     const currentIds = trainingSessions.map((s) => s.id)
@@ -137,12 +144,74 @@ export default function TrainingSessionsIndex({
 
   const isEmpty = trainingSessions.length === 0
 
+  const clearPending = useCallback((key: string) => {
+    setPendingToggles((prev) => {
+      if (!prev.has(key)) return prev
+      const next = new Map(prev)
+      next.delete(key)
+      return next
+    })
+  }, [])
+
+  const toggleBlock = useCallback(
+    (session: TrainingSessionRow, blockIndex: number) => {
+      const indexStr = String(blockIndex)
+      const key = `${session.id}:${indexStr}`
+      const serverDone = session.completedBlockIndices.includes(indexStr)
+      const optimisticDone = pendingToggles.has(key)
+        ? (pendingToggles.get(key) as boolean)
+        : serverDone
+      const nextDone = !optimisticDone
+
+      setPendingToggles((prev) => {
+        const next = new Map(prev)
+        next.set(key, nextDone)
+        return next
+      })
+
+      if (nextDone) {
+        router.post(
+          `/training_sessions/${session.id}/block_completions`,
+          { block_index: indexStr },
+          { ...TOGGLE_RELOAD, onFinish: () => clearPending(key) },
+        )
+      } else {
+        router.delete(
+          `/training_sessions/${session.id}/block_completions/${indexStr}`,
+          { ...TOGGLE_RELOAD, onFinish: () => clearPending(key) },
+        )
+      }
+    },
+    [pendingToggles, clearPending],
+  )
+
+  const isBlockDone = useCallback(
+    (session: TrainingSessionRow, blockIndex: number) => {
+      const indexStr = String(blockIndex)
+      const key = `${session.id}:${indexStr}`
+      if (pendingToggles.has(key)) return pendingToggles.get(key) as boolean
+      return session.completedBlockIndices.includes(indexStr)
+    },
+    [pendingToggles],
+  )
+
+  const doneCountFor = useCallback(
+    (session: TrainingSessionRow) => {
+      let count = 0
+      for (let i = 0; i < session.blocks.length; i++) {
+        if (isBlockDone(session, i)) count++
+      }
+      return count
+    },
+    [isBlockDone],
+  )
+
   function addStudent(studentId: string) {
     setPickerOpen(false)
     router.post(
       "/training_sessions",
       { student_id: studentId },
-      reloadProps(),
+      PICKER_RELOAD,
     )
   }
 
@@ -151,13 +220,14 @@ export default function TrainingSessionsIndex({
     router.post(
       `/training_sessions/${focused.id}/completion`,
       {},
-      reloadProps(),
+      PICKER_RELOAD,
     )
   }
 
   return (
     <>
       <Head title="Sessões ao vivo" />
+      <FlashToaster />
       <div className="relative flex min-h-screen flex-col bg-neutral-50">
         <Link
           href="/"
@@ -186,10 +256,17 @@ export default function TrainingSessionsIndex({
               focusedId={focusedId}
               onFocus={setFocusedId}
               onAdd={() => setPickerOpen(true)}
+              doneCountFor={doneCountFor}
             />
 
             {focused && (
-              <FocusedView session={focused} onFinish={finishFocused} />
+              <FocusedView
+                session={focused}
+                doneCount={doneCountFor(focused)}
+                isBlockDone={(i) => isBlockDone(focused, i)}
+                onToggleBlock={(i) => toggleBlock(focused, i)}
+                onFinish={finishFocused}
+              />
             )}
           </>
         )}
@@ -210,19 +287,22 @@ function AvatarStrip({
   focusedId,
   onFocus,
   onAdd,
+  doneCountFor,
 }: {
   sessions: TrainingSessionRow[]
   focusedId: string | null
   onFocus: (id: string) => void
   onAdd: () => void
+  doneCountFor: (session: TrainingSessionRow) => number
 }) {
   return (
     <div className="sticky top-0 z-10 border-b border-neutral-200 bg-white/95 backdrop-blur">
       <div className="flex gap-2 overflow-x-auto px-3 py-3 pr-12">
         {sessions.map((session, index) => {
           const isActive = session.id === focusedId
-          const done = session.completedBlockIndices.length
+          const done = doneCountFor(session)
           const total = session.blocks.length
+          const pct = total > 0 ? Math.round((done / total) * 100) : 0
           return (
             <button
               key={session.id}
@@ -235,14 +315,16 @@ function AvatarStrip({
                   : "border-neutral-200 bg-white text-neutral-700",
               )}
             >
-              <div
-                className={cn(
-                  "flex h-12 w-12 items-center justify-center rounded-full text-sm font-semibold text-white",
-                  paletteColorFor(index),
-                )}
-              >
-                {initials(session.student.name)}
-              </div>
+              <ProgressRing pct={pct} active={isActive}>
+                <div
+                  className={cn(
+                    "flex h-11 w-11 items-center justify-center rounded-full text-sm font-semibold text-white",
+                    paletteColorFor(index),
+                  )}
+                >
+                  {initials(session.student.name)}
+                </div>
+              </ProgressRing>
               <span className="text-[10px] leading-none">
                 {session.student.name.split(/\s+/)[0]}
               </span>
@@ -271,16 +353,45 @@ function AvatarStrip({
   )
 }
 
+function ProgressRing({
+  pct,
+  active,
+  children,
+}: {
+  pct: number
+  active: boolean
+  children: React.ReactNode
+}) {
+  const ringColor = active ? "rgb(16 185 129)" : "rgb(16 185 129)"
+  const trackColor = active ? "rgba(255,255,255,0.18)" : "rgb(229 231 235)"
+  const angle = Math.max(0, Math.min(360, Math.round((pct / 100) * 360)))
+  return (
+    <div
+      className="flex h-14 w-14 items-center justify-center rounded-full p-[3px]"
+      style={{
+        background: `conic-gradient(${ringColor} ${angle}deg, ${trackColor} ${angle}deg)`,
+      }}
+    >
+      {children}
+    </div>
+  )
+}
+
 function FocusedView({
   session,
+  doneCount,
+  isBlockDone,
+  onToggleBlock,
   onFinish,
 }: {
   session: TrainingSessionRow
+  doneCount: number
+  isBlockDone: (index: number) => boolean
+  onToggleBlock: (index: number) => void
   onFinish: () => void
 }) {
-  const done = session.completedBlockIndices.length
   const total = session.blocks.length
-  const pct = total > 0 ? Math.round((done / total) * 100) : 0
+  const pct = total > 0 ? Math.round((doneCount / total) * 100) : 0
 
   return (
     <div className="flex-1 overflow-y-auto px-4 py-4 pb-24">
@@ -291,7 +402,7 @@ function FocusedView({
           </h1>
           <p className="text-sm text-neutral-600">{session.workoutName}</p>
           <p className="text-xs text-neutral-500">
-            {done} de {total} blocos · {pct}%
+            {doneCount} de {total} blocos · {pct}%
           </p>
         </div>
         <Button
@@ -310,7 +421,12 @@ function FocusedView({
       ) : (
         <div className="space-y-2">
           {session.blocks.map((block, index) => (
-            <BlockCard key={index} block={block} />
+            <BlockCard
+              key={index}
+              block={block}
+              done={isBlockDone(index)}
+              onToggle={() => onToggleBlock(index)}
+            />
           ))}
         </div>
       )}
@@ -318,50 +434,68 @@ function FocusedView({
   )
 }
 
-function BlockCard({ block }: { block: Block }) {
+function BlockCard({
+  block,
+  done,
+  onToggle,
+}: {
+  block: Block
+  done: boolean
+  onToggle: () => void
+}) {
   return (
-    <div className="rounded-2xl border border-neutral-200 bg-white p-3">
-      {block.kind === "exercise" && <ExerciseCard block={block} />}
-      {block.kind === "group" && <GroupCard block={block} />}
-      {block.kind === "freeform" && <FreeformCard block={block} />}
-    </div>
+    <button
+      type="button"
+      onClick={onToggle}
+      aria-pressed={done}
+      className={cn(
+        "block w-full rounded-2xl border p-3 text-left transition active:scale-95",
+        done
+          ? "border-emerald-500 bg-emerald-500 text-white shadow-sm"
+          : "border-neutral-200 bg-white text-neutral-900",
+      )}
+    >
+      {block.kind === "exercise" && <ExerciseCard block={block} done={done} />}
+      {block.kind === "group" && <GroupCard block={block} done={done} />}
+      {block.kind === "freeform" && <FreeformCard block={block} done={done} />}
+    </button>
   )
 }
 
-function ExerciseCard({ block }: { block: ExerciseBlock }) {
+function ExerciseCard({ block, done }: { block: ExerciseBlock; done: boolean }) {
+  const muted = done ? "text-white/85" : "text-neutral-700"
+  const fine = done ? "text-white/70" : "text-neutral-500"
   return (
     <div className="flex flex-col gap-1">
-      <div className="text-base font-medium text-neutral-900">{block.name}</div>
-      <div className="text-sm text-neutral-700">{block.prescription}</div>
+      <div className="text-base font-medium">{block.name}</div>
+      <div className={cn("text-sm", muted)}>{block.prescription}</div>
       {typeof block.rest_s === "number" && (
-        <div className="text-xs text-neutral-500">
-          Descanso: {block.rest_s}s
-        </div>
+        <div className={cn("text-xs", fine)}>Descanso: {block.rest_s}s</div>
       )}
-      {block.notes && (
-        <div className="text-xs text-neutral-500">{block.notes}</div>
-      )}
+      {block.notes && <div className={cn("text-xs", fine)}>{block.notes}</div>}
     </div>
   )
 }
 
-function GroupCard({ block }: { block: GroupBlock }) {
+function GroupCard({ block, done }: { block: GroupBlock; done: boolean }) {
   const label = block.label?.trim() || "Grupo"
+  const muted = done ? "text-white/85" : "text-neutral-700"
+  const fine = done ? "text-white/70" : "text-neutral-500"
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-center justify-between gap-2">
-        <div className="text-base font-medium text-neutral-900">{label}</div>
+        <div className="text-base font-medium">{label}</div>
         {typeof block.rounds === "number" && (
-          <div className="text-xs font-medium text-neutral-500">
+          <div className={cn("text-xs font-medium", fine)}>
             {block.rounds} rounds
           </div>
         )}
       </div>
       <ul className="flex flex-col gap-1 pl-3">
         {block.items.map((item, idx) => (
-          <li key={idx} className="text-sm text-neutral-700">
+          <li key={idx} className={cn("text-sm", muted)}>
             <span className="font-medium">{item.name}</span>
-            <span className="text-neutral-500"> · {item.prescription}</span>
+            <span className={cn(fine)}> · {item.prescription}</span>
           </li>
         ))}
       </ul>
@@ -372,19 +506,24 @@ function GroupCard({ block }: { block: GroupBlock }) {
 const FREEFORM_COMPONENTS = {
   a: ({ children }: { children?: React.ReactNode }) => <span>{children}</span>,
   h1: ({ children }: { children?: React.ReactNode }) => (
-    <p className="font-semibold text-neutral-900">{children}</p>
+    <p className="font-semibold">{children}</p>
   ),
   h2: ({ children }: { children?: React.ReactNode }) => (
-    <p className="font-semibold text-neutral-900">{children}</p>
+    <p className="font-semibold">{children}</p>
   ),
   h3: ({ children }: { children?: React.ReactNode }) => (
-    <p className="font-medium text-neutral-900">{children}</p>
+    <p className="font-medium">{children}</p>
   ),
 }
 
-function FreeformCard({ block }: { block: FreeformBlock }) {
+function FreeformCard({ block, done }: { block: FreeformBlock; done: boolean }) {
   return (
-    <div className="prose prose-sm prose-neutral max-w-none text-sm leading-relaxed">
+    <div
+      className={cn(
+        "prose prose-sm max-w-none text-sm leading-relaxed",
+        done ? "prose-invert" : "prose-neutral",
+      )}
+    >
       <ReactMarkdown skipHtml components={FREEFORM_COMPONENTS}>
         {block.text_md}
       </ReactMarkdown>
@@ -429,5 +568,28 @@ function PickerSheet({
         </div>
       </SheetContent>
     </Sheet>
+  )
+}
+
+function FlashToaster() {
+  const { flash } = usePage().props
+  const alert = flash.alert
+  const [visible, setVisible] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!alert) return
+    setVisible(alert)
+    const id = window.setTimeout(() => setVisible(null), 4000)
+    return () => window.clearTimeout(id)
+  }, [alert])
+
+  if (!visible) return null
+  return (
+    <div
+      role="status"
+      className="fixed inset-x-0 bottom-6 z-30 mx-auto w-fit max-w-[90%] rounded-full bg-neutral-900 px-4 py-2 text-sm font-medium text-white shadow-lg"
+    >
+      {visible}
+    </div>
   )
 }
