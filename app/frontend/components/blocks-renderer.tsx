@@ -165,17 +165,16 @@ function LoadCell() {
 
 function DenseExerciseRow({ block }: { block: ExerciseBlock }) {
   return (
-    <div className="workout-block exercise-row flex flex-wrap items-baseline gap-x-1.5 py-px text-[8pt] leading-tight">
-      <span className="exercise-name font-semibold">{block.name}</span>
-      <span className="exercise-prescription text-neutral-700">
+    <div className="workout-block exercise-row flex flex-nowrap items-baseline gap-x-1.5 py-px text-[8pt] leading-tight overflow-hidden">
+      <span className="exercise-name font-semibold truncate min-w-0">
+        {block.name}
+      </span>
+      <span className="exercise-prescription text-neutral-700 whitespace-nowrap shrink-0">
         {block.prescription}
       </span>
       {block.restS != null && (
-        <span className="exercise-rest text-neutral-600">· {block.restS}s</span>
-      )}
-      {block.notes && (
-        <span className="exercise-notes text-neutral-600 italic">
-          · {block.notes}
+        <span className="exercise-rest text-neutral-600 whitespace-nowrap shrink-0">
+          · {block.restS}s
         </span>
       )}
     </div>
@@ -193,7 +192,7 @@ function DenseGroupRow({ block }: { block: GroupBlock }) {
   return (
     <div className="workout-block group py-px">
       {header.length > 0 && (
-        <div className="group-header text-[7.5pt] font-semibold uppercase tracking-wide text-neutral-700 leading-tight">
+        <div className="group-header text-[7.5pt] font-semibold uppercase tracking-wide text-neutral-700 leading-tight truncate">
           {header}
         </div>
       )}
@@ -201,13 +200,12 @@ function DenseGroupRow({ block }: { block: GroupBlock }) {
         {block.items.map((item, i) => (
           <div
             key={i}
-            className="group-item flex flex-wrap items-baseline gap-x-1.5 pl-2 text-[8pt] leading-tight"
+            className="group-item flex flex-nowrap items-baseline gap-x-1.5 pl-2 text-[8pt] leading-tight overflow-hidden"
           >
-            <span className="font-semibold">{item.name}</span>
-            <span className="text-neutral-700">{item.prescription}</span>
-            {item.notes && (
-              <span className="text-neutral-600 italic">· {item.notes}</span>
-            )}
+            <span className="font-semibold truncate min-w-0">{item.name}</span>
+            <span className="text-neutral-700 whitespace-nowrap shrink-0">
+              {item.prescription}
+            </span>
           </div>
         ))}
       </div>

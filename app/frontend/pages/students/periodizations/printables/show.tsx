@@ -3,6 +3,7 @@ import { useEffect } from "react"
 
 import { BlocksRenderer, type Block } from "@/components/blocks-renderer"
 import { Markdown } from "@/components/markdown"
+import { cn } from "@/lib/utils"
 
 type Student = {
   id: string
@@ -94,20 +95,53 @@ function PeriodizationHalf({
 }
 
 function WorkoutsFull({ workouts }: { workouts: Workout[] }) {
-  const splitIdx = Math.ceil(workouts.length / 2)
-  const topHalf = workouts.slice(0, splitIdx)
-  const bottomHalf = workouts.slice(splitIdx)
+  if (workouts.length <= 4) {
+    const splitIdx = Math.ceil(workouts.length / 2)
+    const topHalf = workouts.slice(0, splitIdx)
+    const bottomHalf = workouts.slice(splitIdx)
+
+    return (
+      <section className="print-workouts-full flex h-[297mm] flex-col break-before-page">
+        <div className="workouts-half h-[148.5mm] overflow-hidden px-[8mm] pt-[8mm] pb-[4mm]">
+          <WorkoutsMasonry workouts={topHalf} />
+        </div>
+        {bottomHalf.length > 0 && (
+          <div className="workouts-half h-[148.5mm] overflow-hidden px-[8mm] pt-[4mm] pb-[8mm] border-t border-dashed border-neutral-400">
+            <WorkoutsMasonry workouts={bottomHalf} />
+          </div>
+        )}
+      </section>
+    )
+  }
+
+  const rows: Workout[][] = []
+  for (let i = 0; i < workouts.length; i += 2) {
+    rows.push(workouts.slice(i, i + 2))
+  }
+  const rowHeightMm = 297 / rows.length
 
   return (
     <section className="print-workouts-full flex h-[297mm] flex-col break-before-page">
-      <div className="workouts-half h-[148.5mm] overflow-hidden px-[8mm] pt-[8mm] pb-[4mm]">
-        <WorkoutsMasonry workouts={topHalf} />
-      </div>
-      {bottomHalf.length > 0 && (
-        <div className="workouts-half h-[148.5mm] overflow-hidden px-[8mm] pt-[4mm] pb-[8mm] border-t border-dashed border-neutral-400">
-          <WorkoutsMasonry workouts={bottomHalf} />
-        </div>
-      )}
+      {rows.map((row, i) => {
+        const isFirst = i === 0
+        const isLast = i === rows.length - 1
+        return (
+          <div
+            key={i}
+            className={cn(
+              "workouts-row grid grid-cols-2 gap-x-[4mm] overflow-hidden px-[8mm]",
+              isFirst ? "pt-[8mm]" : "pt-[4mm]",
+              isLast ? "pb-[8mm]" : "pb-[4mm]",
+              !isFirst && "border-t border-dashed border-neutral-400",
+            )}
+            style={{ height: `${rowHeightMm}mm` }}
+          >
+            {row.map((w) => (
+              <WorkoutCard key={w.id} workout={w} />
+            ))}
+          </div>
+        )
+      })}
     </section>
   )
 }
@@ -162,14 +196,26 @@ function WorkoutsMasonry({ workouts }: { workouts: Workout[] }) {
   return (
     <div className="workouts-masonry">
       {workouts.map((w) => (
-        <article key={w.id} className="workout-card mb-1">
-          <h3 className="workout-card-title text-[9pt] font-semibold leading-tight border-b border-neutral-400 pb-0.5 mb-0.5">
-            {w.name}
-          </h3>
-          <BlocksRenderer blocks={w.blocks} dense />
-        </article>
+        <WorkoutCard key={w.id} workout={w} className="mb-1" />
       ))}
     </div>
+  )
+}
+
+function WorkoutCard({
+  workout,
+  className,
+}: {
+  workout: Workout
+  className?: string
+}) {
+  return (
+    <article className={cn("workout-card overflow-hidden", className)}>
+      <h3 className="workout-card-title text-[9pt] font-semibold leading-tight border-b border-neutral-400 pb-0.5 mb-0.5 truncate">
+        {workout.name}
+      </h3>
+      <BlocksRenderer blocks={workout.blocks} dense />
+    </article>
   )
 }
 
