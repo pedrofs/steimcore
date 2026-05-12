@@ -30,6 +30,68 @@ class StudentsControllerTest < ActionDispatch::IntegrationTest
     assert_not_includes names, "Externo"
   end
 
+  test "index paginates at 25 per page and exposes pagination metadata" do
+    @organization.students.destroy_all
+    30.times { |i| @organization.students.create!(name: "Aluno #{format('%02d', i)}") }
+
+    sign_in_as(@user)
+    get students_path
+
+    assert_response :success
+    assert_equal 25, inertia.props[:students].length
+
+    pagination = inertia.props[:pagination]
+    assert_equal 1, pagination[:page]
+    assert_equal 2, pagination[:pages]
+    assert_equal 30, pagination[:count]
+    assert_equal 1, pagination[:from]
+    assert_equal 25, pagination[:to]
+    assert_nil pagination[:prev]
+    assert_equal 2, pagination[:next]
+    assert_kind_of Array, pagination[:series]
+  end
+
+  test "index returns the second page when ?page=2" do
+    @organization.students.destroy_all
+    30.times { |i| @organization.students.create!(name: "Aluno #{format('%02d', i)}") }
+
+    sign_in_as(@user)
+    get students_path, params: { page: 2 }
+
+    assert_response :success
+    assert_equal 5, inertia.props[:students].length
+    pagination = inertia.props[:pagination]
+    assert_equal 2, pagination[:page]
+    assert_equal 26, pagination[:from]
+    assert_equal 30, pagination[:to]
+    assert_equal 1, pagination[:prev]
+    assert_nil pagination[:next]
+  end
+
+  test "index redirects page overflow to the last valid page" do
+    @organization.students.destroy_all
+    30.times { |i| @organization.students.create!(name: "Aluno #{format('%02d', i)}") }
+
+    sign_in_as(@user)
+    get students_path, params: { page: 99_999 }
+
+    assert_redirected_to students_path(page: 2)
+  end
+
+  test "index does not redirect when a single-page result set is requested with page=1" do
+    @organization.students.destroy_all
+    @organization.students.create!(name: "Solo")
+
+    sign_in_as(@user)
+    get students_path
+
+    assert_response :success
+    pagination = inertia.props[:pagination]
+    assert_equal 1, pagination[:page]
+    assert_equal 1, pagination[:pages]
+    assert_equal 1, pagination[:count]
+  end
+
   test "new renders the empty form" do
     sign_in_as(@user)
 

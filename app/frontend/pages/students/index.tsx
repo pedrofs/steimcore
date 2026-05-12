@@ -3,6 +3,12 @@ import { Link } from "@inertiajs/react"
 import { PageHeader } from "@/components/page-header"
 import { Button } from "@/components/ui/button"
 import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+} from "@/components/ui/pagination"
+import {
   Table,
   TableBody,
   TableCell,
@@ -10,6 +16,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react"
 
 type StudentSummary = {
   id: string
@@ -18,11 +25,23 @@ type StudentSummary = {
   weeklyFrequency: number | null
 }
 
-type Props = {
-  students: StudentSummary[]
+type PaginationProps = {
+  page: number
+  pages: number
+  count: number
+  from: number
+  to: number
+  prev: number | null
+  next: number | null
+  series: Array<number | string>
 }
 
-export default function Index({ students }: Props) {
+type Props = {
+  students: StudentSummary[]
+  pagination: PaginationProps
+}
+
+export default function Index({ students, pagination }: Props) {
   return (
     <>
       <PageHeader
@@ -91,9 +110,117 @@ export default function Index({ students }: Props) {
               </TableBody>
             </Table>
           </div>
+
+          {pagination.pages > 1 && <PaginationBar pagination={pagination} />}
         </>
       )}
     </>
+  )
+}
+
+function PaginationBar({ pagination }: { pagination: PaginationProps }) {
+  return (
+    <div className="flex flex-col items-center gap-2 sm:flex-row sm:justify-between">
+      <p className="text-sm text-muted-foreground">
+        Mostrando {pagination.from}–{pagination.to} de {pagination.count} alunos
+      </p>
+      <Pagination className="sm:mx-0 sm:w-auto sm:justify-end">
+        <PaginationContent>
+          <PaginationItem>
+            <PageButton
+              page={pagination.prev}
+              ariaLabel="Página anterior"
+              disabled={pagination.prev == null}
+            >
+              <ChevronLeftIcon data-icon="inline-start" />
+              <span className="hidden sm:block">Anterior</span>
+            </PageButton>
+          </PaginationItem>
+
+          {pagination.series.map((item, idx) => {
+            if (item === "gap") {
+              return (
+                <PaginationItem key={`gap-${idx}`}>
+                  <PaginationEllipsis />
+                </PaginationItem>
+              )
+            }
+
+            const isActive = typeof item === "string"
+            const pageNum = typeof item === "string" ? Number(item) : item
+
+            return (
+              <PaginationItem key={pageNum}>
+                <PageButton
+                  page={pageNum}
+                  ariaLabel={`Página ${pageNum}`}
+                  isActive={isActive}
+                >
+                  {pageNum}
+                </PageButton>
+              </PaginationItem>
+            )
+          })}
+
+          <PaginationItem>
+            <PageButton
+              page={pagination.next}
+              ariaLabel="Próxima página"
+              disabled={pagination.next == null}
+            >
+              <span className="hidden sm:block">Próxima</span>
+              <ChevronRightIcon data-icon="inline-end" />
+            </PageButton>
+          </PaginationItem>
+        </PaginationContent>
+      </Pagination>
+    </div>
+  )
+}
+
+function PageButton({
+  page,
+  ariaLabel,
+  isActive,
+  disabled,
+  children,
+}: {
+  page: number | null
+  ariaLabel: string
+  isActive?: boolean
+  disabled?: boolean
+  children: React.ReactNode
+}) {
+  if (disabled || page == null) {
+    return (
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        aria-label={ariaLabel}
+        aria-disabled
+        disabled
+      >
+        {children}
+      </Button>
+    )
+  }
+
+  return (
+    <Button
+      asChild
+      variant={isActive ? "outline" : "ghost"}
+      size="icon"
+    >
+      <Link
+        href={`/students?page=${page}`}
+        aria-label={ariaLabel}
+        aria-current={isActive ? "page" : undefined}
+        preserveScroll
+      >
+        {children}
+      </Link>
+    </Button>
   )
 }
 

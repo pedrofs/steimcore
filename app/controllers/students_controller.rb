@@ -3,12 +3,16 @@
 class StudentsController < InertiaController
   with_breadcrumb label: "Alunos", path: -> { students_path }
 
+  rescue_from Pagy::OverflowError, with: :redirect_to_last_page
+
   def index
     @title = "Alunos"
-    students = current_organization.students.unarchived.order(:name)
+    scope = current_organization.students.unarchived.order(:name)
+    @pagy, students = pagy(scope, limit: 25)
 
     render inertia: "students/index", props: {
-      students: students.map { |student| student_summary(student) }
+      students: students.map { |student| student_summary(student) },
+      pagination: pagination_props(@pagy)
     }
   end
 
@@ -77,6 +81,23 @@ class StudentsController < InertiaController
         primary_goal: student.primary_goal,
         weekly_frequency: student.weekly_frequency
       }
+    end
+
+    def pagination_props(pagy)
+      {
+        page: pagy.page,
+        pages: pagy.pages,
+        count: pagy.count,
+        from: pagy.from,
+        to: pagy.to,
+        prev: pagy.prev,
+        next: pagy.next,
+        series: pagy.series
+      }
+    end
+
+    def redirect_to_last_page(exception)
+      redirect_to url_for(request.query_parameters.merge(page: exception.pagy.last))
     end
 
     def student_props(student)
