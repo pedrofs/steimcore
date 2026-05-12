@@ -3,6 +3,17 @@ import { ClockIcon, PlusIcon, XIcon } from "lucide-react"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import ReactMarkdown from "react-markdown"
 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
 import {
   Sheet,
@@ -37,7 +48,7 @@ type GroupBlock = {
 
 type FreeformBlock = {
   kind: "freeform"
-  text_md: string
+  textMd: string
 }
 
 type Block = ExerciseBlock | GroupBlock | FreeformBlock
@@ -91,13 +102,13 @@ const TOGGLE_RELOAD = {
   only: ["trainingSessions"],
   preserveState: true,
   preserveScroll: true,
-} as const
+}
 
 const PICKER_RELOAD = {
   only: ["trainingSessions", "pickerCandidates"],
   preserveState: true,
   preserveScroll: true,
-} as const
+}
 
 export default function TrainingSessionsIndex({
   trainingSessions,
@@ -174,12 +185,12 @@ export default function TrainingSessionsIndex({
         router.post(
           `/training_sessions/${session.id}/block_completions`,
           { block_index: indexStr },
-          { ...TOGGLE_RELOAD, onFinish: () => clearPending(key) },
+          { onSuccess: () => clearPending(key), ...TOGGLE_RELOAD },
         )
       } else {
         router.delete(
           `/training_sessions/${session.id}/block_completions/${indexStr}`,
-          { ...TOGGLE_RELOAD, onFinish: () => clearPending(key) },
+          { onSuccess: () => clearPending(key), ...TOGGLE_RELOAD },
         )
       }
     },
@@ -508,13 +519,34 @@ function FocusedView({
           </div>
         </div>
         <div className="flex flex-col items-end gap-2">
-          <Button
-            type="button"
-            variant={session.finishedAt ? "outline" : "default"}
-            onClick={onFinish}
-          >
-            {session.finishedAt ? "Reabrir" : "Finalizar"}
-          </Button>
+          {session.finishedAt ? (
+            <Button type="button" variant="outline" onClick={onFinish}>
+              Reabrir
+            </Button>
+          ) : (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button type="button">Finalizar</Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent size="sm">
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Finalizar sessão?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    {doneCount === 0
+                      ? "Nenhum bloco foi marcado como feito. "
+                      : `Você marcou ${doneCount} de ${total} blocos como feitos. `}
+                    Você pode reabrir a sessão depois se precisar.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                  <AlertDialogAction onClick={onFinish}>
+                    Finalizar
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          )}
           {!session.finishedAt && session.swapOptions.length > 0 && (
             <Button
               type="button"
@@ -673,7 +705,7 @@ function FreeformCard({ block, done }: { block: FreeformBlock; done: boolean }) 
       )}
     >
       <ReactMarkdown skipHtml components={FREEFORM_COMPONENTS}>
-        {block.text_md}
+        {block.textMd}
       </ReactMarkdown>
     </div>
   )
