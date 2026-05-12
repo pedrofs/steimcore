@@ -39,6 +39,12 @@ class InertiaController < ApplicationController
     Inbox.new(trainer: Current.user).count
   }
 
+  inertia_share active_session_count: -> {
+    next 0 unless Current.user
+
+    Current.user.training_sessions.where(finished_at: nil).count
+  }
+
   private
     def current_organization
       Current.organization

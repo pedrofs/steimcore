@@ -1,4 +1,5 @@
 Rails.application.routes.draw do
+  resource :prototype, only: :show
   resource :session, only: [ :new, :create, :destroy ]
   resources :passwords, param: :token, only: [ :new, :create, :edit, :update ]
   resource :organization, only: [ :show, :edit, :update ]
@@ -27,6 +28,12 @@ Rails.application.routes.draw do
   resources :periodizations, only: [] do
     resource :edit, only: :create, module: :periodizations
     resource :inline_edit, only: :create, module: :periodizations
+  end
+
+  resources :training_sessions, only: [ :index, :create ] do
+    resources :block_completions, only: [ :create, :destroy ], module: :training_sessions
+    resource  :completion,        only: [ :create, :destroy ], module: :training_sessions
+    resource  :workout_swap,      only: :create,               module: :training_sessions
   end
 
   # Redirect to localhost from 127.0.0.1 to use same IP address with Vite server

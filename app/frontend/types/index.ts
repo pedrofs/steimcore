@@ -25,4 +25,5 @@ export type SharedProps = {
   title: string | null
   breadcrumbs: Breadcrumb[]
   inboxCount: number
+  activeSessionCount: number
 }

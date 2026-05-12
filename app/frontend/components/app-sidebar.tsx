@@ -1,6 +1,6 @@
 import * as React from "react"
 import { Link, router, usePage } from "@inertiajs/react"
-import { ChevronsUpDown, DumbbellIcon, HomeIcon, InboxIcon, LogOut, UsersIcon } from "lucide-react"
+import { Activity, ChevronsUpDown, DumbbellIcon, HomeIcon, InboxIcon, LogOut, UsersIcon } from "lucide-react"
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
@@ -32,6 +32,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const collapsed = state === "collapsed"
   const user = pageProps.currentUser
   const inboxCount = pageProps.inboxCount
+  const activeSessionCount = pageProps.activeSessionCount
   const initials = (user?.email ?? "?").slice(0, 2).toUpperCase()
 
   return (
@@ -92,6 +93,24 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                 <Link href="/students">
                   <UsersIcon />
                   <span>Alunos</span>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                asChild
+                tooltip="Sessões ao vivo"
+                isActive={url.startsWith("/training_sessions")}
+                className="h-11 md:h-8"
+              >
+                <Link href="/training_sessions">
+                  <Activity />
+                  <span>Sessões ao vivo</span>
+                  {activeSessionCount > 0 && (
+                    <Badge variant="secondary" className="ml-auto">
+                      {activeSessionCount}
+                    </Badge>
+                  )}
                 </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>

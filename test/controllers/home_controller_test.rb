@@ -79,4 +79,46 @@ class HomeControllerTest < ActionDispatch::IntegrationTest
 
     assert_equal 0, inertia.props[:inbox_count]
   end
+
+  test "shares active_session_count as 0 when the trainer has no active sessions" do
+    sign_in_as(@user)
+
+    get root_path
+
+    assert_equal 0, inertia.props[:active_session_count]
+  end
+
+  test "shares active_session_count counting only the current trainer's unfinished sessions" do
+    organization = @user.organization
+    student_a = students(:alice)
+    student_b = students(:bob)
+    other_user = users(:two)
+
+    TrainingSession.create!(
+      student: student_a, trainer: @user,
+      workout_name_snapshot: "A", workout_position_snapshot: 1
+    )
+    finished = TrainingSession.create!(
+      student: student_b, trainer: @user,
+      workout_name_snapshot: "B", workout_position_snapshot: 1
+    )
+    finished.update!(finished_at: Time.current)
+    TrainingSession.create!(
+      student: student_b, trainer: other_user,
+      workout_name_snapshot: "B", workout_position_snapshot: 1
+    )
+
+    sign_in_as(@user)
+
+    get root_path
+
+    assert_equal 1, inertia.props[:active_session_count]
+    assert_equal organization, @user.organization
+  end
+
+  test "shares active_session_count as 0 when nobody is signed in" do
+    get new_session_path
+
+    assert_equal 0, inertia.props[:active_session_count]
+  end
 end

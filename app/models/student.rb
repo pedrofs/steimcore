@@ -5,6 +5,7 @@ class Student < ApplicationRecord
   belongs_to :active_periodization, class_name: "Periodization", optional: true
   has_many :voice_recordings, dependent: :destroy
   has_many :periodizations, dependent: :destroy
+  has_many :training_sessions
 
   validates :name, presence: true
 
