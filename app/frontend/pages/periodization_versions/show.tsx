@@ -1,5 +1,6 @@
 import { Link, router } from "@inertiajs/react"
-import { Loader2Icon, PrinterIcon } from "lucide-react"
+import { Loader2Icon, PencilIcon, PrinterIcon } from "lucide-react"
+import { useState } from "react"
 
 import { BlocksRenderer, type Block } from "@/components/blocks-renderer"
 import { Markdown } from "@/components/markdown"
@@ -7,6 +8,7 @@ import { PageHeader } from "@/components/page-header"
 import { TranscriptDetails } from "@/components/transcript-details"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent } from "@/components/ui/tabs"
+import { WorkoutEditor } from "@/components/workout-editor"
 import { WorkoutsTabsList } from "@/components/workouts-tabs-list"
 import {
   Tooltip,
@@ -114,6 +116,7 @@ function CompletedVersion({
   promotePath: string
 }) {
   const printablePath = `/students/${student.id}/periodization/printable`
+  const [editingWorkoutId, setEditingWorkoutId] = useState<string | null>(null)
 
   return (
     <div className="flex flex-col gap-6">
@@ -122,7 +125,12 @@ function CompletedVersion({
         <Markdown content={version.bodyMd} placeholder="Plano sem conteúdo." />
       </section>
 
-      <WorkoutsTabs workouts={version.workouts} />
+      <WorkoutsTabs
+        version={version}
+        editingWorkoutId={editingWorkoutId}
+        onEdit={(id) => setEditingWorkoutId(id)}
+        onCancelEdit={() => setEditingWorkoutId(null)}
+      />
 
       {version.readOnly ? (
         <div className="no-print flex flex-col-reverse gap-2 sm:flex-row sm:justify-between">
@@ -163,7 +171,18 @@ function CompletedVersion({
   )
 }
 
-function WorkoutsTabs({ workouts }: { workouts: Workout[] }) {
+function WorkoutsTabs({
+  version,
+  editingWorkoutId,
+  onEdit,
+  onCancelEdit,
+}: {
+  version: Version
+  editingWorkoutId: string | null
+  onEdit: (id: string) => void
+  onCancelEdit: () => void
+}) {
+  const workouts = version.workouts
   if (workouts.length === 0) {
     return (
       <section className="flex flex-col gap-3">
@@ -175,17 +194,42 @@ function WorkoutsTabs({ workouts }: { workouts: Workout[] }) {
     )
   }
 
+  const someoneEditing = editingWorkoutId != null
+
   return (
     <section className="flex flex-col gap-3">
       <h2 className="text-lg font-medium">Treinos</h2>
       <Tabs defaultValue={workouts[0].id}>
         <WorkoutsTabsList workouts={workouts} />
         {workouts.map((w) => (
-          <TabsContent key={w.id} value={w.id}>
-            <BlocksRenderer
-              blocks={w.blocks}
-              emptyPlaceholder="Treino sem conteúdo."
-            />
+          <TabsContent key={w.id} value={w.id} className="flex flex-col gap-3">
+            {editingWorkoutId === w.id ? (
+              <WorkoutEditor
+                versionId={version.id}
+                workoutId={w.id}
+                blocks={w.blocks}
+                onCancel={onCancelEdit}
+                onSaved={onCancelEdit}
+              />
+            ) : (
+              <>
+                <BlocksRenderer
+                  blocks={w.blocks}
+                  emptyPlaceholder="Treino sem conteúdo."
+                />
+                {!version.readOnly && !someoneEditing && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="mt-1 h-11 w-full gap-2 sm:h-10 sm:w-auto sm:self-end"
+                    onClick={() => onEdit(w.id)}
+                  >
+                    <PencilIcon className="size-4" />
+                    Editar inline
+                  </Button>
+                )}
+              </>
+            )}
           </TabsContent>
         ))}
       </Tabs>
