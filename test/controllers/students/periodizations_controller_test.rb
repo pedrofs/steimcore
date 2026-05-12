@@ -119,6 +119,51 @@ class Students::PeriodizationsControllerTest < ActionDispatch::IntegrationTest
     assert_equal "Primeira versão: foco em hipertrofia para o aluno teste.", versions.first[:transcript_excerpt]
   end
 
+  test "show flags non-promoted, non-superseded completed versions as drafts" do
+    rec_v1 = VoiceRecording.create!(
+      organization: @organization, student: @student, trainer: @user,
+      kind: "periodization_create"
+    )
+    v1 = @student.start_periodization!(trainer: @user, voice_recording: rec_v1)
+    v1.fork_with!(scope: :create, patch: { body_md: "## v1", workouts: [
+      { name: "A", blocks: [ exercise_block("Agachamento", "4x8") ], position: 1 }
+    ] }, trainer: @user, voice_recording: rec_v1)
+    v1.transition_to!(:completed)
+    periodization = v1.periodization
+    periodization.set_current_version!(v1)
+
+    rec_v2 = VoiceRecording.create!(
+      organization: @organization, student: @student, trainer: @user,
+      kind: "periodization_edit_periodization"
+    )
+    v2 = periodization.start_edit!(scope: :periodization, trainer: @user, voice_recording: rec_v2)
+    v2.fork_with!(scope: :periodization, patch: { body_md: "## v2", workouts: [
+      { name: "A", blocks: [ exercise_block("Agachamento", "4x8") ], position: 1 }
+    ] }, trainer: @user, voice_recording: rec_v2)
+    v2.transition_to!(:completed)
+    periodization.set_current_version!(v2)
+
+    rec_v3 = VoiceRecording.create!(
+      organization: @organization, student: @student, trainer: @user,
+      kind: "periodization_edit_periodization"
+    )
+    v3 = periodization.start_edit!(scope: :periodization, trainer: @user, voice_recording: rec_v3)
+    v3.fork_with!(scope: :periodization, patch: { body_md: "## v3", workouts: [
+      { name: "A", blocks: [ exercise_block("Agachamento", "4x8") ], position: 1 }
+    ] }, trainer: @user, voice_recording: rec_v3)
+    v3.transition_to!(:completed)
+
+    sign_in_as(@user)
+    get student_periodization_path(@student, periodization)
+
+    assert_response :success
+    versions = inertia.props[:periodization][:versions]
+    by_id = versions.index_by { |v| v[:id] }
+    assert_equal false, by_id[v1.id][:draft], "v1 is superseded by v2 — not a draft"
+    assert_equal false, by_id[v2.id][:draft], "v2 is promoted — not a draft"
+    assert_equal true,  by_id[v3.id][:draft], "v3 is completed but neither promoted nor superseded"
+  end
+
   private
     def exercise_block(name, prescription)
       { "kind" => "exercise", "name" => name, "prescription" => prescription }

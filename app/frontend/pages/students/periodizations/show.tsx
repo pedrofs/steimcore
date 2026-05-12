@@ -4,6 +4,7 @@ import { PencilIcon, PrinterIcon, WandSparklesIcon } from "lucide-react"
 import { BlocksRenderer, type Block } from "@/components/blocks-renderer"
 import { Markdown } from "@/components/markdown"
 import { PageHeader } from "@/components/page-header"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent } from "@/components/ui/tabs"
 import { WorkoutsTabsList } from "@/components/workouts-tabs-list"
@@ -30,6 +31,7 @@ type VersionSummary = {
   id: string
   createdAt: string
   current: boolean
+  draft: boolean
   trainer: { id: string; email: string }
   transcriptExcerpt: string
   path: string
@@ -231,6 +233,11 @@ function VersionHistory({ versions }: { versions: VersionSummary[] }) {
                 <span className="ml-auto rounded-full bg-primary px-2 py-0.5 text-xs font-medium text-primary-foreground">
                   Atual
                 </span>
+              )}
+              {v.draft && (
+                <Badge variant="secondary" className="ml-auto">
+                  Rascunho
+                </Badge>
               )}
             </div>
             {v.transcriptExcerpt.length > 0 && (

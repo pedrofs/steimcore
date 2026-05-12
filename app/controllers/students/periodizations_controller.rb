@@ -58,10 +58,12 @@ class Students::PeriodizationsController < InertiaController
 
     def version_summary(version, periodization)
       transcript = version.voice_recording&.transcript.to_s
+      promoted = version.id == periodization.current_version_id
       {
         id: version.id,
         created_at: version.created_at.iso8601,
-        current: version.id == periodization.current_version_id,
+        current: promoted,
+        draft: !promoted && !version.superseded?,
         trainer: { id: version.trainer_id, email: version.trainer.email_address },
         transcript_excerpt: transcript.truncate(TRANSCRIPT_EXCERPT_LIMIT),
         path: periodization_version_path(version)
