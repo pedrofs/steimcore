@@ -14,7 +14,8 @@ class Periodizations::EditsController < InertiaController
 
     redirect_to new_student_voice_recording_path(
       student,
-      kind: "periodization_edit_periodization"
+      kind: "periodization_edit_periodization",
+      target_periodization_version_id: periodization.current_version_id
     )
   end
 end

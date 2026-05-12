@@ -60,7 +60,7 @@ class PeriodizationVersionsController < InertiaController
         body_md: version.body_md,
         error_message: version.error_message,
         promoted: version.promoted?,
-        read_only: version.promoted? || version.superseded?,
+        read_only: version.read_only?,
         periodization_id: version.periodization_id,
         transcript: version.voice_recording&.transcript,
         workouts: version.workouts.order(:position).map { |w|

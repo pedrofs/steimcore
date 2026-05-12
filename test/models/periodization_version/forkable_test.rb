@@ -427,6 +427,164 @@ class PeriodizationVersion::ForkableTest < ActiveSupport::TestCase
     assert_equal "X", new_version.workouts.first.name
   end
 
+  # --- apply_patch!(:workout) ---
+
+  test "apply_patch! :workout mutates the receiver: target workout replaced; other workouts byte-identical; voice_recording set" do
+    setup_editable_draft_with_three_workouts!
+    target = @draft.workouts.find_by(position: 2)
+
+    edit_recording = VoiceRecording.create!(
+      organization: @organization,
+      student: @student,
+      trainer: @trainer,
+      kind: "periodization_edit_workout",
+      target_workout: target,
+      target_periodization_version: @draft
+    )
+
+    before_count = PeriodizationVersion.count
+    other_workouts_before = @draft.workouts.where.not(position: 2).order(:position).map { |w| [ w.name, w.blocks ] }
+
+    @draft.apply_patch!(
+      scope: :workout,
+      patch: { workout: { name: "B'", blocks: [ exercise("Supino inclinado", "4x10") ] } },
+      trainer: @trainer,
+      voice_recording: edit_recording,
+      target_workout: target
+    )
+
+    assert_equal before_count, PeriodizationVersion.count, "no new PeriodizationVersion row should be created"
+
+    @draft.reload
+    by_position = @draft.workouts.order(:position).index_by(&:position)
+    assert_equal "B'", by_position[2].name
+    assert_equal "Supino inclinado", by_position[2].blocks.first["name"]
+
+    other_workouts_after = @draft.workouts.where.not(position: 2).order(:position).map { |w| [ w.name, w.blocks ] }
+    assert_equal other_workouts_before, other_workouts_after, "other workouts must remain byte-identical"
+
+    assert_equal edit_recording.id, @draft.voice_recording_id
+  end
+
+  test "apply_patch! :workout accepts string-keyed patches" do
+    setup_editable_draft_with_three_workouts!
+    target = @draft.workouts.find_by(position: 1)
+
+    @draft.apply_patch!(
+      scope: :workout,
+      patch: {
+        "workout" => {
+          "name" => "A2",
+          "blocks" => [ { "kind" => "exercise", "name" => "Novo", "prescription" => "3x5" } ]
+        }
+      },
+      trainer: @trainer,
+      voice_recording: nil,
+      target_workout: target
+    )
+
+    @draft.reload
+    workout = @draft.workouts.find_by(position: 1)
+    assert_equal "A2", workout.name
+    assert_equal "Novo", workout.blocks.first["name"]
+  end
+
+  test "apply_patch! :workout requires target_workout" do
+    setup_editable_draft_with_three_workouts!
+
+    assert_raises(ArgumentError) do
+      @draft.apply_patch!(
+        scope: :workout,
+        patch: { workout: { name: "x", blocks: [] } },
+        trainer: @trainer,
+        target_workout: nil
+      )
+    end
+  end
+
+  # --- apply_patch!(:periodization) ---
+
+  test "apply_patch! :periodization mutates the receiver: body_md and full workouts list replaced; voice_recording set" do
+    setup_editable_draft_with_three_workouts!
+
+    edit_recording = VoiceRecording.create!(
+      organization: @organization,
+      student: @student,
+      trainer: @trainer,
+      kind: "periodization_edit_periodization",
+      target_periodization_version: @draft
+    )
+
+    before_count = PeriodizationVersion.count
+
+    @draft.apply_patch!(
+      scope: :periodization,
+      patch: {
+        body_md: "## Plano novo\n\nFoco em força.",
+        workouts: [
+          { name: "Push", blocks: [ exercise("Supino", "5x5") ], position: 1 },
+          { name: "Pull", blocks: [ exercise("Remada", "5x5") ], position: 2 }
+        ]
+      },
+      trainer: @trainer,
+      voice_recording: edit_recording
+    )
+
+    assert_equal before_count, PeriodizationVersion.count, "no new PeriodizationVersion row should be created"
+
+    @draft.reload
+    assert_equal "## Plano novo\n\nFoco em força.", @draft.body_md
+    assert_equal %w[Push Pull], @draft.workouts.order(:position).pluck(:name)
+    assert_equal [ 1, 2 ], @draft.workouts.order(:position).pluck(:position)
+    assert_equal edit_recording.id, @draft.voice_recording_id
+  end
+
+  test "apply_patch! :periodization accepts string-keyed patches" do
+    setup_editable_draft_with_three_workouts!
+
+    @draft.apply_patch!(
+      scope: :periodization,
+      patch: {
+        "body_md" => "Body",
+        "workouts" => [
+          { "name" => "X", "blocks" => [ { "kind" => "exercise", "name" => "Foo", "prescription" => "3x5" } ], "position" => 1 }
+        ]
+      },
+      trainer: @trainer,
+      voice_recording: nil
+    )
+
+    @draft.reload
+    assert_equal "Body", @draft.body_md
+    assert_equal "X", @draft.workouts.first.name
+  end
+
+  # --- apply_patch! invalid scopes ---
+
+  test "apply_patch! :clone raises ArgumentError" do
+    setup_editable_draft_with_three_workouts!
+
+    assert_raises(ArgumentError) do
+      @draft.apply_patch!(scope: :clone, patch: nil, trainer: @trainer)
+    end
+  end
+
+  test "apply_patch! :create raises ArgumentError" do
+    setup_editable_draft_with_three_workouts!
+
+    assert_raises(ArgumentError) do
+      @draft.apply_patch!(scope: :create, patch: { body_md: "x", workouts: [] }, trainer: @trainer)
+    end
+  end
+
+  test "apply_patch! rejects unknown scopes" do
+    setup_editable_draft_with_three_workouts!
+
+    assert_raises(ArgumentError) do
+      @draft.apply_patch!(scope: :bogus, patch: {}, trainer: @trainer)
+    end
+  end
+
   private
     def exercise(name, prescription)
       { kind: "exercise", name: name, prescription: prescription }
@@ -458,5 +616,15 @@ class PeriodizationVersion::ForkableTest < ActiveSupport::TestCase
       )
       child.save!
       child
+    end
+
+    # Sets up an editable draft (parent_version: promoted version; status:
+    # :completed; not promoted; not superseded) — exactly the state targeted by
+    # apply_patch!.
+    def setup_editable_draft_with_three_workouts!
+      setup_parent_with_three_workouts!
+      @draft = build_child_version
+      @draft.fork_with!(scope: :clone, patch: nil, trainer: @trainer)
+      @draft.reload
     end
 end

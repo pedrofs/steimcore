@@ -184,49 +184,78 @@ module PeriodizationVersion::Generatable
       recording = voice_recording
       target_workout = recording.target_workout
       raise InvalidPlanError, "voice recording missing target_workout" if target_workout.nil?
-      raise InvalidPlanError, "edit version missing parent_version" if parent_version.nil?
+
+      target_version = resolve_target_version(recording, target_workout: target_workout)
+      raise InvalidPlanError, "edit recording missing target_periodization_version" if target_version.nil?
 
       student = periodization.student
       organization = student.organization
 
       chat = RubyLLM.chat(model: MODEL).with_instructions(workout_system_prompt).with_schema(WORKOUT_SCHEMA)
       response = chat.ask(
-        workout_user_prompt(student, organization, parent_version, target_workout, recording.transcript.to_s)
+        workout_user_prompt(student, organization, target_version, target_workout, recording.transcript.to_s)
       )
 
       patch = parse_response(response.content)
       validate_workout_patch!(patch)
 
-      fork_with!(
-        scope: :workout,
-        patch: patch,
-        trainer: trainer,
-        voice_recording: recording,
-        target_workout: target_workout
-      )
+      if target_version.read_only?
+        fork_with!(
+          scope: :workout,
+          patch: patch,
+          trainer: trainer,
+          voice_recording: recording,
+          target_workout: target_workout
+        )
+      else
+        target_version.apply_patch!(
+          scope: :workout,
+          patch: patch,
+          trainer: trainer,
+          voice_recording: recording,
+          target_workout: target_workout
+        )
+      end
       complete!
     end
 
     def run_periodization_edit!
       recording = voice_recording
-      raise InvalidPlanError, "edit version missing parent_version" if parent_version.nil?
+
+      target_version = resolve_target_version(recording)
+      raise InvalidPlanError, "edit recording missing target_periodization_version" if target_version.nil?
 
       student = periodization.student
       organization = student.organization
 
       chat = RubyLLM.chat(model: MODEL).with_instructions(periodization_edit_system_prompt).with_schema(SCHEMA)
-      response = chat.ask(periodization_edit_user_prompt(student, organization, parent_version, recording.transcript.to_s))
+      response = chat.ask(periodization_edit_user_prompt(student, organization, target_version, recording.transcript.to_s))
 
       plan = parse_response(response.content)
       validate_create_plan!(plan)
 
-      fork_with!(
-        scope: :periodization,
-        patch: plan,
-        trainer: trainer,
-        voice_recording: recording
-      )
+      if target_version.read_only?
+        fork_with!(
+          scope: :periodization,
+          patch: plan,
+          trainer: trainer,
+          voice_recording: recording
+        )
+      else
+        target_version.apply_patch!(
+          scope: :periodization,
+          patch: plan,
+          trainer: trainer,
+          voice_recording: recording
+        )
+      end
       complete!
+    end
+
+    def resolve_target_version(recording, target_workout: nil)
+      recording.target_periodization_version ||
+        target_workout&.periodization_version ||
+        parent_version
     end
 
     def parse_response(content)

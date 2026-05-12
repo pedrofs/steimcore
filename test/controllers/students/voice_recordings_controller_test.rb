@@ -43,6 +43,64 @@ class Students::VoiceRecordingsControllerTest < ActionDispatch::IntegrationTest
     assert_redirected_to inbox_path
   end
 
+  test "create persists target_periodization_version_id for periodization_edit_periodization" do
+    sign_in_as(@user)
+    version = setup_promoted_periodization_version!
+
+    post student_voice_recordings_path(@student), params: {
+      kind: "periodization_edit_periodization",
+      target_periodization_version_id: version.id,
+      audio: fixture_audio_upload
+    }
+
+    recording = VoiceRecording.order(:created_at).last
+    assert_equal "periodization_edit_periodization", recording.kind
+    assert_equal version.id, recording.target_periodization_version_id
+  end
+
+  test "create persists target_periodization_version_id for periodization_edit_workout" do
+    sign_in_as(@user)
+    version = setup_promoted_periodization_version!
+    workout = version.workouts.first
+
+    post student_voice_recordings_path(@student), params: {
+      kind: "periodization_edit_workout",
+      target_workout_id: workout.id,
+      target_periodization_version_id: version.id,
+      audio: fixture_audio_upload
+    }
+
+    recording = VoiceRecording.order(:created_at).last
+    assert_equal "periodization_edit_workout", recording.kind
+    assert_equal workout.id, recording.target_workout_id
+    assert_equal version.id, recording.target_periodization_version_id
+  end
+
+  test "create rejects a target_periodization_version_id from a different organization" do
+    sign_in_as(@user)
+    other_org = Organization.create!(name: "Outro Gym")
+    other_student = other_org.students.create!(name: "Externo")
+    other_recording = VoiceRecording.create!(
+      organization: other_org, student: other_student,
+      trainer: User.create!(email_address: "x@y.com", password: "password", organization: other_org),
+      kind: "periodization_create"
+    )
+    other_periodization = other_student.periodizations.create!
+    foreign_version = other_periodization.versions.create!(
+      trainer: other_recording.trainer, voice_recording: other_recording, parent_version: nil
+    )
+
+    assert_no_difference -> { VoiceRecording.count } do
+      post student_voice_recordings_path(@student), params: {
+        kind: "periodization_edit_periodization",
+        target_periodization_version_id: foreign_version.id,
+        audio: fixture_audio_upload
+      }
+    end
+
+    assert_response :not_found
+  end
+
   test "create rejects requests without an audio attachment" do
     sign_in_as(@user)
 
@@ -132,6 +190,26 @@ class Students::VoiceRecordingsControllerTest < ActionDispatch::IntegrationTest
         trainer: @user,
         kind: "anamnesis"
       )
+    end
+
+    def setup_promoted_periodization_version!
+      seed_recording = VoiceRecording.create!(
+        organization: @organization, student: @student, trainer: @user,
+        kind: "periodization_create", transcript: "x"
+      )
+      version = @student.start_periodization!(trainer: @user, voice_recording: seed_recording)
+      version.fork_with!(
+        scope: :create,
+        patch: {
+          body_md: "## Plano",
+          workouts: [ { name: "A", blocks: [ { kind: "exercise", name: "Supino", prescription: "3x8" } ], position: 1 } ]
+        },
+        trainer: @user, voice_recording: seed_recording
+      )
+      version.reload
+      version.periodization.set_current_version!(version)
+      @student.update!(active_periodization: version.periodization)
+      version
     end
 
     def fixture_audio_upload

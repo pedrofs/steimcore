@@ -511,6 +511,189 @@ class GeneratePeriodizationJobTest < ActiveJob::TestCase
       end
   end
 
+  # --- Editable target dispatch (mutate-in-place on draft) ---
+
+  class EditableTargetTest < ActiveJob::TestCase
+    setup do
+      @organization = organizations(:steimfit)
+      @organization.update!(equipment_list_md: "- Barra olímpica\n- Anilhas\n")
+
+      @student = students(:alice)
+      @student.update!(
+        age: 32, sex: "Feminino", primary_goal: "Hipertrofia",
+        weekly_frequency: 3, restrictions_summary: "Lombar sensível",
+        anamnesis_md: "## Histórico\n\nLevantamento básico há 2 anos."
+      )
+      @trainer = users(:one)
+
+      create_recording = VoiceRecording.create!(
+        organization: @organization, student: @student, trainer: @trainer,
+        kind: "periodization_create",
+        transcript: "Plano inicial."
+      )
+      @promoted_version = @student.start_periodization!(trainer: @trainer, voice_recording: create_recording)
+      @promoted_version.fork_with!(
+        scope: :create,
+        patch: {
+          body_md: "## Plano\n\nMesociclo base.",
+          workouts: [
+            { name: "A", blocks: [ exercise_block("Agachamento", "4x8") ], position: 1 },
+            { name: "B", blocks: [ exercise_block("Supino reto", "4x8") ], position: 2 },
+            { name: "C", blocks: [ exercise_block("Levantamento terra", "3x5") ], position: 3 }
+          ]
+        },
+        trainer: @trainer,
+        voice_recording: create_recording
+      )
+      @promoted_version.transition_to!(:completed)
+      @promoted_version.periodization.set_current_version!(@promoted_version)
+
+      # Build an editable draft (a fresh fork that's not promoted, not
+      # superseded — this is the "working draft" the trainer is editing).
+      @draft = @promoted_version.periodization.versions.create!(
+        trainer: @trainer, voice_recording: nil, parent_version: @promoted_version
+      )
+      @draft.fork_with!(scope: :clone, patch: nil, trainer: @trainer)
+      @draft.reload
+
+      assert_not @draft.read_only?, "fixture sanity: draft must be editable"
+    end
+
+    test "run_workout_edit! with an editable target mutates the draft in place via apply_patch! and leaves no new version row" do
+      target_workout = @draft.workouts.find_by(position: 2)
+
+      edit_recording = VoiceRecording.create!(
+        organization: @organization, student: @student, trainer: @trainer,
+        kind: "periodization_edit_workout",
+        target_workout: target_workout,
+        target_periodization_version: @draft,
+        transcript: "Trocar supino reto por supino inclinado."
+      )
+      walk_recording_to_generating!(edit_recording)
+      @draft.update!(voice_recording: edit_recording)
+      @draft.transition_to!(:generating)
+
+      valid_patch = {
+        "workout" => {
+          "name" => "B'",
+          "blocks" => [ exercise_block("Supino inclinado", "4x10") ]
+        }
+      }
+      fake_chat = build_fake_chat(content: valid_patch)
+
+      versions_before = PeriodizationVersion.count
+
+      RubyLLM.stub :chat, ->(*) { fake_chat } do
+        GeneratePeriodizationJob.perform_now(@draft)
+      end
+
+      assert_equal versions_before, PeriodizationVersion.count, "no new PeriodizationVersion row should be created"
+
+      @draft.reload
+      assert_equal "completed", @draft.status
+      by_position = @draft.workouts.order(:position).index_by(&:position)
+      assert_equal "B'", by_position[2].name
+      assert_equal "Supino inclinado", by_position[2].blocks.first["name"]
+      assert_equal "A", by_position[1].name, "other workouts must remain byte-identical"
+      assert_equal "C", by_position[3].name
+      assert_equal edit_recording.id, @draft.voice_recording_id
+      assert_equal "completed", edit_recording.reload.status
+    end
+
+    test "run_periodization_edit! with an editable target mutates the draft in place and leaves no new version row" do
+      edit_recording = VoiceRecording.create!(
+        organization: @organization, student: @student, trainer: @trainer,
+        kind: "periodization_edit_periodization",
+        target_periodization_version: @draft,
+        transcript: "Refazer com foco em força, dois treinos."
+      )
+      walk_recording_to_generating!(edit_recording)
+      @draft.update!(voice_recording: edit_recording)
+      @draft.transition_to!(:generating)
+
+      valid_plan = {
+        "body_md" => "## Novo plano\n\nFoco em força.",
+        "workouts" => [
+          { "name" => "Push", "position" => 1, "blocks" => [ exercise_block("Supino", "5x5") ] },
+          { "name" => "Pull", "position" => 2, "blocks" => [ exercise_block("Remada", "5x5") ] }
+        ]
+      }
+      fake_chat = build_fake_chat(content: valid_plan)
+
+      versions_before = PeriodizationVersion.count
+
+      RubyLLM.stub :chat, ->(*) { fake_chat } do
+        GeneratePeriodizationJob.perform_now(@draft)
+      end
+
+      assert_equal versions_before, PeriodizationVersion.count, "no new PeriodizationVersion row should be created"
+
+      @draft.reload
+      assert_equal "completed", @draft.status
+      assert_equal "## Novo plano\n\nFoco em força.", @draft.body_md
+      assert_equal %w[Push Pull], @draft.workouts.order(:position).pluck(:name)
+      assert_equal edit_recording.id, @draft.voice_recording_id
+      assert_equal "completed", edit_recording.reload.status
+    end
+
+    test "run_workout_edit! failure on an editable target leaves the draft's body_md and workouts unchanged" do
+      target_workout = @draft.workouts.find_by(position: 2)
+
+      edit_recording = VoiceRecording.create!(
+        organization: @organization, student: @student, trainer: @trainer,
+        kind: "periodization_edit_workout",
+        target_workout: target_workout,
+        target_periodization_version: @draft,
+        transcript: "x"
+      )
+      walk_recording_to_generating!(edit_recording)
+      @draft.update!(voice_recording: edit_recording)
+      @draft.transition_to!(:generating)
+
+      original_body_md = @draft.body_md
+      original_workouts = @draft.workouts.order(:position).map { |w| [ w.name, w.blocks ] }
+
+      fake_chat = build_fake_chat(content: { "body_md" => "wrong shape" }) # missing workout key
+
+      RubyLLM.stub :chat, ->(*) { fake_chat } do
+        GeneratePeriodizationJob.perform_now(@draft)
+      end
+
+      @draft.reload
+      assert_equal original_body_md, @draft.body_md, "draft body_md must be unchanged on failure"
+      assert_equal original_workouts, @draft.workouts.order(:position).map { |w| [ w.name, w.blocks ] },
+                   "draft workouts must be unchanged on failure"
+      assert_equal "failed", edit_recording.reload.status
+      assert_match(/workout/, edit_recording.error_message)
+    end
+
+    private
+      def exercise_block(name, prescription)
+        { "kind" => "exercise", "name" => name, "prescription" => prescription }
+      end
+
+      def walk_recording_to_generating!(recording)
+        recording.transition_to!(:transcribing)
+        recording.transition_to!(:transcribed)
+        recording.transition_to!(:generating)
+      end
+
+      def build_fake_chat(content:, capture_prompt: nil, capture_schema: nil)
+        response = Struct.new(:content).new(content)
+        chat = Object.new
+        chat.define_singleton_method(:with_instructions) { |_| self }
+        chat.define_singleton_method(:with_schema) do |s|
+          capture_schema.call(s) if capture_schema
+          self
+        end
+        chat.define_singleton_method(:ask) do |prompt|
+          capture_prompt.call(prompt) if capture_prompt
+          response
+        end
+        chat
+      end
+  end
+
   private
     def exercise_block(name, prescription)
       { "kind" => "exercise", "name" => name, "prescription" => prescription }

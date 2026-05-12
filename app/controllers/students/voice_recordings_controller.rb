@@ -9,27 +9,31 @@ class Students::VoiceRecordingsController < InertiaController
   def new
     @kind = resolve_kind(params[:kind])
     target_workout = load_target_workout(params[:target_workout_id]) if @kind == "periodization_edit_workout"
+    target_periodization_version = load_target_periodization_version(params[:target_periodization_version_id])
     @title = title_for(@kind)
     add_breadcrumb(label: "Alunos", path: students_path)
     add_breadcrumb(label: @student.name, path: student_path(@student))
-    add_breadcrumb(label: @title, path: new_student_voice_recording_path(@student, kind: @kind, target_workout_id: target_workout&.id))
+    add_breadcrumb(label: @title, path: new_student_voice_recording_path(@student, kind: @kind, target_workout_id: target_workout&.id, target_periodization_version_id: target_periodization_version&.id))
 
     render inertia: "students/voice_recordings/new", props: {
       student: { id: @student.id, name: @student.name },
       kind: @kind,
-      target_workout: target_workout && { id: target_workout.id, name: target_workout.name, position: target_workout.position }
+      target_workout: target_workout && { id: target_workout.id, name: target_workout.name, position: target_workout.position },
+      target_periodization_version_id: target_periodization_version&.id
     }
   end
 
   def create
     kind = resolve_kind(params[:kind])
     target_workout = (kind == "periodization_edit_workout") ? load_target_workout(params[:target_workout_id]) : nil
+    target_periodization_version = load_target_periodization_version(params[:target_periodization_version_id])
 
     recording = @student.voice_recordings.new(
       organization: current_organization,
       trainer: Current.user,
       kind: kind,
-      target_workout: target_workout
+      target_workout: target_workout,
+      target_periodization_version: target_periodization_version
     )
     recording.audio.attach(params[:audio])
     recording.save!
@@ -91,6 +95,14 @@ class Students::VoiceRecordingsController < InertiaController
       return nil if id.blank?
       Workout
         .joins(periodization_version: { periodization: :student })
+        .where(students: { organization_id: current_organization.id, id: @student.id })
+        .find(id)
+    end
+
+    def load_target_periodization_version(id)
+      return nil if id.blank?
+      PeriodizationVersion
+        .joins(periodization: :student)
         .where(students: { organization_id: current_organization.id, id: @student.id })
         .find(id)
     end

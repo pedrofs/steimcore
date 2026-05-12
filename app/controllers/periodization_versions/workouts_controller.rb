@@ -29,7 +29,7 @@ class PeriodizationVersions::WorkoutsController < InertiaController
     end
 
     def ensure_version_editable
-      return unless @version.promoted? || @version.superseded?
+      return unless @version.read_only?
 
       redirect_to periodization_version_path(@version),
                   alert: "Esta versão não pode ser editada."

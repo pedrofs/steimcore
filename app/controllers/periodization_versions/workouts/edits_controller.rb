@@ -16,7 +16,8 @@ class PeriodizationVersions::Workouts::EditsController < InertiaController
     redirect_to new_student_voice_recording_path(
       student,
       kind: "periodization_edit_workout",
-      target_workout_id: workout.id
+      target_workout_id: workout.id,
+      target_periodization_version_id: workout.periodization_version_id
     )
   end
 end

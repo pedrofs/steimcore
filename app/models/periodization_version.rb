@@ -13,7 +13,7 @@ class PeriodizationVersion < ApplicationRecord
   job_statuses transitions: {
     pending:    %i[generating failed],
     generating: %i[completed failed],
-    completed:  [],
+    completed:  %i[generating],
     failed:     %i[generating]
   }
 
@@ -52,6 +52,14 @@ class PeriodizationVersion < ApplicationRecord
   # is locked-in history rather than an in-review draft.
   def superseded?
     PeriodizationVersion.where(parent_version_id: id).exists?
+  end
+
+  # A version is read-only when it is no longer the working draft — either it
+  # has been promoted, or it has been superseded by a child fork. The voice
+  # pipeline uses this to decide between forking a new version (read-only
+  # target) and mutating the draft in place (editable target).
+  def read_only?
+    promoted? || superseded?
   end
 
   private

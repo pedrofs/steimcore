@@ -13,6 +13,7 @@ class VoiceRecording < ApplicationRecord
   belongs_to :student
   belongs_to :trainer, class_name: "User"
   belongs_to :target_workout, class_name: "Workout", optional: true
+  belongs_to :target_periodization_version, class_name: "PeriodizationVersion", optional: true
 
   has_one :periodization_version, dependent: :nullify
 
@@ -68,26 +69,37 @@ class VoiceRecording < ApplicationRecord
         version = student.start_periodization!(trainer: trainer, voice_recording: self)
         GeneratePeriodizationJob.perform_later(version)
       when "periodization_edit_workout"
-        periodization = target_workout.periodization_version.periodization
-        version = periodization.start_edit!(
-          scope: :workout,
+        enqueue_periodization_edit_job!(scope: :workout, target_workout: target_workout)
+      when "periodization_edit_periodization"
+        enqueue_periodization_edit_job!(scope: :periodization)
+      else
+        raise "No post-transcript job for kind=#{kind.inspect}"
+      end
+    end
+
+    def enqueue_periodization_edit_job!(scope:, target_workout: nil)
+      target_version = resolve_target_version(scope: scope, target_workout: target_workout)
+      raise "no target periodization version for recording=#{id}" if target_version.nil?
+
+      if target_version.read_only?
+        version = target_version.periodization.start_edit!(
+          scope: scope,
           trainer: trainer,
           voice_recording: self,
           target_workout: target_workout
         )
         GeneratePeriodizationJob.perform_later(version)
-      when "periodization_edit_periodization"
-        periodization = student.active_periodization
-        raise "no active periodization to edit for student=#{student_id}" if periodization.nil?
-        version = periodization.start_edit!(
-          scope: :periodization,
-          trainer: trainer,
-          voice_recording: self
-        )
-        GeneratePeriodizationJob.perform_later(version)
       else
-        raise "No post-transcript job for kind=#{kind.inspect}"
+        target_version.update!(voice_recording: self)
+        target_version.transition_to!(:generating)
+        GeneratePeriodizationJob.perform_later(target_version)
       end
+    end
+
+    def resolve_target_version(scope:, target_workout:)
+      return target_periodization_version if target_periodization_version.present?
+      return target_workout&.periodization_version if scope == :workout
+      student.active_periodization&.current_version
     end
 
     def workout_edit?
