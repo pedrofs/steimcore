@@ -2,7 +2,10 @@ require "test_helper"
 
 class TrainingSessionsControllerTest < ActionDispatch::IntegrationTest
   setup do
+    @organization = organizations(:steimfit)
     @user = users(:one)
+    @alice = students(:alice)
+    @bob = students(:bob)
   end
 
   test "index redirects unauthenticated visitors to sign in" do
@@ -21,4 +24,146 @@ class TrainingSessionsControllerTest < ActionDispatch::IntegrationTest
     assert_equal [], inertia.props[:picker_candidates]
     assert_equal "trainer", inertia.props[:scope]
   end
+
+  test "index serializes the current trainer's active sessions ordered by created_at ASC" do
+    make_eligible(@alice, workout_count: 1)
+    make_eligible(@bob, workout_count: 1)
+    older = @user.training_sessions.start_for!(@alice)
+    older.update_columns(created_at: 1.hour.ago)
+    newer = @user.training_sessions.start_for!(@bob)
+
+    sign_in_as(@user)
+    get training_sessions_path
+
+    ids = inertia.props[:training_sessions].map { |s| s[:id] }
+    assert_equal [ older.id, newer.id ], ids
+
+    first = inertia.props[:training_sessions].first
+    assert_equal @alice.id, first[:student][:id]
+    assert_equal @alice.name, first[:student][:name]
+    assert_equal older.workout_name_snapshot, first[:workout_name]
+    assert_equal older.workout_position_snapshot, first[:workout_position]
+    assert_equal older.blocks_snapshot, first[:blocks]
+    assert_equal [], first[:completed_block_indices]
+    assert_nil first[:finished_at]
+    assert_not_nil first[:created_at]
+    assert_equal @user.id, first[:trainer_id]
+  end
+
+  test "index lists eligible students in picker_candidates and excludes ineligible ones" do
+    make_eligible(@alice, workout_count: 2)
+    # Bob has no periodization → ineligible.
+
+    sign_in_as(@user)
+    get training_sessions_path
+
+    candidates = inertia.props[:picker_candidates]
+    candidate_ids = candidates.map { |c| c[:id] }
+
+    assert_includes candidate_ids, @alice.id
+    assert_not_includes candidate_ids, @bob.id
+  end
+
+  test "picker_candidates excludes students who already have an active session" do
+    make_eligible(@alice, workout_count: 1)
+    @user.training_sessions.start_for!(@alice)
+
+    sign_in_as(@user)
+    get training_sessions_path
+
+    candidate_ids = inertia.props[:picker_candidates].map { |c| c[:id] }
+    assert_not_includes candidate_ids, @alice.id
+  end
+
+  test "picker_candidates excludes a student whose current version is not completed" do
+    make_eligible(@alice, workout_count: 1)
+    @alice.active_periodization.current_version.update_columns(status: "generating")
+
+    sign_in_as(@user)
+    get training_sessions_path
+
+    candidate_ids = inertia.props[:picker_candidates].map { |c| c[:id] }
+    assert_not_includes candidate_ids, @alice.id
+  end
+
+  test "picker_candidates excludes archived students" do
+    make_eligible(@alice, workout_count: 1)
+    @alice.archive!
+
+    sign_in_as(@user)
+    get training_sessions_path
+
+    candidate_ids = inertia.props[:picker_candidates].map { |c| c[:id] }
+    assert_not_includes candidate_ids, @alice.id
+  end
+
+  test "picker_candidates excludes a student whose periodization has no workouts" do
+    make_eligible(@alice, workout_count: 0)
+
+    sign_in_as(@user)
+    get training_sessions_path
+
+    candidate_ids = inertia.props[:picker_candidates].map { |c| c[:id] }
+    assert_not_includes candidate_ids, @alice.id
+  end
+
+  test "create starts a session for an eligible student and redirects back" do
+    workouts = make_eligible(@alice, workout_count: 1)
+    sign_in_as(@user)
+
+    assert_difference -> { TrainingSession.count }, 1 do
+      post training_sessions_path, params: { student_id: @alice.id }
+    end
+
+    assert_redirected_to training_sessions_path
+    session = TrainingSession.find_by(student_id: @alice.id)
+    assert_equal @user.id, session.trainer_id
+    assert_equal workouts.first.id, session.workout_id
+    assert_equal workouts.first.name, session.workout_name_snapshot
+  end
+
+  test "create redirects with a flash alert when the student is ineligible" do
+    sign_in_as(@user)
+
+    assert_no_difference -> { TrainingSession.count } do
+      post training_sessions_path, params: { student_id: @alice.id }
+    end
+
+    assert_redirected_to training_sessions_path
+    follow_redirect!
+    assert_match(/periodiza/i, flash[:alert] || "")
+  end
+
+  test "create redirects with a flash alert when the student already has an active session" do
+    make_eligible(@alice, workout_count: 1)
+    @user.training_sessions.start_for!(@alice)
+
+    sign_in_as(@user)
+
+    assert_no_difference -> { TrainingSession.count } do
+      post training_sessions_path, params: { student_id: @alice.id }
+    end
+
+    assert_redirected_to training_sessions_path
+  end
+
+  private
+    def make_eligible(student, workout_count:, blocks: [])
+      voice_recording = VoiceRecording.create!(
+        organization: @organization, student: student, trainer: @user,
+        kind: "periodization_create"
+      )
+      voice_recording.transition_to!(:transcribing)
+      voice_recording.update!(transcript: "x")
+      voice_recording.transition_to!(:transcribed)
+      voice_recording.transition_to!(:generating)
+
+      version = student.start_periodization!(trainer: @user, voice_recording: voice_recording)
+      workouts = Array.new(workout_count) do |i|
+        version.workouts.create!(name: "Treino #{i + 1}", position: i + 1, blocks: blocks)
+      end
+      version.complete!
+      student.active_periodization.set_current_version!(version)
+      workouts
+    end
 end
