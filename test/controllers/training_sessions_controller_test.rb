@@ -25,6 +25,89 @@ class TrainingSessionsControllerTest < ActionDispatch::IntegrationTest
     assert_equal "trainer", inertia.props[:scope]
   end
 
+  test "index defaults scope to trainer when ?scope is missing or unrecognized" do
+    sign_in_as(@user)
+
+    get training_sessions_path
+    assert_equal "trainer", inertia.props[:scope]
+
+    get training_sessions_path, params: { scope: "garbage" }
+    assert_equal "trainer", inertia.props[:scope]
+  end
+
+  test "index resolves scope=org and returns all active org sessions ordered by created_at ASC" do
+    make_eligible(@alice, workout_count: 1)
+    make_eligible(@bob, workout_count: 1)
+    user_two = users(:two)
+    my_session    = @user.training_sessions.start_for!(@alice)
+    other_session = user_two.training_sessions.start_for!(@bob)
+    my_session.update_columns(created_at: 1.hour.ago)
+
+    sign_in_as(@user)
+    get training_sessions_path, params: { scope: "org" }
+
+    assert_equal "org", inertia.props[:scope]
+    ids = inertia.props[:training_sessions].map { |s| s[:id] }
+    assert_equal [ my_session.id, other_session.id ], ids
+  end
+
+  test "index in trainer scope only returns the current trainer's sessions" do
+    make_eligible(@alice, workout_count: 1)
+    make_eligible(@bob, workout_count: 1)
+    user_two = users(:two)
+    my_session    = @user.training_sessions.start_for!(@alice)
+    _other        = user_two.training_sessions.start_for!(@bob)
+
+    sign_in_as(@user)
+    get training_sessions_path
+
+    ids = inertia.props[:training_sessions].map { |s| s[:id] }
+    assert_equal [ my_session.id ], ids
+  end
+
+  test "index never includes sessions from other organizations even in org scope" do
+    make_eligible(@alice, workout_count: 1)
+    @user.training_sessions.start_for!(@alice)
+
+    other_org      = Organization.create!(name: "Other Gym", equipment_list_md: "")
+    other_user     = User.create!(email_address: "other@example.com", password: "password", organization: other_org)
+    other_student  = Student.create!(name: "Other Student", organization: other_org)
+    make_eligible(other_student, workout_count: 1, trainer: other_user, organization: other_org)
+    other_user.training_sessions.start_for!(other_student)
+
+    sign_in_as(@user)
+    get training_sessions_path, params: { scope: "org" }
+
+    student_ids = inertia.props[:training_sessions].map { |s| s[:student][:id] }
+    assert_includes student_ids, @alice.id
+    assert_not_includes student_ids, other_student.id
+  end
+
+  test "index session payload exposes trainer_id and trainer_name" do
+    make_eligible(@alice, workout_count: 1)
+    @user.training_sessions.start_for!(@alice)
+
+    sign_in_as(@user)
+    get training_sessions_path
+
+    payload = inertia.props[:training_sessions].first
+    assert_equal @user.id, payload[:trainer_id]
+    assert_equal @user.email_address.split("@").first, payload[:trainer_name]
+  end
+
+  test "active_session_count shared prop always reflects the current trainer regardless of scope" do
+    make_eligible(@alice, workout_count: 1)
+    make_eligible(@bob, workout_count: 1)
+    user_two = users(:two)
+    @user.training_sessions.start_for!(@alice)
+    user_two.training_sessions.start_for!(@bob)
+
+    sign_in_as(@user)
+    get training_sessions_path, params: { scope: "org" }
+
+    assert_equal 1, inertia.props[:active_session_count]
+  end
+
   test "index serializes the current trainer's active sessions ordered by created_at ASC" do
     make_eligible(@alice, workout_count: 1)
     make_eligible(@bob, workout_count: 1)
@@ -148,9 +231,9 @@ class TrainingSessionsControllerTest < ActionDispatch::IntegrationTest
   end
 
   private
-    def make_eligible(student, workout_count:, blocks: [])
+    def make_eligible(student, workout_count:, blocks: [], trainer: @user, organization: @organization)
       voice_recording = VoiceRecording.create!(
-        organization: @organization, student: student, trainer: @user,
+        organization: organization, student: student, trainer: trainer,
         kind: "periodization_create"
       )
       voice_recording.transition_to!(:transcribing)
@@ -158,7 +241,7 @@ class TrainingSessionsControllerTest < ActionDispatch::IntegrationTest
       voice_recording.transition_to!(:transcribed)
       voice_recording.transition_to!(:generating)
 
-      version = student.start_periodization!(trainer: @user, voice_recording: voice_recording)
+      version = student.start_periodization!(trainer: trainer, voice_recording: voice_recording)
       workouts = Array.new(workout_count) do |i|
         version.workouts.create!(name: "Treino #{i + 1}", position: i + 1, blocks: blocks)
       end

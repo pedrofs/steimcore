@@ -51,6 +51,7 @@ type TrainingSessionRow = {
   finishedAt: string | null
   createdAt: string
   trainerId: number
+  trainerName: string
   swapOptions: SwapOption[]
 }
 
@@ -70,6 +71,8 @@ type Props = {
   pickerCandidates: PickerCandidate[]
   scope: "trainer" | "org"
 }
+
+type Scope = "trainer" | "org"
 
 const AVATAR_PALETTE = [
   "bg-rose-500",
@@ -111,7 +114,9 @@ const PICKER_RELOAD = {
 export default function TrainingSessionsIndex({
   trainingSessions,
   pickerCandidates,
+  scope,
 }: Props) {
+  const currentUserId = usePage().props.currentUser?.id ?? null
   const [pickerOpen, setPickerOpen] = useState(false)
   const [swapOpen, setSwapOpen] = useState(false)
   const [focusedId, setFocusedId] = useState<string | null>(
@@ -256,7 +261,8 @@ export default function TrainingSessionsIndex({
         </Link>
 
         {isEmpty ? (
-          <div className="flex flex-1 items-center justify-center px-6">
+          <div className="flex flex-1 flex-col items-center justify-center gap-4 px-6">
+            <ScopeToggle scope={scope} />
             <Button
               size="lg"
               className="gap-2"
@@ -275,6 +281,7 @@ export default function TrainingSessionsIndex({
               onFocus={setFocusedId}
               onAdd={() => setPickerOpen(true)}
               doneCountFor={doneCountFor}
+              scope={scope}
             />
 
             {focused && (
@@ -285,6 +292,9 @@ export default function TrainingSessionsIndex({
                 onToggleBlock={(i) => toggleBlock(focused, i)}
                 onFinish={finishFocused}
                 onSwap={() => setSwapOpen(true)}
+                showAttribution={
+                  currentUserId !== null && focused.trainerId !== currentUserId
+                }
               />
             )}
           </>
@@ -311,21 +321,55 @@ export default function TrainingSessionsIndex({
   )
 }
 
+function ScopeToggle({ scope }: { scope: Scope }) {
+  return (
+    <div className="inline-flex rounded-full border border-neutral-200 bg-neutral-100 p-0.5 text-xs">
+      <Link
+        href="/training_sessions"
+        className={cn(
+          "rounded-full px-3 py-1 font-medium transition",
+          scope === "trainer"
+            ? "bg-white text-neutral-900 shadow-sm"
+            : "text-neutral-500 hover:text-neutral-700",
+        )}
+      >
+        Minhas
+      </Link>
+      <Link
+        href="/training_sessions?scope=org"
+        className={cn(
+          "rounded-full px-3 py-1 font-medium transition",
+          scope === "org"
+            ? "bg-white text-neutral-900 shadow-sm"
+            : "text-neutral-500 hover:text-neutral-700",
+        )}
+      >
+        Todas
+      </Link>
+    </div>
+  )
+}
+
 function AvatarStrip({
   sessions,
   focusedId,
   onFocus,
   onAdd,
   doneCountFor,
+  scope,
 }: {
   sessions: TrainingSessionRow[]
   focusedId: string | null
   onFocus: (id: string) => void
   onAdd: () => void
   doneCountFor: (session: TrainingSessionRow) => number
+  scope: Scope
 }) {
   return (
     <div className="sticky top-0 z-10 border-b border-neutral-200 bg-white/95 backdrop-blur">
+      <div className="flex items-center justify-between px-3 pt-2">
+        <ScopeToggle scope={scope} />
+      </div>
       <div className="flex gap-2 overflow-x-auto px-3 py-3 pr-12">
         {sessions.map((session, index) => {
           const isActive = session.id === focusedId
@@ -413,6 +457,7 @@ function FocusedView({
   onToggleBlock,
   onFinish,
   onSwap,
+  showAttribution,
 }: {
   session: TrainingSessionRow
   doneCount: number
@@ -420,6 +465,7 @@ function FocusedView({
   onToggleBlock: (index: number) => void
   onFinish: () => void
   onSwap: () => void
+  showAttribution: boolean
 }) {
   const total = session.blocks.length
   const pct = total > 0 ? Math.round((doneCount / total) * 100) : 0
@@ -432,6 +478,11 @@ function FocusedView({
             {session.student.name}
           </h1>
           <p className="text-sm text-neutral-600">{session.workoutName}</p>
+          {showAttribution && (
+            <p className="text-xs text-neutral-500">
+              Iniciado por {session.trainerName}
+            </p>
+          )}
           <p className="text-xs text-neutral-500">
             {doneCount} de {total} blocos · {pct}%
           </p>

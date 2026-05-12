@@ -15,6 +15,8 @@ class TrainingSessions::CompletionsController < InertiaController
 
   private
     def load_session
-      @session = Current.user.training_sessions.find(params[:training_session_id])
+      @session = TrainingSession.joins(:student)
+                                .where(students: { organization_id: current_organization.id })
+                                .find(params[:training_session_id])
     end
 end

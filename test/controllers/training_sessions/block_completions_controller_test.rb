@@ -54,9 +54,29 @@ class TrainingSessions::BlockCompletionsControllerTest < ActionDispatch::Integra
     assert_equal [], @session.reload.progress
   end
 
-  test "create scopes to the current trainer's sessions" do
+  test "create allows another trainer in the same organization to mark a block" do
     other = users(:two)
     sign_in_as(other)
+
+    post training_session_block_completions_path(@session), params: { block_index: "0" }
+
+    assert_redirected_to training_sessions_path
+    assert_equal [ "0" ], @session.reload.progress
+  end
+
+  test "create preserves trainer_id when another trainer in the same organization marks a block" do
+    other = users(:two)
+    sign_in_as(other)
+
+    post training_session_block_completions_path(@session), params: { block_index: "0" }
+
+    assert_equal @user.id, @session.reload.trainer_id
+  end
+
+  test "create rejects a trainer from a different organization with 404" do
+    other_org  = Organization.create!(name: "Other Gym", equipment_list_md: "")
+    other_user = User.create!(email_address: "other@example.com", password: "password", organization: other_org)
+    sign_in_as(other_user)
 
     post training_session_block_completions_path(@session), params: { block_index: "0" }
 
@@ -93,13 +113,27 @@ class TrainingSessions::BlockCompletionsControllerTest < ActionDispatch::Integra
     assert_match(/bloco/i, flash[:alert] || "")
   end
 
-  test "destroy scopes to the current trainer's sessions" do
+  test "destroy allows another trainer in the same organization to unmark a block" do
+    @session.update!(progress: [ "0" ])
     other = users(:two)
     sign_in_as(other)
 
     delete training_session_block_completion_path(@session, "0")
 
+    assert_redirected_to training_sessions_path
+    assert_equal [], @session.reload.progress
+  end
+
+  test "destroy rejects a trainer from a different organization with 404" do
+    @session.update!(progress: [ "0" ])
+    other_org  = Organization.create!(name: "Other Gym", equipment_list_md: "")
+    other_user = User.create!(email_address: "other@example.com", password: "password", organization: other_org)
+    sign_in_as(other_user)
+
+    delete training_session_block_completion_path(@session, "0")
+
     assert_response :not_found
+    assert_equal [ "0" ], @session.reload.progress
   end
 
   private

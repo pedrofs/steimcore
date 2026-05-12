@@ -3,20 +3,19 @@
 class TrainingSessionsController < InertiaController
   with_title "Sessões ao vivo"
 
+  ALLOWED_SCOPES = %w[trainer org].freeze
+
   before_action :load_student,    only: :create
   rescue_from RuntimeError,                  with: :handle_ineligible
   rescue_from ActiveRecord::RecordNotUnique, with: :handle_duplicate_active
 
   def index
-    sessions = Current.user.training_sessions
-                      .active
-                      .includes(:student)
-                      .order(:created_at)
+    sessions = scoped_sessions.includes(:student, :trainer).order(:created_at)
 
     render inertia: "training_sessions/index", props: {
       training_sessions: sessions.map { |s| training_session_props(s) },
       picker_candidates: picker_candidates,
-      scope: "trainer"
+      scope: resolved_scope
     }
   end
 
@@ -36,6 +35,18 @@ class TrainingSessionsController < InertiaController
 
     def handle_duplicate_active(_exception)
       redirect_to training_sessions_path, alert: "Aluno já tem uma sessão ativa."
+    end
+
+    def resolved_scope
+      ALLOWED_SCOPES.include?(params[:scope]) ? params[:scope] : "trainer"
+    end
+
+    def scoped_sessions
+      if resolved_scope == "org"
+        TrainingSession.active.joins(:student).where(students: { organization_id: current_organization.id })
+      else
+        Current.user.training_sessions.active
+      end
     end
 
     def picker_candidates
@@ -65,6 +76,7 @@ class TrainingSessionsController < InertiaController
         finished_at: session.finished_at,
         created_at: session.created_at,
         trainer_id: session.trainer_id,
+        trainer_name: session.trainer.email_address.split("@").first,
         swap_options: session.eligible_swap_workouts.map { |w| { id: w.id, name: w.name, position: w.position } }
       }
     end
