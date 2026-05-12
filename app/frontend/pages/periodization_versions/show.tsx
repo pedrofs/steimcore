@@ -1,5 +1,5 @@
 import { Link, router } from "@inertiajs/react"
-import { Loader2Icon, PencilIcon, PrinterIcon } from "lucide-react"
+import { Loader2Icon, MicIcon, PencilIcon, PrinterIcon } from "lucide-react"
 import { useState } from "react"
 
 import { BlocksRenderer, type Block } from "@/components/blocks-renderer"
@@ -38,7 +38,7 @@ type Version = {
 
 type Student = { id: string; name: string }
 
-type Props = { version: Version; student: Student }
+type Props = { version: Version; student: Student; voiceInFlight: boolean }
 
 function PrintButton({ enabled, href }: { enabled: boolean; href: string }) {
   const button = (
@@ -66,8 +66,16 @@ function PrintButton({ enabled, href }: { enabled: boolean; href: string }) {
   )
 }
 
-export default function ShowPeriodizationVersion({ version, student }: Props) {
-  useJobStatus(version.status, [ "version", "student", "flash", "errors" ])
+export default function ShowPeriodizationVersion({
+  version,
+  student,
+  voiceInFlight,
+}: Props) {
+  useJobStatus(
+    version.status,
+    [ "version", "student", "voiceInFlight", "flash", "errors" ],
+    { forceActive: voiceInFlight },
+  )
 
   const versionPath = `/periodization_versions/${version.id}`
   const promotePath = `${versionPath}/promotion`
@@ -81,6 +89,8 @@ export default function ShowPeriodizationVersion({ version, student }: Props) {
       </PageHeader>
 
       <StatusBanner status={version.status} />
+
+      {voiceInFlight && <VoiceInFlightBanner />}
 
       <TranscriptDetails transcript={version.transcript} />
 
@@ -98,6 +108,7 @@ export default function ShowPeriodizationVersion({ version, student }: Props) {
           student={student}
           versionPath={versionPath}
           promotePath={promotePath}
+          voiceInFlight={voiceInFlight}
         />
       )}
     </>
@@ -109,14 +120,17 @@ function CompletedVersion({
   student,
   versionPath,
   promotePath,
+  voiceInFlight,
 }: {
   version: Version
   student: Student
   versionPath: string
   promotePath: string
+  voiceInFlight: boolean
 }) {
   const printablePath = `/students/${student.id}/periodization/printable`
   const [editingWorkoutId, setEditingWorkoutId] = useState<string | null>(null)
+  const editingDisabled = voiceInFlight
 
   return (
     <div className="flex flex-col gap-6">
@@ -130,6 +144,7 @@ function CompletedVersion({
         editingWorkoutId={editingWorkoutId}
         onEdit={(id) => setEditingWorkoutId(id)}
         onCancelEdit={() => setEditingWorkoutId(null)}
+        editingDisabled={editingDisabled}
       />
 
       {version.readOnly ? (
@@ -146,6 +161,17 @@ function CompletedVersion({
       ) : (
         <div className="no-print flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
           <PrintButton enabled={version.promoted} href={printablePath} />
+          {!voiceInFlight && (
+            <Button
+              type="button"
+              variant="outline"
+              className="h-11 gap-2 sm:h-10"
+              onClick={() => router.post(`${versionPath}/edit`)}
+            >
+              <MicIcon className="size-4" />
+              Modificar periodização
+            </Button>
+          )}
           <Button
             type="button"
             variant="outline"
@@ -161,6 +187,7 @@ function CompletedVersion({
           <Button
             type="button"
             className="h-11 sm:h-10"
+            disabled={voiceInFlight}
             onClick={() => router.post(promotePath)}
           >
             Salvar como ativa
@@ -176,11 +203,13 @@ function WorkoutsTabs({
   editingWorkoutId,
   onEdit,
   onCancelEdit,
+  editingDisabled,
 }: {
   version: Version
   editingWorkoutId: string | null
   onEdit: (id: string) => void
   onCancelEdit: () => void
+  editingDisabled: boolean
 }) {
   const workouts = version.workouts
   if (workouts.length === 0) {
@@ -195,6 +224,7 @@ function WorkoutsTabs({
   }
 
   const someoneEditing = editingWorkoutId != null
+  const showEditControls = !version.readOnly && !someoneEditing && !editingDisabled
 
   return (
     <section className="flex flex-col gap-3">
@@ -217,16 +247,31 @@ function WorkoutsTabs({
                   blocks={w.blocks}
                   emptyPlaceholder="Treino sem conteúdo."
                 />
-                {!version.readOnly && !someoneEditing && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="mt-1 h-11 w-full gap-2 sm:h-10 sm:w-auto sm:self-end"
-                    onClick={() => onEdit(w.id)}
-                  >
-                    <PencilIcon className="size-4" />
-                    Editar inline
-                  </Button>
+                {showEditControls && (
+                  <div className="mt-1 flex flex-col gap-2 sm:flex-row sm:justify-end">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="h-11 w-full gap-2 sm:h-10 sm:w-auto"
+                      onClick={() =>
+                        router.post(
+                          `/periodization_versions/${version.id}/workouts/${w.id}/edit`,
+                        )
+                      }
+                    >
+                      <MicIcon className="size-4" />
+                      Editar este treino
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="h-11 w-full gap-2 sm:h-10 sm:w-auto"
+                      onClick={() => onEdit(w.id)}
+                    >
+                      <PencilIcon className="size-4" />
+                      Editar inline
+                    </Button>
+                  </div>
                 )}
               </>
             )}
@@ -234,6 +279,18 @@ function WorkoutsTabs({
         ))}
       </Tabs>
     </section>
+  )
+}
+
+function VoiceInFlightBanner() {
+  return (
+    <div className="flex items-center gap-3 rounded-xl border border-primary/30 bg-primary/5 p-4 text-sm">
+      <Loader2Icon
+        className="size-5 shrink-0 animate-spin text-primary"
+        aria-hidden
+      />
+      <span>Aplicando edição por voz...</span>
+    </div>
   )
 }
 

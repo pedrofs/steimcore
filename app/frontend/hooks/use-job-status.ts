@@ -4,13 +4,18 @@ import { useEffect, useRef } from "react"
 const TERMINAL_STATUSES = new Set(["completed", "failed"])
 const POLL_INTERVAL_MS = 2000
 
-export function useJobStatus(status: string, propsToRefresh: string[]) {
+export function useJobStatus(
+  status: string,
+  propsToRefresh: string[],
+  options: { forceActive?: boolean } = {},
+) {
   const isTerminal = TERMINAL_STATUSES.has(status)
+  const shouldPoll = !isTerminal || options.forceActive === true
   const propsRef = useRef(propsToRefresh)
   propsRef.current = propsToRefresh
 
   useEffect(() => {
-    if (isTerminal) return
+    if (!shouldPoll) return
     if (typeof document === "undefined") return
 
     let timer: number | null = null
@@ -31,5 +36,5 @@ export function useJobStatus(status: string, propsToRefresh: string[]) {
       if (timer != null) window.clearInterval(timer)
       document.removeEventListener("visibilitychange", onVisibilityChange)
     }
-  }, [isTerminal])
+  }, [shouldPoll])
 }

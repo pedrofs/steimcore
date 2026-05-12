@@ -145,6 +145,7 @@ module PeriodizationVersion::Generatable
 
   def generate!
     return unless status == "generating"
+    return if voice_recording&.cancelled?
 
     case voice_recording&.kind
     when "periodization_edit_workout"

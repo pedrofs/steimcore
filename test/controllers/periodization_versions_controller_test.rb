@@ -129,7 +129,60 @@ class PeriodizationVersionsControllerTest < ActionDispatch::IntegrationTest
     assert PeriodizationVersion.exists?(@version.id)
   end
 
+  test "destroy cancels every in-flight recording targeting the draft, in one transaction" do
+    apply_completed_plan
+    rec_a = build_in_flight_recording(kind: "periodization_edit_periodization", target_version: @version)
+    rec_b = build_in_flight_recording(kind: "periodization_edit_periodization", target_version: @version)
+    completed_recording = VoiceRecording.create!(
+      organization: @organization, student: @student, trainer: @user,
+      kind: "periodization_edit_periodization", target_periodization_version: @version
+    )
+    completed_recording.update_columns(status: "completed")
+    sign_in_as(@user)
+
+    delete periodization_version_path(@version)
+
+    assert_redirected_to student_path(@student)
+    assert_not PeriodizationVersion.exists?(@version.id)
+    assert_equal "cancelled", rec_a.reload.status
+    assert_equal "cancelled", rec_b.reload.status
+    assert_equal "completed", completed_recording.reload.status, "terminal recordings are not touched"
+  end
+
+  test "show exposes voice_in_flight true when a non-terminal recording targets the version" do
+    apply_completed_plan
+    build_in_flight_recording(kind: "periodization_edit_periodization", target_version: @version)
+    sign_in_as(@user)
+
+    get periodization_version_path(@version)
+
+    assert_response :success
+    assert_equal true, inertia.props[:voice_in_flight]
+  end
+
+  test "show exposes voice_in_flight false when no non-terminal recording targets the version" do
+    apply_completed_plan
+    completed_recording = VoiceRecording.create!(
+      organization: @organization, student: @student, trainer: @user,
+      kind: "periodization_edit_periodization", target_periodization_version: @version
+    )
+    completed_recording.update_columns(status: "completed")
+    sign_in_as(@user)
+
+    get periodization_version_path(@version)
+
+    assert_response :success
+    assert_equal false, inertia.props[:voice_in_flight]
+  end
+
   private
+    def build_in_flight_recording(kind:, target_version:)
+      VoiceRecording.create!(
+        organization: @organization, student: @student, trainer: @user,
+        kind: kind, target_periodization_version: target_version
+      )
+    end
+
     def exercise_block(name, prescription)
       { "kind" => "exercise", "name" => name, "prescription" => prescription }
     end

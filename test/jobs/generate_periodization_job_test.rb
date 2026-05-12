@@ -140,6 +140,23 @@ class GeneratePeriodizationJobTest < ActiveJob::TestCase
     assert_equal "Anthropic indisponível", @version.error_message
   end
 
+  test "is a no-op when the owning voice_recording is :cancelled (no LLM call, no version mutation)" do
+    @recording.cancel!
+    original_body_md = @version.body_md
+    original_workout_count = @version.workouts.count
+
+    called = false
+    RubyLLM.stub :chat, ->(*) { called = true; Object.new } do
+      GeneratePeriodizationJob.perform_now(@version)
+    end
+
+    assert_not called, "LLM must not be called when recording is :cancelled"
+    @version.reload
+    assert_equal "generating", @version.status, "version status stays unchanged"
+    assert_equal original_body_md, @version.body_md
+    assert_equal original_workout_count, @version.workouts.count
+  end
+
   test "is a no-op on a non-generating version" do
     @version.update!(error_message: "boom")
     @version.transition_to!(:failed)

@@ -321,6 +321,45 @@ class VoiceRecordingTest < ActiveSupport::TestCase
     assert_nil recording.reload.dismissed_at
   end
 
+  test "cancel! from any non-terminal state moves to :cancelled" do
+    %i[pending transcribing transcribed generating].each do |from|
+      recording = build_recording
+      walk_recording_to!(recording, from)
+
+      recording.cancel!
+
+      assert_equal "cancelled", recording.reload.status, "cancel! from #{from} must reach :cancelled"
+    end
+  end
+
+  test "cancel! is idempotent on terminal states (completed, failed, cancelled)" do
+    completed = build_recording
+    walk_recording_to!(completed, :generating)
+    completed.transition_to!(:completed)
+    completed.cancel!
+    assert_equal "completed", completed.reload.status
+
+    failed = build_recording
+    failed.transition_to!(:transcribing)
+    failed.fail!("boom")
+    failed.cancel!
+    assert_equal "failed", failed.reload.status
+
+    cancelled = build_recording
+    cancelled.cancel!
+    assert_equal "cancelled", cancelled.reload.status
+    assert_nothing_raised { cancelled.cancel! }
+    assert_equal "cancelled", cancelled.reload.status
+  end
+
+  test "cancelled? reports the current status accurately" do
+    recording = build_recording
+    refute recording.cancelled?
+
+    recording.cancel!
+    assert recording.reload.cancelled?
+  end
+
   test "exposes the associated periodization_version through has_one" do
     recording = VoiceRecording.create!(
       organization: @organization, student: @student, trainer: @trainer,
@@ -362,6 +401,24 @@ class VoiceRecordingTest < ActiveSupport::TestCase
   end
 
   private
+    def walk_recording_to!(recording, state)
+      case state
+      when :pending
+        # already there
+      when :transcribing
+        recording.transition_to!(:transcribing)
+      when :transcribed
+        recording.transition_to!(:transcribing)
+        recording.transition_to!(:transcribed)
+      when :generating
+        recording.transition_to!(:transcribing)
+        recording.transition_to!(:transcribed)
+        recording.transition_to!(:generating)
+      else
+        raise ArgumentError, "unknown state #{state}"
+      end
+    end
+
     def build_recording(**overrides)
       VoiceRecording.create!(
         organization: @organization,

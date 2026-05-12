@@ -4,6 +4,7 @@ class VoiceRecording < ApplicationRecord
   include AnamnesisRegeneratable
   include Retryable
   include Dismissable
+  include Cancellable
 
   KINDS = %w[anamnesis periodization_create periodization_edit_workout periodization_edit_periodization].freeze
 
@@ -23,12 +24,13 @@ class VoiceRecording < ApplicationRecord
   validates :target_workout, presence: true, if: :workout_edit?
 
   job_statuses transitions: {
-    pending:      %i[transcribing failed],
-    transcribing: %i[transcribed failed],
-    transcribed:  %i[generating failed],
-    generating:   %i[completed failed],
+    pending:      %i[transcribing failed cancelled],
+    transcribing: %i[transcribed failed cancelled],
+    transcribed:  %i[generating failed cancelled],
+    generating:   %i[completed failed cancelled],
     completed:    [],
-    failed:       %i[pending transcribing generating]
+    failed:       %i[pending transcribing generating],
+    cancelled:    []
   }
 
   after_initialize :set_default_status, if: :new_record?
