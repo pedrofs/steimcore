@@ -21,7 +21,7 @@ class TrainingSessionsControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_equal "training_sessions/index", inertia.component
     assert_equal [], inertia.props[:training_sessions]
-    assert_equal [], inertia.props[:picker_candidates]
+    assert_kind_of Array, inertia.props[:picker_candidates]
     assert_equal "trainer", inertia.props[:scope]
   end
 
@@ -133,40 +133,52 @@ class TrainingSessionsControllerTest < ActionDispatch::IntegrationTest
     assert_equal @user.id, first[:trainer_id]
   end
 
-  test "index lists eligible students in picker_candidates and excludes ineligible ones" do
+  test "index lists eligible students in picker_candidates with eligible flag" do
     make_eligible(@alice, workout_count: 2)
-    # Bob has no periodization → ineligible.
 
     sign_in_as(@user)
     get training_sessions_path
 
     candidates = inertia.props[:picker_candidates]
-    candidate_ids = candidates.map { |c| c[:id] }
-
-    assert_includes candidate_ids, @alice.id
-    assert_not_includes candidate_ids, @bob.id
+    alice = candidates.find { |c| c[:id] == @alice.id }
+    assert alice[:eligible]
+    assert_nil alice[:ineligible_reason]
   end
 
-  test "picker_candidates excludes students who already have an active session" do
+  test "picker_candidates marks students who already have an active session with already_active reason" do
     make_eligible(@alice, workout_count: 1)
     @user.training_sessions.start_for!(@alice)
 
     sign_in_as(@user)
     get training_sessions_path
 
-    candidate_ids = inertia.props[:picker_candidates].map { |c| c[:id] }
-    assert_not_includes candidate_ids, @alice.id
+    candidates = inertia.props[:picker_candidates]
+    alice = candidates.find { |c| c[:id] == @alice.id }
+    assert_not alice[:eligible]
+    assert_equal "already_active", alice[:ineligible_reason]
   end
 
-  test "picker_candidates excludes a student whose current version is not completed" do
+  test "picker_candidates marks a student whose current version is not completed with generating reason" do
     make_eligible(@alice, workout_count: 1)
     @alice.active_periodization.current_version.update_columns(status: "generating")
 
     sign_in_as(@user)
     get training_sessions_path
 
-    candidate_ids = inertia.props[:picker_candidates].map { |c| c[:id] }
-    assert_not_includes candidate_ids, @alice.id
+    candidates = inertia.props[:picker_candidates]
+    alice = candidates.find { |c| c[:id] == @alice.id }
+    assert_not alice[:eligible]
+    assert_equal "generating", alice[:ineligible_reason]
+  end
+
+  test "picker_candidates marks a student with no periodization as no_periodization" do
+    sign_in_as(@user)
+    get training_sessions_path
+
+    candidates = inertia.props[:picker_candidates]
+    bob = candidates.find { |c| c[:id] == @bob.id }
+    assert_not bob[:eligible]
+    assert_equal "no_periodization", bob[:ineligible_reason]
   end
 
   test "picker_candidates excludes archived students" do
@@ -180,14 +192,31 @@ class TrainingSessionsControllerTest < ActionDispatch::IntegrationTest
     assert_not_includes candidate_ids, @alice.id
   end
 
-  test "picker_candidates excludes a student whose periodization has no workouts" do
+  test "picker_candidates marks a student whose periodization has no workouts as no_periodization" do
     make_eligible(@alice, workout_count: 0)
 
     sign_in_as(@user)
     get training_sessions_path
 
-    candidate_ids = inertia.props[:picker_candidates].map { |c| c[:id] }
-    assert_not_includes candidate_ids, @alice.id
+    candidates = inertia.props[:picker_candidates]
+    alice = candidates.find { |c| c[:id] == @alice.id }
+    assert_not alice[:eligible]
+    assert_equal "no_periodization", alice[:ineligible_reason]
+  end
+
+  test "index session payload includes stale flag derived from STALE_CUTOFF" do
+    make_eligible(@alice, workout_count: 1)
+    make_eligible(@bob, workout_count: 1)
+    fresh = @user.training_sessions.start_for!(@alice)
+    stale_session = @user.training_sessions.start_for!(@bob)
+    stale_session.update_columns(created_at: (TrainingSession::Finishable::STALE_CUTOFF + 1.hour).ago)
+
+    sign_in_as(@user)
+    get training_sessions_path
+
+    payloads = inertia.props[:training_sessions].index_by { |s| s[:id] }
+    assert_not payloads[fresh.id][:stale]
+    assert payloads[stale_session.id][:stale]
   end
 
   test "create starts a session for an eligible student and redirects back" do
@@ -217,7 +246,7 @@ class TrainingSessionsControllerTest < ActionDispatch::IntegrationTest
     assert_match(/periodiza/i, flash[:alert] || "")
   end
 
-  test "create redirects with a flash alert when the student already has an active session" do
+  test "create surfaces the uniqueness conflict toast when the student already has an active session" do
     make_eligible(@alice, workout_count: 1)
     @user.training_sessions.start_for!(@alice)
 
@@ -228,6 +257,8 @@ class TrainingSessionsControllerTest < ActionDispatch::IntegrationTest
     end
 
     assert_redirected_to training_sessions_path
+    follow_redirect!
+    assert_match(/em sessão ativa.*Todas/i, flash[:alert] || "")
   end
 
   private

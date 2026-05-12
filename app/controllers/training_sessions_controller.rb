@@ -34,7 +34,8 @@ class TrainingSessionsController < InertiaController
     end
 
     def handle_duplicate_active(_exception)
-      redirect_to training_sessions_path, alert: "Aluno já tem uma sessão ativa."
+      redirect_to training_sessions_path,
+                  alert: "Aluno já está em sessão ativa. Ative 'Todas' para visualizar."
     end
 
     def resolved_scope
@@ -53,15 +54,38 @@ class TrainingSessionsController < InertiaController
       active_student_ids = TrainingSession.active
                                           .joins(:student)
                                           .where(students: { organization_id: current_organization.id })
-                                          .select(:student_id)
+                                          .pluck(:student_id)
+                                          .to_set
 
       current_organization.students.unarchived
-                          .joins(active_periodization: { current_version: :workouts })
-                          .where(periodization_versions: { status: "completed" })
-                          .where.not(id: active_student_ids)
-                          .distinct
+                          .includes(active_periodization: { current_version: :workouts })
                           .order(:name)
-                          .map { |student| { id: student.id, name: student.name } }
+                          .map { |student| picker_candidate_props(student, active_student_ids) }
+    end
+
+    def picker_candidate_props(student, active_student_ids)
+      reason = ineligibility_reason(student, active_student_ids)
+      {
+        id: student.id,
+        name: student.name,
+        eligible: reason.nil?,
+        ineligible_reason: reason
+      }
+    end
+
+    def ineligibility_reason(student, active_student_ids)
+      return "already_active" if active_student_ids.include?(student.id)
+
+      version = student.active_periodization&.current_version
+      return "no_periodization" if version.nil?
+      return "generating" if version.status != "completed"
+      return "no_periodization" if version.workouts.empty?
+
+      nil
+    end
+
+    def stale_cutoff
+      @stale_cutoff ||= TrainingSession::Finishable::STALE_CUTOFF.ago
     end
 
     def training_session_props(session)
@@ -75,6 +99,7 @@ class TrainingSessionsController < InertiaController
         completed_block_indices: session.progress,
         finished_at: session.finished_at,
         created_at: session.created_at,
+        stale: session.created_at < stale_cutoff,
         trainer_id: session.trainer_id,
         trainer_name: session.trainer.email_address.split("@").first,
         swap_options: session.eligible_swap_workouts.map { |w| { id: w.id, name: w.name, position: w.position } }

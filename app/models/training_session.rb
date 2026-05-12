@@ -28,8 +28,6 @@ class TrainingSession < ApplicationRecord
     workout = next_workout_for(student)
     raise "Periodização não tem treinos" if workout.nil?
 
-    raise "Aluno já tem uma sessão ativa" if student.training_sessions.active.exists?
-
     transaction do
       create!(
         student: student,

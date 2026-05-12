@@ -75,12 +75,11 @@ class TrainingSession::StartForTest < ActiveSupport::TestCase
     assert_match(/treino/i, error.message)
   end
 
-  test "start_for! raises when student already has an active session" do
+  test "start_for! raises RecordNotUnique when student already has an active session" do
     make_eligible(@alice, workout_count: 1)
     @trainer.training_sessions.start_for!(@alice)
 
-    error = assert_raises(RuntimeError) { @trainer.training_sessions.start_for!(@alice) }
-    assert_match(/ativa/i, error.message)
+    assert_raises(ActiveRecord::RecordNotUnique) { @trainer.training_sessions.start_for!(@alice) }
   end
 
   test "DB partial unique index blocks a second active session for the same student" do

@@ -1,5 +1,5 @@
 import { Head, Link, router, usePage } from "@inertiajs/react"
-import { PlusIcon, XIcon } from "lucide-react"
+import { ClockIcon, PlusIcon, XIcon } from "lucide-react"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import ReactMarkdown from "react-markdown"
 
@@ -11,6 +11,8 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet"
 import { cn } from "@/lib/utils"
+
+import { initials, paletteColorFor } from "./avatar"
 
 type ExerciseBlock = {
   kind: "exercise"
@@ -50,14 +52,25 @@ type TrainingSessionRow = {
   completedBlockIndices: string[]
   finishedAt: string | null
   createdAt: string
+  stale: boolean
   trainerId: number
   trainerName: string
   swapOptions: SwapOption[]
 }
 
+type IneligibleReason = "no_periodization" | "generating" | "already_active"
+
+const INELIGIBLE_REASON_LABELS: Record<IneligibleReason, string> = {
+  no_periodization: "Sem treino ativo",
+  generating: "Treino sendo gerado",
+  already_active: "Em sessão ativa",
+}
+
 type PickerCandidate = {
   id: string
   name: string
+  eligible: boolean
+  ineligibleReason: IneligibleReason | null
 }
 
 type SwapOption = {
@@ -73,31 +86,6 @@ type Props = {
 }
 
 type Scope = "trainer" | "org"
-
-const AVATAR_PALETTE = [
-  "bg-rose-500",
-  "bg-amber-500",
-  "bg-emerald-500",
-  "bg-sky-500",
-  "bg-violet-500",
-  "bg-fuchsia-500",
-  "bg-orange-500",
-  "bg-teal-500",
-]
-
-function initials(name: string) {
-  return name
-    .split(/\s+/)
-    .filter((s) => s.length > 0)
-    .map((p) => p[0])
-    .slice(0, 2)
-    .join("")
-    .toUpperCase()
-}
-
-function paletteColorFor(index: number) {
-  return AVATAR_PALETTE[index % AVATAR_PALETTE.length]
-}
 
 const TOGGLE_RELOAD = {
   only: ["trainingSessions"],
@@ -286,6 +274,7 @@ export default function TrainingSessionsIndex({
 
             {focused && (
               <FocusedView
+                key={focused.id}
                 session={focused}
                 doneCount={doneCountFor(focused)}
                 isBlockDone={(i) => isBlockDone(focused, i)}
@@ -371,7 +360,7 @@ function AvatarStrip({
         <ScopeToggle scope={scope} />
       </div>
       <div className="flex gap-2 overflow-x-auto px-3 py-3 pr-12">
-        {sessions.map((session, index) => {
+        {sessions.map((session) => {
           const isActive = session.id === focusedId
           const done = doneCountFor(session)
           const total = session.blocks.length
@@ -386,18 +375,29 @@ function AvatarStrip({
                 isActive
                   ? "border-neutral-900 bg-neutral-900 text-white shadow"
                   : "border-neutral-200 bg-white text-neutral-700",
+                session.stale && "opacity-60",
               )}
             >
-              <ProgressRing pct={pct} active={isActive}>
-                <div
-                  className={cn(
-                    "flex h-11 w-11 items-center justify-center rounded-full text-sm font-semibold text-white",
-                    paletteColorFor(index),
-                  )}
-                >
-                  {initials(session.student.name)}
-                </div>
-              </ProgressRing>
+              <div className="relative">
+                <ProgressRing pct={pct} active={isActive} stale={session.stale}>
+                  <div
+                    className={cn(
+                      "flex h-11 w-11 items-center justify-center rounded-full text-sm font-semibold text-white",
+                      paletteColorFor(session.student.id),
+                    )}
+                  >
+                    {initials(session.student.name)}
+                  </div>
+                </ProgressRing>
+                {session.stale && (
+                  <span
+                    aria-label="Sessão antiga"
+                    className="absolute -right-0.5 -bottom-0.5 inline-flex size-4 items-center justify-center rounded-full bg-neutral-700 text-white shadow"
+                  >
+                    <ClockIcon className="size-3" />
+                  </span>
+                )}
+              </div>
               <span className="text-[10px] leading-none">
                 {session.student.name.split(/\s+/)[0]}
               </span>
@@ -429,13 +429,15 @@ function AvatarStrip({
 function ProgressRing({
   pct,
   active,
+  stale = false,
   children,
 }: {
   pct: number
   active: boolean
+  stale?: boolean
   children: React.ReactNode
 }) {
-  const ringColor = active ? "rgb(16 185 129)" : "rgb(16 185 129)"
+  const ringColor = stale ? "rgb(156 163 175)" : "rgb(16 185 129)"
   const trackColor = active ? "rgba(255,255,255,0.18)" : "rgb(229 231 235)"
   const angle = Math.max(0, Math.min(360, Math.round((pct / 100) * 360)))
   return (
@@ -469,23 +471,41 @@ function FocusedView({
 }) {
   const total = session.blocks.length
   const pct = total > 0 ? Math.round((doneCount / total) * 100) : 0
+  const [staleDismissed, setStaleDismissed] = useState(false)
 
   return (
     <div className="flex-1 overflow-y-auto px-4 py-4 pb-24">
+      {session.stale && !staleDismissed && (
+        <StaleBanner
+          createdAt={session.createdAt}
+          onFinish={onFinish}
+          onDismiss={() => setStaleDismissed(true)}
+        />
+      )}
       <div className="mb-4 flex items-start justify-between gap-3">
-        <div className="flex flex-col">
-          <h1 className="text-lg font-semibold text-neutral-900">
-            {session.student.name}
-          </h1>
-          <p className="text-sm text-neutral-600">{session.workoutName}</p>
-          {showAttribution && (
+        <div className="flex items-start gap-3">
+          <div
+            className={cn(
+              "flex size-10 shrink-0 items-center justify-center rounded-full text-sm font-semibold text-white",
+              paletteColorFor(session.student.id),
+            )}
+          >
+            {initials(session.student.name)}
+          </div>
+          <div className="flex flex-col">
+            <h1 className="text-lg font-semibold text-neutral-900">
+              {session.student.name}
+            </h1>
+            <p className="text-sm text-neutral-600">{session.workoutName}</p>
+            {showAttribution && (
+              <p className="text-xs text-neutral-500">
+                Iniciado por {session.trainerName}
+              </p>
+            )}
             <p className="text-xs text-neutral-500">
-              Iniciado por {session.trainerName}
+              {doneCount} de {total} blocos · {pct}%
             </p>
-          )}
-          <p className="text-xs text-neutral-500">
-            {doneCount} de {total} blocos · {pct}%
-          </p>
+          </div>
         </div>
         <div className="flex flex-col items-end gap-2">
           <Button
@@ -525,6 +545,39 @@ function FocusedView({
           ))}
         </div>
       )}
+    </div>
+  )
+}
+
+function StaleBanner({
+  createdAt,
+  onFinish,
+  onDismiss,
+}: {
+  createdAt: string
+  onFinish: () => void
+  onDismiss: () => void
+}) {
+  const hours = Math.max(1, Math.round((Date.now() - Date.parse(createdAt)) / 3_600_000))
+  return (
+    <div
+      role="status"
+      className="mb-3 flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-amber-900"
+    >
+      <ClockIcon className="mt-0.5 size-5 shrink-0" />
+      <div className="flex flex-1 flex-col gap-2">
+        <p className="text-sm">
+          Esta sessão foi iniciada há {hours} {hours === 1 ? "hora" : "horas"}. Finalizar?
+        </p>
+        <div className="flex gap-2">
+          <Button type="button" size="sm" onClick={onFinish}>
+            Finalizar
+          </Button>
+          <Button type="button" size="sm" variant="ghost" onClick={onDismiss}>
+            Mais tarde
+          </Button>
+        </div>
+      </div>
     </div>
   )
 }
@@ -646,19 +699,34 @@ function PickerSheet({
         <div className="flex flex-col gap-1 p-4 pt-0">
           {candidates.length === 0 ? (
             <p className="rounded-xl border border-dashed bg-muted/20 p-6 text-center text-sm text-muted-foreground">
-              Nenhum aluno elegível no momento.
+              Nenhum aluno disponível.
             </p>
           ) : (
-            candidates.map((candidate) => (
-              <button
-                key={candidate.id}
-                type="button"
-                onClick={() => onPick(candidate.id)}
-                className="flex h-12 items-center justify-between rounded-xl border border-transparent bg-white px-3 text-left text-sm font-medium text-neutral-900 transition hover:bg-muted active:scale-[0.98]"
-              >
-                {candidate.name}
-              </button>
-            ))
+            candidates.map((candidate) =>
+              candidate.eligible ? (
+                <button
+                  key={candidate.id}
+                  type="button"
+                  onClick={() => onPick(candidate.id)}
+                  className="flex h-12 items-center justify-between rounded-xl border border-transparent bg-white px-3 text-left text-sm font-medium text-neutral-900 transition hover:bg-muted active:scale-[0.98]"
+                >
+                  {candidate.name}
+                </button>
+              ) : (
+                <div
+                  key={candidate.id}
+                  aria-disabled="true"
+                  className="flex min-h-12 flex-col justify-center rounded-xl border border-transparent bg-neutral-50 px-3 py-2 text-left text-sm text-neutral-400"
+                >
+                  <span className="font-medium">{candidate.name}</span>
+                  {candidate.ineligibleReason && (
+                    <span className="text-xs text-neutral-400">
+                      {INELIGIBLE_REASON_LABELS[candidate.ineligibleReason]}
+                    </span>
+                  )}
+                </div>
+              ),
+            )
           )}
         </div>
       </SheetContent>
