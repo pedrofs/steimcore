@@ -64,7 +64,8 @@ class TrainingSessionsController < InertiaController
         completed_block_indices: session.progress,
         finished_at: session.finished_at,
         created_at: session.created_at,
-        trainer_id: session.trainer_id
+        trainer_id: session.trainer_id,
+        swap_options: session.eligible_swap_workouts.map { |w| { id: w.id, name: w.name, position: w.position } }
       }
     end
 end

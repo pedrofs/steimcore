@@ -51,11 +51,18 @@ type TrainingSessionRow = {
   finishedAt: string | null
   createdAt: string
   trainerId: number
+  swapOptions: SwapOption[]
 }
 
 type PickerCandidate = {
   id: string
   name: string
+}
+
+type SwapOption = {
+  id: string
+  name: string
+  position: number
 }
 
 type Props = {
@@ -106,6 +113,7 @@ export default function TrainingSessionsIndex({
   pickerCandidates,
 }: Props) {
   const [pickerOpen, setPickerOpen] = useState(false)
+  const [swapOpen, setSwapOpen] = useState(false)
   const [focusedId, setFocusedId] = useState<string | null>(
     () => trainingSessions[0]?.id ?? null,
   )
@@ -224,6 +232,16 @@ export default function TrainingSessionsIndex({
     )
   }
 
+  function swapFocusedTo(workoutId: string) {
+    if (!focused) return
+    setSwapOpen(false)
+    router.post(
+      `/training_sessions/${focused.id}/workout_swap`,
+      { workout_id: workoutId },
+      TOGGLE_RELOAD,
+    )
+  }
+
   return (
     <>
       <Head title="Sessões ao vivo" />
@@ -266,6 +284,7 @@ export default function TrainingSessionsIndex({
                 isBlockDone={(i) => isBlockDone(focused, i)}
                 onToggleBlock={(i) => toggleBlock(focused, i)}
                 onFinish={finishFocused}
+                onSwap={() => setSwapOpen(true)}
               />
             )}
           </>
@@ -277,6 +296,16 @@ export default function TrainingSessionsIndex({
           candidates={pickerCandidates}
           onPick={addStudent}
         />
+
+        {focused && (
+          <SwapSheet
+            open={swapOpen}
+            onOpenChange={setSwapOpen}
+            session={focused}
+            progressIsEmpty={doneCountFor(focused) === 0}
+            onSwap={swapFocusedTo}
+          />
+        )}
       </div>
     </>
   )
@@ -383,12 +412,14 @@ function FocusedView({
   isBlockDone,
   onToggleBlock,
   onFinish,
+  onSwap,
 }: {
   session: TrainingSessionRow
   doneCount: number
   isBlockDone: (index: number) => boolean
   onToggleBlock: (index: number) => void
   onFinish: () => void
+  onSwap: () => void
 }) {
   const total = session.blocks.length
   const pct = total > 0 ? Math.round((doneCount / total) * 100) : 0
@@ -405,13 +436,26 @@ function FocusedView({
             {doneCount} de {total} blocos · {pct}%
           </p>
         </div>
-        <Button
-          type="button"
-          variant={session.finishedAt ? "outline" : "default"}
-          onClick={onFinish}
-        >
-          {session.finishedAt ? "Reabrir" : "Finalizar"}
-        </Button>
+        <div className="flex flex-col items-end gap-2">
+          <Button
+            type="button"
+            variant={session.finishedAt ? "outline" : "default"}
+            onClick={onFinish}
+          >
+            {session.finishedAt ? "Reabrir" : "Finalizar"}
+          </Button>
+          {!session.finishedAt && session.swapOptions.length > 0 && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={onSwap}
+              className="text-xs"
+            >
+              Trocar treino
+            </Button>
+          )}
+        </div>
       </div>
 
       {total === 0 ? (
@@ -566,6 +610,109 @@ function PickerSheet({
             ))
           )}
         </div>
+      </SheetContent>
+    </Sheet>
+  )
+}
+
+function SwapSheet({
+  open,
+  onOpenChange,
+  session,
+  progressIsEmpty,
+  onSwap,
+}: {
+  open: boolean
+  onOpenChange: (next: boolean) => void
+  session: TrainingSessionRow
+  progressIsEmpty: boolean
+  onSwap: (workoutId: string) => void
+}) {
+  const [pendingWorkoutId, setPendingWorkoutId] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!open) setPendingWorkoutId(null)
+  }, [open])
+
+  const pendingWorkout = pendingWorkoutId
+    ? session.swapOptions.find((w) => w.id === pendingWorkoutId)
+    : null
+
+  function handlePick(workoutId: string) {
+    if (workoutId === session.workoutId) return
+    if (progressIsEmpty) {
+      onSwap(workoutId)
+    } else {
+      setPendingWorkoutId(workoutId)
+    }
+  }
+
+  function confirm() {
+    if (pendingWorkoutId) onSwap(pendingWorkoutId)
+  }
+
+  return (
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent side="bottom" className="max-h-[80vh] overflow-y-auto">
+        <SheetHeader>
+          <SheetTitle>
+            {pendingWorkout ? "Confirmar troca" : "Trocar treino"}
+          </SheetTitle>
+        </SheetHeader>
+        {pendingWorkout ? (
+          <div className="flex flex-col gap-4 p-4 pt-0">
+            <p className="text-sm text-neutral-700">
+              O progresso atual será perdido. Continuar?
+            </p>
+            <p className="text-xs text-neutral-500">
+              Novo treino: <span className="font-medium">{pendingWorkout.name}</span>
+            </p>
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                className="flex-1"
+                onClick={() => setPendingWorkoutId(null)}
+              >
+                Cancelar
+              </Button>
+              <Button type="button" className="flex-1" onClick={confirm}>
+                Confirmar
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-1 p-4 pt-0">
+            {session.swapOptions.length === 0 ? (
+              <p className="rounded-xl border border-dashed bg-muted/20 p-6 text-center text-sm text-muted-foreground">
+                Nenhum treino disponível para troca.
+              </p>
+            ) : (
+              session.swapOptions.map((option) => {
+                const isCurrent = option.id === session.workoutId
+                return (
+                  <button
+                    key={option.id}
+                    type="button"
+                    onClick={() => handlePick(option.id)}
+                    disabled={isCurrent}
+                    className={cn(
+                      "flex h-12 items-center justify-between rounded-xl border border-transparent px-3 text-left text-sm font-medium transition",
+                      isCurrent
+                        ? "bg-muted/40 text-muted-foreground"
+                        : "bg-white text-neutral-900 hover:bg-muted active:scale-[0.98]",
+                    )}
+                  >
+                    <span>{option.name}</span>
+                    {isCurrent && (
+                      <span className="text-xs text-muted-foreground">Atual</span>
+                    )}
+                  </button>
+                )
+              })
+            )}
+          </div>
+        )}
       </SheetContent>
     </Sheet>
   )
