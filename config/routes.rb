@@ -25,6 +25,7 @@ Rails.application.routes.draw do
 
   resources :periodizations, only: [] do
     resource :edit, only: :create, module: :periodizations
+    resource :inline_edit, only: :create, module: :periodizations
   end
 
   # Redirect to localhost from 127.0.0.1 to use same IP address with Vite server

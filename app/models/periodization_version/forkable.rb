@@ -16,6 +16,11 @@
 #                    replaced from the patch. Previous workouts are NOT carried
 #                    forward — the AI returns the full updated plan, including
 #                    any add/remove/reorder.
+#   :clone         — byte-identical copy of parent_version. No patch, no LLM.
+#                    Entry point from a promoted version into the inline editor:
+#                    forks a fresh draft the trainer can hand-edit. The new
+#                    version is born :completed (no async generation step) and
+#                    has no voice_recording.
 module PeriodizationVersion::Forkable
   extend ActiveSupport::Concern
 
@@ -31,6 +36,10 @@ module PeriodizationVersion::Forkable
     when :periodization
       raise ArgumentError, ":periodization scope requires parent_version" if parent_version.nil?
       apply_full_plan!(patch, trainer: trainer, voice_recording: voice_recording)
+    when :clone
+      raise ArgumentError, ":clone scope expects a nil patch" unless patch.nil?
+      raise ArgumentError, ":clone scope requires parent_version" if parent_version.nil?
+      apply_clone!(trainer: trainer)
     else
       raise ArgumentError, "unknown fork scope #{scope.inspect}"
     end
@@ -96,6 +105,30 @@ module PeriodizationVersion::Forkable
         end
 
         save!
+      end
+    end
+
+    def apply_clone!(trainer:)
+      transaction do
+        assign_attributes(
+          body_md: parent_version.body_md.to_s,
+          trainer: trainer,
+          voice_recording: nil
+        )
+
+        workouts.destroy_all if workouts.loaded? || persisted?
+
+        parent_version.workouts.order(:position).each do |parent_workout|
+          workouts.build(
+            name: parent_workout.name,
+            blocks: parent_workout.blocks,
+            position: parent_workout.position
+          )
+        end
+
+        save!
+        transition_to!(:generating)
+        complete!
       end
     end
 

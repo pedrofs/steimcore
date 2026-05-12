@@ -254,6 +254,67 @@ class PeriodizationVersion::ForkableTest < ActiveSupport::TestCase
     assert_equal "Foo", workout.blocks.first["name"]
   end
 
+  # --- :clone scope ---
+
+  test "clone scope copies body_md and workouts byte-identical from parent and is born :completed" do
+    setup_parent_with_three_workouts!
+
+    new_version = build_child_version(voice_recording: nil)
+
+    new_version.fork_with!(scope: :clone, patch: nil, trainer: @trainer)
+
+    new_version.reload
+    assert_equal @parent_version.body_md, new_version.body_md
+
+    by_position = new_version.workouts.order(:position).index_by(&:position)
+    assert_equal [ 1, 2, 3 ], by_position.keys
+    assert_equal "A", by_position[1].name
+    assert_equal "B", by_position[2].name
+    assert_equal "C", by_position[3].name
+
+    @parent_version.workouts.order(:position).each do |parent_w|
+      child_w = by_position[parent_w.position]
+      assert_equal parent_w.name, child_w.name
+      assert_equal parent_w.blocks, child_w.blocks
+    end
+  end
+
+  test "clone scope sets parent_version_id, trainer_id, status :completed, and voice_recording nil" do
+    setup_parent_with_three_workouts!
+    other_trainer = users(:two)
+    new_version = build_child_version(voice_recording: nil, trainer: other_trainer)
+
+    new_version.fork_with!(scope: :clone, patch: nil, trainer: other_trainer)
+
+    new_version.reload
+    assert_equal @parent_version.id, new_version.parent_version_id
+    assert_equal other_trainer.id, new_version.trainer_id
+    assert_equal "completed", new_version.status
+    assert_nil new_version.voice_recording_id
+  end
+
+  test "clone scope raises ArgumentError if a non-nil patch is supplied" do
+    setup_parent_with_three_workouts!
+    new_version = build_child_version
+
+    assert_raises(ArgumentError) do
+      new_version.fork_with!(scope: :clone, patch: { body_md: "x" }, trainer: @trainer)
+    end
+  end
+
+  test "clone scope requires parent_version" do
+    orphan = @periodization.versions.build(
+      trainer: @trainer,
+      voice_recording: nil,
+      parent_version: nil
+    )
+    orphan.save!
+
+    assert_raises(ArgumentError) do
+      orphan.fork_with!(scope: :clone, patch: nil, trainer: @trainer)
+    end
+  end
+
   # --- :periodization scope ---
 
   test "periodization scope replaces body_md and the entire workouts array; previous workouts are not retained" do

@@ -74,6 +74,17 @@ export default function ShowPeriodization({ student, periodization }: Props) {
                 <WandSparklesIcon className="size-4" />
                 Modificar periodização
               </Button>
+              <Button
+                type="button"
+                variant="outline"
+                className="h-11 w-full gap-2 sm:h-10 sm:w-auto"
+                onClick={() =>
+                  router.post(`/periodizations/${periodization.id}/inline_edit`)
+                }
+              >
+                <PencilIcon className="size-4" />
+                Editar inline
+              </Button>
               <PrintButton enabled href={printablePath} />
             </div>
           )}
