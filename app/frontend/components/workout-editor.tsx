@@ -1,4 +1,6 @@
 import { useForm } from "@inertiajs/react"
+import { ArrowDownIcon, ArrowUpIcon, PlusIcon, XIcon } from "lucide-react"
+import { useEffect, useMemo, useRef } from "react"
 
 import type { Block, ExerciseBlock, FreeformBlock, GroupBlock, GroupItem } from "@/components/blocks-renderer"
 import { Button } from "@/components/ui/button"
@@ -40,21 +42,86 @@ type Props = {
   blocks: Block[]
   onCancel: () => void
   onSaved: () => void
+  onDirtyChange?: (dirty: boolean) => void
 }
 
-export function WorkoutEditor({ versionId, workoutId, blocks, onCancel, onSaved }: Props) {
+export function WorkoutEditor({
+  versionId,
+  workoutId,
+  blocks,
+  onCancel,
+  onSaved,
+  onDirtyChange,
+}: Props) {
+  const initialEditable = useMemo(() => blocks.map(toEditable), [blocks])
   const form = useForm<{ blocks: EditableBlock[] }>({
-    blocks: blocks.map(toEditable),
+    blocks: initialEditable,
   })
 
   const errorMessages = collectErrorMessages(form.errors)
 
+  const dirty = useMemo(
+    () => !blocksEqual(form.data.blocks, initialEditable),
+    [form.data.blocks, initialEditable],
+  )
+
+  const onDirtyChangeRef = useRef(onDirtyChange)
+  onDirtyChangeRef.current = onDirtyChange
+
+  useEffect(() => {
+    onDirtyChangeRef.current?.(dirty)
+  }, [dirty])
+
+  useEffect(() => {
+    return () => {
+      onDirtyChangeRef.current?.(false)
+    }
+  }, [])
+
+  const setBlocks = (next: EditableBlock[]) => form.setData("blocks", next)
+
   const updateBlock = (index: number, partial: Partial<EditableBlock>) => {
-    const next = form.data.blocks.map((b, i) =>
-      i === index ? ({ ...b, ...partial } as EditableBlock) : b,
+    setBlocks(
+      form.data.blocks.map((b, i) =>
+        i === index ? ({ ...b, ...partial } as EditableBlock) : b,
+      ),
     )
-    form.setData("blocks", next)
   }
+
+  const removeBlock = (index: number) => {
+    setBlocks(form.data.blocks.filter((_, i) => i !== index))
+  }
+
+  const moveBlock = (index: number, direction: -1 | 1) => {
+    const target = index + direction
+    if (target < 0 || target >= form.data.blocks.length) return
+    const next = [...form.data.blocks]
+    ;[next[index], next[target]] = [next[target], next[index]]
+    setBlocks(next)
+  }
+
+  const appendExercise = () =>
+    setBlocks([
+      ...form.data.blocks,
+      { kind: "exercise", name: "", prescription: "", restS: "", notes: "" },
+    ])
+
+  const appendGroup = () =>
+    setBlocks([
+      ...form.data.blocks,
+      {
+        kind: "group",
+        label: "",
+        rounds: "",
+        items: [{ name: "", prescription: "", notes: "" }],
+      },
+    ])
+
+  const appendFreeform = () =>
+    setBlocks([
+      ...form.data.blocks,
+      { kind: "freeform", textMd: "" },
+    ])
 
   const updateGroupItem = (
     blockIndex: number,
@@ -69,6 +136,41 @@ export function WorkoutEditor({ versionId, workoutId, blocks, onCancel, onSaved 
     updateBlock(blockIndex, { items: nextItems } as Partial<EditableGroup>)
   }
 
+  const appendGroupItem = (blockIndex: number) => {
+    const block = form.data.blocks[blockIndex]
+    if (block.kind !== "group") return
+    const nextItems = [
+      ...block.items,
+      { name: "", prescription: "", notes: "" },
+    ]
+    updateBlock(blockIndex, { items: nextItems } as Partial<EditableGroup>)
+  }
+
+  const removeGroupItem = (blockIndex: number, itemIndex: number) => {
+    const block = form.data.blocks[blockIndex]
+    if (block.kind !== "group") return
+    if (block.items.length <= 1) return
+    const nextItems = block.items.filter((_, i) => i !== itemIndex)
+    updateBlock(blockIndex, { items: nextItems } as Partial<EditableGroup>)
+  }
+
+  const moveGroupItem = (
+    blockIndex: number,
+    itemIndex: number,
+    direction: -1 | 1,
+  ) => {
+    const block = form.data.blocks[blockIndex]
+    if (block.kind !== "group") return
+    const target = itemIndex + direction
+    if (target < 0 || target >= block.items.length) return
+    const nextItems = [...block.items]
+    ;[nextItems[itemIndex], nextItems[target]] = [
+      nextItems[target],
+      nextItems[itemIndex],
+    ]
+    updateBlock(blockIndex, { items: nextItems } as Partial<EditableGroup>)
+  }
+
   const submit = (e: React.FormEvent) => {
     e.preventDefault()
     form
@@ -78,6 +180,8 @@ export function WorkoutEditor({ versionId, workoutId, blocks, onCancel, onSaved 
         onSuccess: onSaved,
       })
   }
+
+  const blockCount = form.data.blocks.length
 
   return (
     <form onSubmit={submit} className="flex flex-col gap-4">
@@ -97,13 +201,28 @@ export function WorkoutEditor({ versionId, workoutId, blocks, onCancel, onSaved 
           <BlockEditor
             key={index}
             block={block}
+            isFirst={index === 0}
+            isLast={index === blockCount - 1}
             onChange={(partial) => updateBlock(index, partial)}
+            onMoveUp={() => moveBlock(index, -1)}
+            onMoveDown={() => moveBlock(index, 1)}
+            onRemove={() => removeBlock(index)}
             onItemChange={(itemIndex, partial) =>
               updateGroupItem(index, itemIndex, partial)
             }
+            onItemAppend={() => appendGroupItem(index)}
+            onItemRemove={(itemIndex) => removeGroupItem(index, itemIndex)}
+            onItemMoveUp={(itemIndex) => moveGroupItem(index, itemIndex, -1)}
+            onItemMoveDown={(itemIndex) => moveGroupItem(index, itemIndex, 1)}
           />
         ))}
       </div>
+
+      <AddBlockButtons
+        onAddExercise={appendExercise}
+        onAddGroup={appendGroup}
+        onAddFreeform={appendFreeform}
+      />
 
       <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
         <Button
@@ -122,43 +241,187 @@ export function WorkoutEditor({ versionId, workoutId, blocks, onCancel, onSaved 
   )
 }
 
+function AddBlockButtons({
+  onAddExercise,
+  onAddGroup,
+  onAddFreeform,
+}: {
+  onAddExercise: () => void
+  onAddGroup: () => void
+  onAddFreeform: () => void
+}) {
+  return (
+    <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+      <Button
+        type="button"
+        variant="outline"
+        className="h-11 gap-2 sm:h-10"
+        onClick={onAddExercise}
+      >
+        <PlusIcon className="size-4" />
+        Exercício
+      </Button>
+      <Button
+        type="button"
+        variant="outline"
+        className="h-11 gap-2 sm:h-10"
+        onClick={onAddGroup}
+      >
+        <PlusIcon className="size-4" />
+        Grupo
+      </Button>
+      <Button
+        type="button"
+        variant="outline"
+        className="h-11 gap-2 sm:h-10"
+        onClick={onAddFreeform}
+      >
+        <PlusIcon className="size-4" />
+        Texto livre
+      </Button>
+    </div>
+  )
+}
+
+type BlockEditorProps = {
+  block: EditableBlock
+  isFirst: boolean
+  isLast: boolean
+  onChange: (partial: Partial<EditableBlock>) => void
+  onMoveUp: () => void
+  onMoveDown: () => void
+  onRemove: () => void
+  onItemChange: (itemIndex: number, partial: Partial<EditableGroupItem>) => void
+  onItemAppend: () => void
+  onItemRemove: (itemIndex: number) => void
+  onItemMoveUp: (itemIndex: number) => void
+  onItemMoveDown: (itemIndex: number) => void
+}
+
 function BlockEditor({
   block,
+  isFirst,
+  isLast,
   onChange,
+  onMoveUp,
+  onMoveDown,
+  onRemove,
   onItemChange,
-}: {
-  block: EditableBlock
-  onChange: (partial: Partial<EditableBlock>) => void
-  onItemChange: (itemIndex: number, partial: Partial<EditableGroupItem>) => void
-}) {
+  onItemAppend,
+  onItemRemove,
+  onItemMoveUp,
+  onItemMoveDown,
+}: BlockEditorProps) {
+  const controls = (
+    <BlockControls
+      isFirst={isFirst}
+      isLast={isLast}
+      onMoveUp={onMoveUp}
+      onMoveDown={onMoveDown}
+      onRemove={onRemove}
+    />
+  )
   switch (block.kind) {
     case "exercise":
-      return <ExerciseBlockEditor block={block} onChange={onChange} />
+      return <ExerciseBlockEditor block={block} onChange={onChange} controls={controls} />
     case "group":
       return (
         <GroupBlockEditor
           block={block}
           onChange={onChange}
           onItemChange={onItemChange}
+          onItemAppend={onItemAppend}
+          onItemRemove={onItemRemove}
+          onItemMoveUp={onItemMoveUp}
+          onItemMoveDown={onItemMoveDown}
+          controls={controls}
         />
       )
     case "freeform":
-      return <FreeformBlockEditor block={block} onChange={onChange} />
+      return <FreeformBlockEditor block={block} onChange={onChange} controls={controls} />
   }
+}
+
+function BlockControls({
+  isFirst,
+  isLast,
+  onMoveUp,
+  onMoveDown,
+  onRemove,
+}: {
+  isFirst: boolean
+  isLast: boolean
+  onMoveUp: () => void
+  onMoveDown: () => void
+  onRemove: () => void
+}) {
+  return (
+    <div className="flex items-center gap-1">
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        className="size-8"
+        disabled={isFirst}
+        onClick={onMoveUp}
+        aria-label="Mover bloco para cima"
+      >
+        <ArrowUpIcon className="size-4" />
+      </Button>
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        className="size-8"
+        disabled={isLast}
+        onClick={onMoveDown}
+        aria-label="Mover bloco para baixo"
+      >
+        <ArrowDownIcon className="size-4" />
+      </Button>
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        className="size-8"
+        onClick={onRemove}
+        aria-label="Remover bloco"
+      >
+        <XIcon className="size-4" />
+      </Button>
+    </div>
+  )
+}
+
+function BlockHeader({
+  label,
+  controls,
+}: {
+  label: string
+  controls: React.ReactNode
+}) {
+  return (
+    <div className="mb-2 flex items-center justify-between gap-2">
+      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        {label}
+      </p>
+      {controls}
+    </div>
+  )
 }
 
 function ExerciseBlockEditor({
   block,
   onChange,
+  controls,
 }: {
   block: EditableExercise
   onChange: (partial: Partial<EditableExercise>) => void
+  controls: React.ReactNode
 }) {
   return (
     <div className="rounded-lg border bg-background p-3">
-      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-        Exercício
-      </p>
+      <BlockHeader label="Exercício" controls={controls} />
       <div className="grid gap-2 sm:grid-cols-2">
         <FieldRow label="Nome">
           <Input
@@ -197,16 +460,25 @@ function GroupBlockEditor({
   block,
   onChange,
   onItemChange,
+  onItemAppend,
+  onItemRemove,
+  onItemMoveUp,
+  onItemMoveDown,
+  controls,
 }: {
   block: EditableGroup
   onChange: (partial: Partial<EditableGroup>) => void
   onItemChange: (itemIndex: number, partial: Partial<EditableGroupItem>) => void
+  onItemAppend: () => void
+  onItemRemove: (itemIndex: number) => void
+  onItemMoveUp: (itemIndex: number) => void
+  onItemMoveDown: (itemIndex: number) => void
+  controls: React.ReactNode
 }) {
+  const itemCount = block.items.length
   return (
     <div className="rounded-lg border bg-muted/20 p-3">
-      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-        Grupo
-      </p>
+      <BlockHeader label="Grupo" controls={controls} />
       <div className="grid gap-2 sm:grid-cols-2">
         <FieldRow label="Rótulo">
           <Input
@@ -228,9 +500,46 @@ function GroupBlockEditor({
       <div className="mt-3 flex flex-col gap-2">
         {block.items.map((item, itemIndex) => (
           <div key={itemIndex} className="rounded-md border bg-background p-2">
-            <p className="mb-1 text-xs font-medium text-muted-foreground">
-              Item {itemIndex + 1}
-            </p>
+            <div className="mb-1 flex items-center justify-between gap-2">
+              <p className="text-xs font-medium text-muted-foreground">
+                Item {itemIndex + 1}
+              </p>
+              <div className="flex items-center gap-1">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="size-7"
+                  disabled={itemIndex === 0}
+                  onClick={() => onItemMoveUp(itemIndex)}
+                  aria-label="Mover item para cima"
+                >
+                  <ArrowUpIcon className="size-4" />
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="size-7"
+                  disabled={itemIndex === itemCount - 1}
+                  onClick={() => onItemMoveDown(itemIndex)}
+                  aria-label="Mover item para baixo"
+                >
+                  <ArrowDownIcon className="size-4" />
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="size-7"
+                  disabled={itemCount <= 1}
+                  onClick={() => onItemRemove(itemIndex)}
+                  aria-label="Remover item"
+                >
+                  <XIcon className="size-4" />
+                </Button>
+              </div>
+            </div>
             <div className="grid gap-2 sm:grid-cols-2">
               <FieldRow label="Nome">
                 <Input
@@ -259,6 +568,15 @@ function GroupBlockEditor({
             </div>
           </div>
         ))}
+        <Button
+          type="button"
+          variant="outline"
+          className="h-10 gap-2 self-start"
+          onClick={onItemAppend}
+        >
+          <PlusIcon className="size-4" />
+          Adicionar item
+        </Button>
       </div>
     </div>
   )
@@ -267,15 +585,15 @@ function GroupBlockEditor({
 function FreeformBlockEditor({
   block,
   onChange,
+  controls,
 }: {
   block: EditableFreeform
   onChange: (partial: Partial<EditableFreeform>) => void
+  controls: React.ReactNode
 }) {
   return (
     <div className="rounded-lg border bg-background p-3">
-      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-        Texto livre
-      </p>
+      <BlockHeader label="Texto livre" controls={controls} />
       <Textarea
         value={block.textMd}
         onChange={(e) => onChange({ textMd: e.target.value })}
@@ -391,4 +709,42 @@ function collectErrorMessages(errors: Record<string, unknown>): string[] {
     }
   }
   return messages
+}
+
+function blocksEqual(a: EditableBlock[], b: EditableBlock[]): boolean {
+  if (a.length !== b.length) return false
+  return a.every((block, i) => editableBlockEqual(block, b[i]))
+}
+
+function editableBlockEqual(a: EditableBlock, b: EditableBlock): boolean {
+  if (a.kind !== b.kind) return false
+  switch (a.kind) {
+    case "exercise": {
+      const other = b as EditableExercise
+      return (
+        a.name === other.name &&
+        a.prescription === other.prescription &&
+        a.restS === other.restS &&
+        a.notes === other.notes
+      )
+    }
+    case "group": {
+      const other = b as EditableGroup
+      if (a.label !== other.label) return false
+      if (a.rounds !== other.rounds) return false
+      if (a.items.length !== other.items.length) return false
+      return a.items.every((item, i) => {
+        const oi = other.items[i]
+        return (
+          item.name === oi.name &&
+          item.prescription === oi.prescription &&
+          item.notes === oi.notes
+        )
+      })
+    }
+    case "freeform": {
+      const other = b as EditableFreeform
+      return a.textMd === other.textMd
+    }
+  }
 }

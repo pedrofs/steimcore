@@ -130,7 +130,45 @@ function CompletedVersion({
 }) {
   const printablePath = `/students/${student.id}/periodization/printable`
   const [editingWorkoutId, setEditingWorkoutId] = useState<string | null>(null)
+  const [dirty, setDirty] = useState(false)
   const editingDisabled = voiceInFlight
+
+  const editingWorkout =
+    editingWorkoutId != null
+      ? version.workouts.find((w) => w.id === editingWorkoutId) ?? null
+      : null
+  const dirtyEditedWorkoutName =
+    dirty && editingWorkout ? editingWorkout.name : null
+
+  const discardLocalEdits = () => {
+    setEditingWorkoutId(null)
+    setDirty(false)
+  }
+
+  const runWithDiscardConfirm = (
+    action: () => void,
+    message: (name: string) => string,
+  ): boolean => {
+    if (dirtyEditedWorkoutName) {
+      if (!window.confirm(message(dirtyEditedWorkoutName))) return false
+      discardLocalEdits()
+    }
+    action()
+    return true
+  }
+
+  const guardVoiceTrigger = (action: () => void) =>
+    runWithDiscardConfirm(
+      action,
+      (name) => `Você tem alterações não salvas em ${name}. Descartar?`,
+    )
+
+  const guardPromote = (action: () => void) =>
+    runWithDiscardConfirm(
+      action,
+      (name) =>
+        `Promover descartará as alterações não salvas em ${name}. Continuar?`,
+    )
 
   return (
     <div className="flex flex-col gap-6">
@@ -143,8 +181,19 @@ function CompletedVersion({
         version={version}
         editingWorkoutId={editingWorkoutId}
         onEdit={(id) => setEditingWorkoutId(id)}
-        onCancelEdit={() => setEditingWorkoutId(null)}
+        onCancelEdit={() => {
+          setEditingWorkoutId(null)
+          setDirty(false)
+        }}
+        onSaved={() => {
+          setEditingWorkoutId(null)
+          setDirty(false)
+        }}
+        onDirtyChange={setDirty}
+        dirtyEditedWorkoutName={dirtyEditedWorkoutName}
+        onDiscardLocalEdits={discardLocalEdits}
         editingDisabled={editingDisabled}
+        guardVoiceTrigger={guardVoiceTrigger}
       />
 
       {version.readOnly ? (
@@ -166,7 +215,9 @@ function CompletedVersion({
               type="button"
               variant="outline"
               className="h-11 gap-2 sm:h-10"
-              onClick={() => router.post(`${versionPath}/edit`)}
+              onClick={() =>
+                guardVoiceTrigger(() => router.post(`${versionPath}/edit`))
+              }
             >
               <MicIcon className="size-4" />
               Modificar periodização
@@ -188,7 +239,9 @@ function CompletedVersion({
             type="button"
             className="h-11 sm:h-10"
             disabled={voiceInFlight}
-            onClick={() => router.post(promotePath)}
+            onClick={() =>
+              guardPromote(() => router.post(promotePath))
+            }
           >
             Salvar como ativa
           </Button>
@@ -203,15 +256,29 @@ function WorkoutsTabs({
   editingWorkoutId,
   onEdit,
   onCancelEdit,
+  onSaved,
+  onDirtyChange,
+  dirtyEditedWorkoutName,
+  onDiscardLocalEdits,
   editingDisabled,
+  guardVoiceTrigger,
 }: {
   version: Version
   editingWorkoutId: string | null
   onEdit: (id: string) => void
   onCancelEdit: () => void
+  onSaved: () => void
+  onDirtyChange: (dirty: boolean) => void
+  dirtyEditedWorkoutName: string | null
+  onDiscardLocalEdits: () => void
   editingDisabled: boolean
+  guardVoiceTrigger: (action: () => void) => boolean
 }) {
   const workouts = version.workouts
+  const [activeTab, setActiveTab] = useState<string | undefined>(
+    workouts[0]?.id,
+  )
+
   if (workouts.length === 0) {
     return (
       <section className="flex flex-col gap-3">
@@ -226,10 +293,25 @@ function WorkoutsTabs({
   const someoneEditing = editingWorkoutId != null
   const showEditControls = !version.readOnly && !someoneEditing && !editingDisabled
 
+  const handleTabChange = (next: string) => {
+    if (next === activeTab) return
+    if (dirtyEditedWorkoutName) {
+      if (
+        !window.confirm(
+          `Você tem alterações não salvas em ${dirtyEditedWorkoutName}. Descartar?`,
+        )
+      ) {
+        return
+      }
+      onDiscardLocalEdits()
+    }
+    setActiveTab(next)
+  }
+
   return (
     <section className="flex flex-col gap-3">
       <h2 className="text-lg font-medium">Treinos</h2>
-      <Tabs defaultValue={workouts[0].id}>
+      <Tabs value={activeTab} onValueChange={handleTabChange}>
         <WorkoutsTabsList workouts={workouts} />
         {workouts.map((w) => (
           <TabsContent key={w.id} value={w.id} className="flex flex-col gap-3">
@@ -239,7 +321,8 @@ function WorkoutsTabs({
                 workoutId={w.id}
                 blocks={w.blocks}
                 onCancel={onCancelEdit}
-                onSaved={onCancelEdit}
+                onSaved={onSaved}
+                onDirtyChange={onDirtyChange}
               />
             ) : (
               <>
@@ -254,8 +337,10 @@ function WorkoutsTabs({
                       variant="outline"
                       className="h-11 w-full gap-2 sm:h-10 sm:w-auto"
                       onClick={() =>
-                        router.post(
-                          `/periodization_versions/${version.id}/workouts/${w.id}/edit`,
+                        guardVoiceTrigger(() =>
+                          router.post(
+                            `/periodization_versions/${version.id}/workouts/${w.id}/edit`,
+                          ),
                         )
                       }
                     >
