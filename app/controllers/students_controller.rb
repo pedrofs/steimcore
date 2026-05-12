@@ -7,12 +7,14 @@ class StudentsController < InertiaController
 
   def index
     @title = "Alunos"
-    scope = current_organization.students.unarchived.order(:name)
+    filters = index_filters
+    scope = filtered_students(filters)
     @pagy, students = pagy(scope, limit: 25)
 
     render inertia: "students/index", props: {
       students: students.map { |student| student_summary(student) },
-      pagination: pagination_props(@pagy)
+      pagination: pagination_props(@pagy),
+      filters: filters
     }
   end
 
@@ -79,8 +81,30 @@ class StudentsController < InertiaController
         id: student.id,
         name: student.name,
         primary_goal: student.primary_goal,
-        weekly_frequency: student.weekly_frequency
+        weekly_frequency: student.weekly_frequency,
+        active_periodization_id: student.active_periodization_id
       }
+    end
+
+    def index_filters
+      {
+        q: params[:q].to_s,
+        without_active: params[:without_active] == "1",
+        archived: params[:archived] == "1"
+      }
+    end
+
+    def filtered_students(filters)
+      scope = filters[:archived] ? current_organization.students.archived : current_organization.students.unarchived
+
+      if filters[:q].present?
+        like = "%#{ActiveRecord::Base.sanitize_sql_like(filters[:q])}%"
+        scope = scope.where("name ILIKE ?", like)
+      end
+
+      scope = scope.where(active_periodization_id: nil) if filters[:without_active]
+
+      scope.order(:name)
     end
 
     def pagination_props(pagy)

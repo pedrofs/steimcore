@@ -92,6 +92,109 @@ class StudentsControllerTest < ActionDispatch::IntegrationTest
     assert_equal 1, pagination[:count]
   end
 
+  test "index payload exposes active_periodization_id for each student" do
+    @organization.students.destroy_all
+    student_without = @organization.students.create!(name: "Sem")
+    student_with = @organization.students.create!(name: "Com")
+    periodization = student_with.periodizations.create!
+    student_with.update!(active_periodization: periodization)
+
+    sign_in_as(@user)
+    get students_path
+
+    payload = inertia.props[:students].index_by { |s| s[:id] }
+    assert_nil payload[student_without.id][:active_periodization_id]
+    assert_equal periodization.id, payload[student_with.id][:active_periodization_id]
+  end
+
+  test "index echoes back the current filters" do
+    sign_in_as(@user)
+    get students_path
+
+    filters = inertia.props[:filters]
+    assert_equal "", filters[:q]
+    assert_equal false, filters[:without_active]
+    assert_equal false, filters[:archived]
+
+    get students_path, params: { q: "ana", without_active: "1", archived: "1" }
+    filters = inertia.props[:filters]
+    assert_equal "ana", filters[:q]
+    assert_equal true, filters[:without_active]
+    assert_equal true, filters[:archived]
+  end
+
+  test "index filters by case-insensitive substring on name when ?q= is present" do
+    @organization.students.destroy_all
+    @organization.students.create!(name: "Ana Silva")
+    @organization.students.create!(name: "Mariana Costa")
+    @organization.students.create!(name: "Bruno Souza")
+
+    sign_in_as(@user)
+    get students_path, params: { q: "ana" }
+
+    names = inertia.props[:students].map { |s| s[:name] }
+    assert_includes names, "Ana Silva"
+    assert_includes names, "Mariana Costa"
+    assert_not_includes names, "Bruno Souza"
+  end
+
+  test "index escapes LIKE wildcards in the q parameter" do
+    @organization.students.destroy_all
+    @organization.students.create!(name: "Maria 100%")
+    @organization.students.create!(name: "Joana")
+
+    sign_in_as(@user)
+    get students_path, params: { q: "%" }
+
+    names = inertia.props[:students].map { |s| s[:name] }
+    assert_includes names, "Maria 100%"
+    assert_not_includes names, "Joana"
+  end
+
+  test "index filters to students without an active periodization when ?without_active=1" do
+    @organization.students.destroy_all
+    without_active = @organization.students.create!(name: "Sem ativa")
+    with_active = @organization.students.create!(name: "Com ativa")
+    periodization = with_active.periodizations.create!
+    with_active.update!(active_periodization: periodization)
+
+    sign_in_as(@user)
+    get students_path, params: { without_active: "1" }
+
+    names = inertia.props[:students].map { |s| s[:name] }
+    assert_includes names, without_active.name
+    assert_not_includes names, with_active.name
+  end
+
+  test "index shows archived students when ?archived=1" do
+    @organization.students.destroy_all
+    @organization.students.create!(name: "Ativo")
+    archived = @organization.students.create!(name: "Arquivado", archived_at: 1.day.ago)
+
+    sign_in_as(@user)
+    get students_path, params: { archived: "1" }
+
+    names = inertia.props[:students].map { |s| s[:name] }
+    assert_includes names, archived.name
+    assert_not_includes names, "Ativo"
+  end
+
+  test "index composes filters with AND semantics" do
+    @organization.students.destroy_all
+    match = @organization.students.create!(name: "Ana sem ativa")
+    @organization.students.create!(name: "Ana com ativa").tap do |s|
+      p = s.periodizations.create!
+      s.update!(active_periodization: p)
+    end
+    @organization.students.create!(name: "Bruno sem ativa")
+
+    sign_in_as(@user)
+    get students_path, params: { q: "ana", without_active: "1" }
+
+    names = inertia.props[:students].map { |s| s[:name] }
+    assert_equal [match.name], names
+  end
+
   test "new renders the empty form" do
     sign_in_as(@user)
 
