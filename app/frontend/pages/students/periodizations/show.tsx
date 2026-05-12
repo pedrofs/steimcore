@@ -1,5 +1,5 @@
 import { Link, router } from "@inertiajs/react"
-import { PencilIcon, PrinterIcon, WandSparklesIcon } from "lucide-react"
+import { PencilIcon, PrinterIcon } from "lucide-react"
 
 import { BlocksRenderer, type Block } from "@/components/blocks-renderer"
 import { Markdown } from "@/components/markdown"
@@ -70,22 +70,11 @@ export default function ShowPeriodization({ student, periodization }: Props) {
                 type="button"
                 className="h-11 w-full gap-2 sm:h-10 sm:w-auto"
                 onClick={() =>
-                  router.post(`/periodizations/${periodization.id}/edit`)
-                }
-              >
-                <WandSparklesIcon className="size-4" />
-                Modificar periodização
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                className="h-11 w-full gap-2 sm:h-10 sm:w-auto"
-                onClick={() =>
                   router.post(`/periodizations/${periodization.id}/inline_edit`)
                 }
               >
                 <PencilIcon className="size-4" />
-                Editar inline
+                Editar
               </Button>
               <PrintButton enabled href={printablePath} />
             </div>
@@ -96,11 +85,7 @@ export default function ShowPeriodization({ student, periodization }: Props) {
             <Markdown content={version.bodyMd} placeholder="Plano sem conteúdo." />
           </section>
 
-          <WorkoutsTabs
-            workouts={version.workouts}
-            archived={periodization.archived}
-            versionId={version.id}
-          />
+          <WorkoutsTabs workouts={version.workouts} />
         </>
       ) : (
         <div className="flex flex-col gap-3">
@@ -124,15 +109,7 @@ export default function ShowPeriodization({ student, periodization }: Props) {
   )
 }
 
-function WorkoutsTabs({
-  workouts,
-  archived,
-  versionId,
-}: {
-  workouts: Workout[]
-  archived: boolean
-  versionId: string
-}) {
+function WorkoutsTabs({ workouts }: { workouts: Workout[] }) {
   if (workouts.length === 0) {
     return (
       <section className="flex flex-col gap-3">
@@ -155,21 +132,6 @@ function WorkoutsTabs({
               blocks={w.blocks}
               emptyPlaceholder="Treino sem conteúdo."
             />
-            {!archived && (
-              <Button
-                type="button"
-                variant="outline"
-                className="mt-1 h-11 w-full gap-2 sm:h-10 sm:w-auto sm:self-end"
-                onClick={() =>
-                  router.post(
-                    `/periodization_versions/${versionId}/workouts/${w.id}/edit`,
-                  )
-                }
-              >
-                <PencilIcon className="size-4" />
-                Editar este treino
-              </Button>
-            )}
           </TabsContent>
         ))}
       </Tabs>

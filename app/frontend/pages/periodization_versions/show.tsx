@@ -1,5 +1,12 @@
 import { Link, router } from "@inertiajs/react"
-import { Loader2Icon, MicIcon, PencilIcon, PrinterIcon } from "lucide-react"
+import {
+  ChevronDownIcon,
+  ChevronRightIcon,
+  Loader2Icon,
+  PencilIcon,
+  PrinterIcon,
+  WandSparklesIcon,
+} from "lucide-react"
 import { useState } from "react"
 
 import { BlocksRenderer, type Block } from "@/components/blocks-renderer"
@@ -170,12 +177,17 @@ function CompletedVersion({
         `Promover descartará as alterações não salvas em ${name}. Continuar?`,
     )
 
+  const canEditPlan = !version.readOnly && !editingDisabled
+
   return (
     <div className="flex flex-col gap-6">
-      <section className="flex flex-col gap-2">
-        <h2 className="text-lg font-medium">Plano</h2>
-        <Markdown content={version.bodyMd} placeholder="Plano sem conteúdo." />
-      </section>
+      <PlanSection
+        bodyMd={version.bodyMd}
+        editable={canEditPlan}
+        onEditPlan={() =>
+          guardVoiceTrigger(() => router.post(`${versionPath}/edit`))
+        }
+      />
 
       <WorkoutsTabs
         version={version}
@@ -210,19 +222,6 @@ function CompletedVersion({
       ) : (
         <div className="no-print flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
           <PrintButton enabled={version.promoted} href={printablePath} />
-          {!voiceInFlight && (
-            <Button
-              type="button"
-              variant="outline"
-              className="h-11 gap-2 sm:h-10"
-              onClick={() =>
-                guardVoiceTrigger(() => router.post(`${versionPath}/edit`))
-              }
-            >
-              <MicIcon className="size-4" />
-              Modificar periodização
-            </Button>
-          )}
           <Button
             type="button"
             variant="outline"
@@ -248,6 +247,79 @@ function CompletedVersion({
         </div>
       )}
     </div>
+  )
+}
+
+function PlanSection({
+  bodyMd,
+  editable,
+  onEditPlan,
+}: {
+  bodyMd: string
+  editable: boolean
+  onEditPlan: () => void
+}) {
+  const [expanded, setExpanded] = useState(false)
+
+  return (
+    <section className="flex flex-col gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <button
+          type="button"
+          aria-expanded={expanded}
+          onClick={() => setExpanded((v) => !v)}
+          className="-mx-1 inline-flex items-center gap-1.5 rounded-md px-1 py-0.5 text-lg font-medium hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          {expanded ? (
+            <ChevronDownIcon className="size-4 text-muted-foreground" />
+          ) : (
+            <ChevronRightIcon className="size-4 text-muted-foreground" />
+          )}
+          Plano
+        </button>
+        {editable && <AiButton onClick={onEditPlan}>Editar periodização</AiButton>}
+      </div>
+      {expanded && (
+        <Markdown content={bodyMd} placeholder="Plano sem conteúdo." />
+      )}
+    </section>
+  )
+}
+
+function AiButton({
+  onClick,
+  disabled,
+  children,
+  fullWidthOnMobile = false,
+}: {
+  onClick: () => void
+  disabled?: boolean
+  children: React.ReactNode
+  fullWidthOnMobile?: boolean
+}) {
+  return (
+    <Button
+      type="button"
+      variant="outline"
+      disabled={disabled}
+      onClick={onClick}
+      className={
+        "h-11 gap-2 sm:h-10 " +
+        (fullWidthOnMobile ? "w-full sm:w-auto " : "")
+      }
+    >
+      <WandSparklesIcon className="size-4" />
+      <span>{children}</span>
+      <IaPill />
+    </Button>
+  )
+}
+
+function IaPill() {
+  return (
+    <span className="ml-1 rounded-full border border-foreground/15 bg-foreground/5 px-1.5 py-px text-[10px] font-semibold uppercase tracking-[0.12em] text-foreground/70">
+      IA
+    </span>
   )
 }
 
@@ -332,10 +404,8 @@ function WorkoutsTabs({
                 />
                 {showEditControls && (
                   <div className="mt-1 flex flex-col gap-2 sm:flex-row sm:justify-end">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="h-11 w-full gap-2 sm:h-10 sm:w-auto"
+                    <AiButton
+                      fullWidthOnMobile
                       onClick={() =>
                         guardVoiceTrigger(() =>
                           router.post(
@@ -344,9 +414,8 @@ function WorkoutsTabs({
                         )
                       }
                     >
-                      <MicIcon className="size-4" />
-                      Editar este treino
-                    </Button>
+                      Editar treino
+                    </AiButton>
                     <Button
                       type="button"
                       variant="outline"
@@ -354,7 +423,7 @@ function WorkoutsTabs({
                       onClick={() => onEdit(w.id)}
                     >
                       <PencilIcon className="size-4" />
-                      Editar inline
+                      Editar manualmente
                     </Button>
                   </div>
                 )}
