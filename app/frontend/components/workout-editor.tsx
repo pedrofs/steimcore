@@ -54,15 +54,15 @@ export function WorkoutEditor({
   onDirtyChange,
 }: Props) {
   const initialEditable = useMemo(() => blocks.map(toEditable), [blocks])
-  const form = useForm<{ blocks: EditableBlock[] }>({
+  const { data, patch, errors, setData, transform, processing } = useForm<{ blocks: EditableBlock[] }>({
     blocks: initialEditable,
   })
 
-  const errorMessages = collectErrorMessages(form.errors)
+  const errorMessages = collectErrorMessages(errors)
 
   const dirty = useMemo(
-    () => !blocksEqual(form.data.blocks, initialEditable),
-    [form.data.blocks, initialEditable],
+    () => !blocksEqual(data.blocks, initialEditable),
+    [data.blocks, initialEditable],
   )
 
   const onDirtyChangeRef = useRef(onDirtyChange)
@@ -78,37 +78,37 @@ export function WorkoutEditor({
     }
   }, [])
 
-  const setBlocks = (next: EditableBlock[]) => form.setData("blocks", next)
+  const setBlocks = (next: EditableBlock[]) => setData("blocks", next)
 
   const updateBlock = (index: number, partial: Partial<EditableBlock>) => {
     setBlocks(
-      form.data.blocks.map((b, i) =>
+      data.blocks.map((b, i) =>
         i === index ? ({ ...b, ...partial } as EditableBlock) : b,
       ),
     )
   }
 
   const removeBlock = (index: number) => {
-    setBlocks(form.data.blocks.filter((_, i) => i !== index))
+    setBlocks(data.blocks.filter((_, i) => i !== index))
   }
 
   const moveBlock = (index: number, direction: -1 | 1) => {
     const target = index + direction
-    if (target < 0 || target >= form.data.blocks.length) return
-    const next = [...form.data.blocks]
+    if (target < 0 || target >= data.blocks.length) return
+    const next = [...data.blocks]
     ;[next[index], next[target]] = [next[target], next[index]]
     setBlocks(next)
   }
 
   const appendExercise = () =>
     setBlocks([
-      ...form.data.blocks,
+      ...data.blocks,
       { kind: "exercise", name: "", prescription: "", restS: "", notes: "" },
     ])
 
   const appendGroup = () =>
     setBlocks([
-      ...form.data.blocks,
+      ...data.blocks,
       {
         kind: "group",
         label: "",
@@ -119,7 +119,7 @@ export function WorkoutEditor({
 
   const appendFreeform = () =>
     setBlocks([
-      ...form.data.blocks,
+      ...data.blocks,
       { kind: "freeform", textMd: "" },
     ])
 
@@ -128,7 +128,7 @@ export function WorkoutEditor({
     itemIndex: number,
     partial: Partial<EditableGroupItem>,
   ) => {
-    const block = form.data.blocks[blockIndex]
+    const block = data.blocks[blockIndex]
     if (block.kind !== "group") return
     const nextItems = block.items.map((item, i) =>
       i === itemIndex ? { ...item, ...partial } : item,
@@ -137,7 +137,7 @@ export function WorkoutEditor({
   }
 
   const appendGroupItem = (blockIndex: number) => {
-    const block = form.data.blocks[blockIndex]
+    const block = data.blocks[blockIndex]
     if (block.kind !== "group") return
     const nextItems = [
       ...block.items,
@@ -147,7 +147,7 @@ export function WorkoutEditor({
   }
 
   const removeGroupItem = (blockIndex: number, itemIndex: number) => {
-    const block = form.data.blocks[blockIndex]
+    const block = data.blocks[blockIndex]
     if (block.kind !== "group") return
     if (block.items.length <= 1) return
     const nextItems = block.items.filter((_, i) => i !== itemIndex)
@@ -159,7 +159,7 @@ export function WorkoutEditor({
     itemIndex: number,
     direction: -1 | 1,
   ) => {
-    const block = form.data.blocks[blockIndex]
+    const block = data.blocks[blockIndex]
     if (block.kind !== "group") return
     const target = itemIndex + direction
     if (target < 0 || target >= block.items.length) return
@@ -173,15 +173,14 @@ export function WorkoutEditor({
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault()
-    form
-      .transform((data) => ({ workout: { blocks: data.blocks.map(toBlock) } }))
-      .patch(`/periodization_versions/${versionId}/workouts/${workoutId}`, {
-        preserveScroll: true,
-        onSuccess: onSaved,
-      })
+    transform((data) => ({ workout: { blocks: data.blocks.map(toBlock) } }))
+    patch(`/periodization_versions/${versionId}/workouts/${workoutId}`, {
+      preserveScroll: true,
+      onSuccess: onSaved,
+    })
   }
 
-  const blockCount = form.data.blocks.length
+  const blockCount = data.blocks.length
 
   return (
     <form onSubmit={submit} className="flex flex-col gap-4">
@@ -197,7 +196,7 @@ export function WorkoutEditor({
       )}
 
       <div className="flex flex-col gap-3">
-        {form.data.blocks.map((block, index) => (
+        {data.blocks.map((block, index) => (
           <BlockEditor
             key={index}
             block={block}
@@ -233,8 +232,8 @@ export function WorkoutEditor({
         >
           Cancelar
         </Button>
-        <Button type="submit" disabled={form.processing} className="h-11 sm:h-10">
-          {form.processing ? "Salvando..." : "Salvar treino"}
+        <Button type="submit" disabled={processing} className="h-11 sm:h-10">
+          {processing ? "Salvando..." : "Salvar treino"}
         </Button>
       </div>
     </form>
