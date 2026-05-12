@@ -86,6 +86,24 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             <SidebarMenuItem>
               <SidebarMenuButton
                 asChild
+                tooltip="Pista"
+                isActive={url.startsWith("/training_sessions")}
+                className="h-11 md:h-8"
+              >
+                <Link href="/training_sessions">
+                  <Activity />
+                  <span>Pista</span>
+                  {activeSessionCount > 0 && (
+                    <Badge variant="secondary" className="ml-auto">
+                      {activeSessionCount}
+                    </Badge>
+                  )}
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                asChild
                 tooltip="Alunos"
                 isActive={url.startsWith("/students")}
                 className="h-11 md:h-8"
@@ -93,24 +111,6 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                 <Link href="/students">
                   <UsersIcon />
                   <span>Alunos</span>
-                </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-            <SidebarMenuItem>
-              <SidebarMenuButton
-                asChild
-                tooltip="Sessões ao vivo"
-                isActive={url.startsWith("/training_sessions")}
-                className="h-11 md:h-8"
-              >
-                <Link href="/training_sessions">
-                  <Activity />
-                  <span>Sessões ao vivo</span>
-                  {activeSessionCount > 0 && (
-                    <Badge variant="secondary" className="ml-auto">
-                      {activeSessionCount}
-                    </Badge>
-                  )}
                 </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>
