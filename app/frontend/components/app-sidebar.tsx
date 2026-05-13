@@ -2,7 +2,7 @@ import * as React from "react"
 import { Link, router, usePage } from "@inertiajs/react"
 import { Activity, ChevronsUpDown, DumbbellIcon, HomeIcon, InboxIcon, LogOut, UsersIcon } from "lucide-react"
 
-import { BRAND_NAME } from "@/lib/brand"
+import { BrandLockup, BrandMark } from "@/components/brand"
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
@@ -44,10 +44,14 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           className={
             collapsed
               ? "flex justify-center px-0 py-1.5"
-              : "flex items-center px-2 py-1.5 font-semibold"
+              : "flex items-center px-2 py-1.5"
           }
         >
-          {collapsed ? "S" : BRAND_NAME}
+          {collapsed ? (
+            <BrandMark className="size-7" />
+          ) : (
+            <BrandLockup size="sm" />
+          )}
         </div>
       </SidebarHeader>
       <SidebarContent>

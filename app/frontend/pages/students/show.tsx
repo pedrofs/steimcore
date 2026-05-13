@@ -197,7 +197,7 @@ function StudentIdentity({ student }: { student: Student }) {
         </Avatar>
         <div className="flex min-w-0 flex-1 flex-col gap-1.5">
           <div className="flex items-start justify-between gap-2">
-            <h1 className="truncate text-2xl font-semibold tracking-tight sm:text-3xl">
+            <h1 className="font-display truncate text-3xl font-bold tracking-tight sm:text-4xl">
               {student.name}
             </h1>
             <Button
@@ -415,7 +415,7 @@ function PlanCardBody({
       <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
         {eyebrow}
       </span>
-      <h2 className={cn("text-2xl font-semibold tracking-tight sm:text-3xl", titleClassName)}>
+      <h2 className={cn("font-display text-3xl font-extrabold uppercase tracking-tight sm:text-4xl", titleClassName)}>
         {title}
       </h2>
       <p className="text-sm text-muted-foreground">{meta}</p>
