@@ -17,23 +17,23 @@ export default function NewPassword({ email_address }: Props) {
 
   return (
     <>
-      <Head title="Reset password" />
+      <Head title="Redefinir senha" />
       <div className="flex min-h-screen items-center justify-center bg-muted/40 p-4">
         <form
           onSubmit={submit}
           className="w-full max-w-sm space-y-4 rounded-lg border bg-background p-6 shadow-sm"
         >
           <div className="space-y-1">
-            <h1 className="text-xl font-semibold">Reset your password</h1>
+            <h1 className="text-xl font-semibold">Redefina sua senha</h1>
             <p className="text-sm text-muted-foreground">
-              We'll email you a link to set a new password.
+              Vamos te enviar um e-mail com um link para criar uma nova senha.
             </p>
           </div>
 
           <div className="space-y-2">
             <Input
               type="email"
-              placeholder="Email address"
+              placeholder="E-mail"
               autoComplete="username"
               value={form.data.email_address}
               onChange={(e) => form.setData("email_address", e.target.value)}
@@ -46,12 +46,12 @@ export default function NewPassword({ email_address }: Props) {
           </div>
 
           <Button type="submit" disabled={form.processing} className="w-full">
-            Email reset instructions
+            Enviar instruções
           </Button>
 
           <div className="text-sm text-muted-foreground">
             <Link href="/session/new" className="underline">
-              Back to sign in
+              Voltar para o login
             </Link>
           </div>
         </form>

@@ -18,18 +18,18 @@ export default function EditPassword({ token }: Props) {
 
   return (
     <>
-      <Head title="Set new password" />
+      <Head title="Definir nova senha" />
       <div className="flex min-h-screen items-center justify-center bg-muted/40 p-4">
         <form
           onSubmit={submit}
           className="w-full max-w-sm space-y-4 rounded-lg border bg-background p-6 shadow-sm"
         >
-          <h1 className="text-xl font-semibold">Set a new password</h1>
+          <h1 className="text-xl font-semibold">Defina uma nova senha</h1>
 
           <div className="space-y-2">
             <Input
               type="password"
-              placeholder="New password"
+              placeholder="Nova senha"
               autoComplete="new-password"
               value={form.data.password}
               onChange={(e) => form.setData("password", e.target.value)}
@@ -44,7 +44,7 @@ export default function EditPassword({ token }: Props) {
           <div className="space-y-2">
             <Input
               type="password"
-              placeholder="Confirm new password"
+              placeholder="Confirmar nova senha"
               autoComplete="new-password"
               value={form.data.password_confirmation}
               onChange={(e) =>
@@ -64,7 +64,7 @@ export default function EditPassword({ token }: Props) {
           )}
 
           <Button type="submit" disabled={form.processing} className="w-full">
-            Update password
+            Atualizar senha
           </Button>
         </form>
       </div>

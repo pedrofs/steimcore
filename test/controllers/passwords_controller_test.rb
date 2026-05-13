@@ -12,14 +12,14 @@ class PasswordsControllerTest < ActionDispatch::IntegrationTest
     post passwords_path, params: { email_address: @user.email_address }
     assert_enqueued_email_with PasswordsMailer, :reset, args: [ @user ]
     assert_redirected_to new_session_path
-    assert_match(/reset instructions sent/, flash[:notice])
+    assert_equal "Se houver uma conta com esse e-mail, enviamos instruções para redefinir a senha.", flash[:notice]
   end
 
   test "create for an unknown user redirects but sends no mail" do
     post passwords_path, params: { email_address: "missing-user@example.com" }
     assert_enqueued_emails 0
     assert_redirected_to new_session_path
-    assert_match(/reset instructions sent/, flash[:notice])
+    assert_equal "Se houver uma conta com esse e-mail, enviamos instruções para redefinir a senha.", flash[:notice]
   end
 
   test "edit" do
@@ -30,7 +30,7 @@ class PasswordsControllerTest < ActionDispatch::IntegrationTest
   test "edit with invalid password reset token" do
     get edit_password_path("invalid token")
     assert_redirected_to new_password_path
-    assert_match(/reset link is invalid/, flash[:alert])
+    assert_equal "O link de redefinição é inválido ou expirou.", flash[:alert]
   end
 
   test "update" do
@@ -38,7 +38,7 @@ class PasswordsControllerTest < ActionDispatch::IntegrationTest
       put password_path(@user.password_reset_token), params: { password: "new", password_confirmation: "new" }
       assert_redirected_to new_session_path
     end
-    assert_match(/Password has been reset/, flash[:notice])
+    assert_equal "Senha redefinida.", flash[:notice]
   end
 
   test "update with non matching passwords" do
