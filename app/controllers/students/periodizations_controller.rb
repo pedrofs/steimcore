@@ -35,7 +35,7 @@ class Students::PeriodizationsController < InertiaController
           body_md: version.body_md,
           workouts: version.workouts.order(:position).map { |w| workout_props(w) }
         },
-        versions: history.map { |v| version_summary(v, periodization) }
+        versions: history.map { |v| version_summary(v, periodization) }.reverse
       }
     }
   end

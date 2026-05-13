@@ -9,6 +9,7 @@ import {
   RotateCcw,
   Sparkles,
 } from "lucide-react"
+import { motion } from "motion/react"
 
 import { Markdown } from "@/components/markdown"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
@@ -60,12 +61,21 @@ export default function Show({ student }: Props) {
         )}
       >
         {!student.archived && (
-          <div className="motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-3 motion-safe:duration-500 motion-safe:fill-mode-both motion-safe:delay-75">
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.075, ease: [0.16, 1, 0.3, 1] }}
+          >
             <PlanHeroCard student={student} plan={student.activePlan} />
-          </div>
+          </motion.div>
         )}
 
-        <section className="flex flex-col gap-2 motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-400 motion-safe:fill-mode-both motion-safe:delay-150">
+        <motion.section
+          className="flex flex-col gap-2"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.4, delay: 0.15, ease: "easeOut" }}
+        >
           <h2 className="text-lg font-medium">Anamnese</h2>
           <Markdown
             content={student.anamnesisMd}
@@ -80,9 +90,14 @@ export default function Show({ student }: Props) {
               ) : undefined
             }
           />
-        </section>
+        </motion.section>
 
-        <section className="flex flex-col gap-2 motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-400 motion-safe:fill-mode-both motion-safe:delay-200">
+        <motion.section
+          className="flex flex-col gap-2"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.4, delay: 0.2, ease: "easeOut" }}
+        >
           <h2 className="text-lg font-medium">Observações</h2>
           <Markdown
             content={student.notesMd}
@@ -97,7 +112,7 @@ export default function Show({ student }: Props) {
               ) : undefined
             }
           />
-        </section>
+        </motion.section>
       </div>
 
       <div aria-hidden className="h-20 sm:h-0" />
@@ -166,28 +181,38 @@ function RecordingFab({ studentId }: { studentId: string }) {
   }
 
   return (
-    <Link
-      href={`/students/${studentId}/voice_recordings/new`}
-      aria-label="Gravar anamnese"
-      title="Gravar anamnese"
-      onPointerDown={handlePress}
+    <motion.div
+      initial={{ opacity: 0, scale: 0.5 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={{ duration: 0.4, delay: 0.3, ease: [0.16, 1, 0.3, 1] }}
+      whileHover={{ scale: 1.05 }}
+      whileTap={{ scale: 0.95 }}
       className={cn(
-        "group fixed z-40 inline-flex items-center justify-center",
-        "size-14 rounded-full",
-        "bg-primary text-primary-foreground shadow-lg shadow-foreground/20",
-        "ring-2 ring-transparent ring-offset-2 ring-offset-background",
-        "transition-[transform,box-shadow,ring-color] duration-150 ease-out",
-        "motion-safe:hover:scale-105 hover:shadow-xl hover:shadow-foreground/25",
-        "active:scale-95 active:ring-brand/40",
-        "motion-safe:animate-in motion-safe:zoom-in-50 motion-safe:fade-in-0 motion-safe:duration-400 motion-safe:fill-mode-both motion-safe:delay-300",
-        "focus-visible:outline-none focus-visible:ring-brand/50",
+        "fixed z-40",
         "bottom-[max(1rem,calc(env(safe-area-inset-bottom)+0.5rem))]",
         "right-[max(1rem,env(safe-area-inset-right))]",
-        "sm:size-16 sm:bottom-6 sm:right-6",
+        "sm:bottom-6 sm:right-6",
       )}
     >
-      <Mic className="size-6" aria-hidden />
-    </Link>
+      <Link
+        href={`/students/${studentId}/voice_recordings/new`}
+        aria-label="Gravar anamnese"
+        title="Gravar anamnese"
+        onPointerDown={handlePress}
+        className={cn(
+          "group inline-flex items-center justify-center",
+          "size-14 sm:size-16 rounded-full",
+          "bg-primary text-primary-foreground shadow-lg shadow-foreground/20",
+          "ring-2 ring-transparent ring-offset-2 ring-offset-background",
+          "transition-[box-shadow,ring-color] duration-150 ease-out",
+          "hover:shadow-xl hover:shadow-foreground/25",
+          "active:ring-brand/40",
+          "focus-visible:outline-none focus-visible:ring-brand/50",
+        )}
+      >
+        <Mic className="size-6" aria-hidden />
+      </Link>
+    </motion.div>
   )
 }
 

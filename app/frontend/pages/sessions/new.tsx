@@ -1,4 +1,5 @@
 import { Head, Link, useForm, usePage } from "@inertiajs/react"
+import { motion } from "motion/react"
 
 import { BrandLockup } from "@/components/brand"
 import { Button } from "@/components/ui/button"
@@ -23,8 +24,11 @@ export default function NewSession({ email_address }: Props) {
       <Head title="Sign in" />
       <div className="flex min-h-dvh flex-col items-center justify-center gap-6 bg-muted/40 p-4">
         <BrandLockup size="lg" showTagline animate />
-        <form
+        <motion.form
           onSubmit={submit}
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.3, ease: [0.16, 1, 0.3, 1] }}
           className="w-full max-w-sm space-y-4 rounded-lg border bg-background p-6 shadow-sm"
         >
           {flash.notice && (
@@ -75,7 +79,7 @@ export default function NewSession({ email_address }: Props) {
               Forgot password?
             </Link>
           </div>
-        </form>
+        </motion.form>
       </div>
     </>
   )

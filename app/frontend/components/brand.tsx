@@ -1,3 +1,5 @@
+import { motion } from "motion/react"
+
 import { cn } from "@/lib/utils"
 import { BRAND_NAME } from "@/lib/brand"
 
@@ -78,61 +80,99 @@ export function BrandLockup({
   animate?: boolean
   className?: string
 }) {
+  const MarkG = animate ? motion.g : "g"
+  const markProps = animate
+    ? {
+        initial: { opacity: 0 },
+        animate: { opacity: 1 },
+        transition: { duration: 0.5, ease: "easeOut" as const },
+      }
+    : {}
+  const wordmarkProps = animate
+    ? {
+        initial: { opacity: 0 },
+        animate: { opacity: 1 },
+        transition: { duration: 0.4, delay: 0.2, ease: "easeOut" as const },
+      }
+    : {}
+  const taglineProps = animate
+    ? {
+        initial: { opacity: 0 },
+        animate: { opacity: 0.7 },
+        transition: { duration: 0.3, delay: 0.4, ease: "easeOut" as const },
+      }
+    : {}
+
+  const Wrapper = animate ? motion.svg : "svg"
+  const wrapperProps = animate
+    ? {
+        initial: { opacity: 0, scale: 0.96 },
+        animate: { opacity: 1, scale: 1 },
+        transition: { duration: 0.5, ease: [0.16, 1, 0.3, 1] as const },
+        style: { transformOrigin: "center" },
+      }
+    : {}
+
   return (
-    <svg
+    <Wrapper
       xmlns="http://www.w3.org/2000/svg"
       viewBox="220 240 2860 1180"
       role="img"
       aria-label={BRAND_NAME}
       preserveAspectRatio="xMidYMid meet"
       className={cn("shrink-0 w-auto", lockupHeights[size], className)}
+      {...wrapperProps}
     >
       <g transform="scale(8.174386920980927) translate(10, 10)">
-        <g
+        <MarkG
           transform="matrix(2.5560852997962904,0,0,2.5560852997962904,20.000018807798714,20.01066793863929)"
           fill="#a80038"
-          className={cn(
-            animate &&
-              "motion-safe:animate-in motion-safe:zoom-in-90 motion-safe:fade-in-0 motion-safe:duration-500 motion-safe:fill-mode-both motion-safe:ease-out",
-          )}
-          style={animate ? { transformOrigin: "center" } : undefined}
+          {...markProps}
         >
           <path d={HEXAGON_PATH} />
-        </g>
-        <g
+        </MarkG>
+        <MarkG
           transform="matrix(2.123692236962225,0,0,2.123692236962225,51.741162863989025,10.893202832917865)"
           fill="#fbf9fa"
-          className={cn(
-            animate &&
-              "motion-safe:animate-in motion-safe:zoom-in-90 motion-safe:fade-in-0 motion-safe:duration-500 motion-safe:fill-mode-both motion-safe:ease-out",
-          )}
+          {...markProps}
         >
           <path d={MONOGRAM_PATH} />
-        </g>
-        <g
-          transform="matrix(1.792114597327962,0,0,1.792114597327962,164.84946282502517,39.37992837667002)"
-          fill="currentColor"
-          className={cn(
-            animate &&
-              "motion-safe:animate-in motion-safe:slide-in-from-left-2 motion-safe:fade-in-0 motion-safe:duration-400 motion-safe:delay-200 motion-safe:fill-mode-both motion-safe:ease-out",
-          )}
-        >
-          <path d={WORDMARK_PATH} />
-        </g>
-        {showTagline && (
-          <g
-            transform="matrix(0.543013438310739,0,0,0.543013438310739,167,119.36095409945172)"
+        </MarkG>
+        {animate ? (
+          <motion.g
+            transform="matrix(1.792114597327962,0,0,1.792114597327962,164.84946282502517,39.37992837667002)"
             fill="currentColor"
-            opacity="0.7"
-            className={cn(
-              animate &&
-                "motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-300 motion-safe:delay-400 motion-safe:fill-mode-both",
-            )}
+            {...wordmarkProps}
           >
-            <path d={TAGLINE_PATH} />
+            <path d={WORDMARK_PATH} />
+          </motion.g>
+        ) : (
+          <g
+            transform="matrix(1.792114597327962,0,0,1.792114597327962,164.84946282502517,39.37992837667002)"
+            fill="currentColor"
+          >
+            <path d={WORDMARK_PATH} />
           </g>
         )}
+        {showTagline &&
+          (animate ? (
+            <motion.g
+              transform="matrix(0.543013438310739,0,0,0.543013438310739,167,119.36095409945172)"
+              fill="currentColor"
+              {...taglineProps}
+            >
+              <path d={TAGLINE_PATH} />
+            </motion.g>
+          ) : (
+            <g
+              transform="matrix(0.543013438310739,0,0,0.543013438310739,167,119.36095409945172)"
+              fill="currentColor"
+              opacity="0.7"
+            >
+              <path d={TAGLINE_PATH} />
+            </g>
+          ))}
       </g>
-    </svg>
+    </Wrapper>
   )
 }
