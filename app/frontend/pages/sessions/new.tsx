@@ -1,4 +1,5 @@
 import { Head, Link, useForm, usePage } from "@inertiajs/react"
+import { BRAND_NAME } from "@/lib/brand"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 
@@ -25,7 +26,7 @@ export default function NewSession({ email_address }: Props) {
           className="w-full max-w-sm space-y-4 rounded-lg border bg-background p-6 shadow-sm"
         >
           <div className="space-y-1">
-            <h1 className="text-xl font-semibold">Sign in to SteimCore</h1>
+            <h1 className="text-xl font-semibold">Sign in to {BRAND_NAME}</h1>
             {flash.notice && (
               <p className="text-sm text-muted-foreground">{flash.notice}</p>
             )}

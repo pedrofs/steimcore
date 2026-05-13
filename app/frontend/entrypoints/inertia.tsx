@@ -1,4 +1,5 @@
 import { createInertiaApp } from '@inertiajs/react'
+import { BRAND_NAME } from '@/lib/brand'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { ApplicationLayout } from '@/layouts/application-layout'
 
@@ -20,7 +21,7 @@ const isUnchromed = (name: string) =>
 void createInertiaApp({
   pages: "../pages",
 
-  title: (title) => (title ? `${title} · SteimCore` : "SteimCore"),
+  title: (title) => (title ? `${title} · ${BRAND_NAME}` : BRAND_NAME),
 
   strictMode: true,
 

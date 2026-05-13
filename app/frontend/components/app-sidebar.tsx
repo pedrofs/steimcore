@@ -2,6 +2,8 @@ import * as React from "react"
 import { Link, router, usePage } from "@inertiajs/react"
 import { Activity, ChevronsUpDown, DumbbellIcon, HomeIcon, InboxIcon, LogOut, UsersIcon } from "lucide-react"
 
+import { BRAND_NAME } from "@/lib/brand"
+
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -45,7 +47,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
               : "flex items-center px-2 py-1.5 font-semibold"
           }
         >
-          {collapsed ? "S" : "SteimCore"}
+          {collapsed ? "S" : BRAND_NAME}
         </div>
       </SidebarHeader>
       <SidebarContent>
