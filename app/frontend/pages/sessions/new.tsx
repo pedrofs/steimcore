@@ -22,7 +22,7 @@ export default function NewSession({ email_address }: Props) {
     <>
       <Head title="Sign in" />
       <div className="flex min-h-dvh flex-col items-center justify-center gap-6 bg-muted/40 p-4">
-        <BrandLockup size="lg" showTagline />
+        <BrandLockup size="lg" showTagline animate />
         <form
           onSubmit={submit}
           className="w-full max-w-sm space-y-4 rounded-lg border bg-background p-6 shadow-sm"

@@ -159,19 +159,28 @@ function formatArchivedDate(iso: string | null): string | null {
 }
 
 function RecordingFab({ studentId }: { studentId: string }) {
+  function handlePress() {
+    if (typeof navigator !== "undefined" && "vibrate" in navigator) {
+      navigator.vibrate(10)
+    }
+  }
+
   return (
     <Link
       href={`/students/${studentId}/voice_recordings/new`}
       aria-label="Gravar anamnese"
       title="Gravar anamnese"
+      onPointerDown={handlePress}
       className={cn(
         "group fixed z-40 inline-flex items-center justify-center",
         "size-14 rounded-full",
-        "bg-primary text-primary-foreground shadow-lg shadow-primary/25",
-        "transition-transform duration-150 ease-out",
-        "motion-safe:hover:scale-105 active:scale-95",
+        "bg-primary text-primary-foreground shadow-lg shadow-foreground/20",
+        "ring-2 ring-transparent ring-offset-2 ring-offset-background",
+        "transition-[transform,box-shadow,ring-color] duration-150 ease-out",
+        "motion-safe:hover:scale-105 hover:shadow-xl hover:shadow-foreground/25",
+        "active:scale-95 active:ring-brand/40",
         "motion-safe:animate-in motion-safe:zoom-in-50 motion-safe:fade-in-0 motion-safe:duration-400 motion-safe:fill-mode-both motion-safe:delay-300",
-        "focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
+        "focus-visible:outline-none focus-visible:ring-brand/50",
         "bottom-[max(1rem,calc(env(safe-area-inset-bottom)+0.5rem))]",
         "right-[max(1rem,env(safe-area-inset-right))]",
         "sm:size-16 sm:bottom-6 sm:right-6",

@@ -74,22 +74,34 @@ export function BrandLockup({
   tone = "color",
   size = "md",
   showTagline = false,
+  animate = false,
   className,
 }: {
   tone?: Tone
   size?: LockupSize
   showTagline?: boolean
+  animate?: boolean
   className?: string
 }) {
   const s = lockupSizes[size]
   return (
     <div className={cn("inline-flex items-center", s.gap, className)}>
-      <BrandMark tone={tone} className={s.mark} title={`${BRAND_NAME} mark`} />
+      <BrandMark
+        tone={tone}
+        className={cn(
+          s.mark,
+          animate &&
+            "motion-safe:animate-in motion-safe:zoom-in-90 motion-safe:fade-in-0 motion-safe:duration-500 motion-safe:fill-mode-both motion-safe:ease-out",
+        )}
+        title={`${BRAND_NAME} mark`}
+      />
       <div className="flex flex-col leading-none">
         <span
           className={cn(
             "font-display font-extrabold uppercase tracking-tight",
             s.wordmark,
+            animate &&
+              "motion-safe:animate-in motion-safe:slide-in-from-left-2 motion-safe:fade-in-0 motion-safe:duration-400 motion-safe:delay-200 motion-safe:fill-mode-both motion-safe:ease-out",
           )}
         >
           {BRAND_NAME}
@@ -99,6 +111,8 @@ export function BrandLockup({
             className={cn(
               "mt-1 font-medium uppercase tracking-[0.18em] text-muted-foreground",
               s.tagline,
+              animate &&
+                "motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-300 motion-safe:delay-400 motion-safe:fill-mode-both",
             )}
           >
             {BRAND_TAGLINE}

@@ -629,10 +629,12 @@ function BlockCard({
       onClick={onToggle}
       aria-pressed={done}
       className={cn(
-        "block w-full rounded-2xl border p-3 text-left transition active:scale-95",
+        "block w-full rounded-2xl border p-3 text-left",
+        "transition-[background-color,border-color,box-shadow,transform] duration-200 ease-out",
+        "motion-safe:active:scale-95",
         done
-          ? "border-emerald-500 bg-emerald-500 text-white shadow-sm"
-          : "border-border bg-card text-foreground",
+          ? "border-emerald-500 bg-emerald-500 text-white shadow-md shadow-emerald-500/20"
+          : "border-border bg-card text-foreground hover:border-foreground/20",
       )}
     >
       {block.kind === "exercise" && <ExerciseCard block={block} done={done} />}
