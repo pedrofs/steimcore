@@ -96,4 +96,37 @@ class InvitationsControllerTest < ActionDispatch::IntegrationTest
     assert_equal other_org, invitation.organization
     assert_equal other_trainer, invitation.invited_by
   end
+
+  test "destroy redirects to login when unauthenticated" do
+    delete invitation_path(invitations(:pending))
+    assert_redirected_to new_session_path
+  end
+
+  test "destroy revokes the invitation and redirects with pt-BR notice" do
+    sign_in_as(@user)
+    invitation = invitations(:pending)
+
+    assert_difference -> { Invitation.count } => -1 do
+      delete invitation_path(invitation)
+    end
+
+    assert_redirected_to organization_path
+    assert_equal "Convite revogado.", flash[:notice]
+  end
+
+  test "destroy on another org's invitation 404s" do
+    other_org = Organization.create!(name: "Other org")
+    other_trainer = User.create!(organization: other_org, email_address: "other-trainer@example.com", password: "password")
+    foreign_invitation = Invitation.create!(
+      organization: other_org,
+      invited_by: other_trainer,
+      email_address: "foreign@example.com"
+    )
+
+    sign_in_as(@user)
+    assert_no_difference -> { Invitation.count } do
+      delete invitation_path(foreign_invitation)
+    end
+    assert_response :not_found
+  end
 end

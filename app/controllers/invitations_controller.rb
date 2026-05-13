@@ -3,6 +3,8 @@
 class InvitationsController < InertiaController
   with_title "Novo convite"
 
+  before_action :load_invitation, only: :destroy
+
   def new
     render inertia: "invitations/new", props: {
       email_address: params[:email_address]
@@ -23,4 +25,14 @@ class InvitationsController < InertiaController
                   inertia: { errors: @invitation.errors.to_hash(true) }
     end
   end
+
+  def destroy
+    @invitation.destroy!
+    redirect_to organization_path, notice: "Convite revogado."
+  end
+
+  private
+    def load_invitation
+      @invitation = current_organization.invitations.find(params[:id])
+    end
 end

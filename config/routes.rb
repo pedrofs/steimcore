@@ -2,7 +2,9 @@ Rails.application.routes.draw do
   resource :prototype, only: :show
   resource :session, only: [ :new, :create, :destroy ]
   resources :passwords, param: :token, only: [ :new, :create, :edit, :update ]
-  resources :invitations, only: [ :new, :create ]
+  resources :invitations, only: [ :new, :create, :destroy ] do
+    resource :delivery, only: :create, module: :invitations
+  end
   resources :invitation_acceptances, param: :token, only: [ :edit, :update ]
   resource :organization, only: [ :show, :edit, :update ]
   resource :inbox, only: :show
