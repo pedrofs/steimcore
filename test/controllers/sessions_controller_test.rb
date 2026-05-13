@@ -20,6 +20,8 @@ class SessionsControllerTest < ActionDispatch::IntegrationTest
 
     assert_redirected_to new_session_path(email_address: @user.email_address)
     assert_nil cookies[:session_id]
+    errors = session[:inertia_errors] || {}
+    assert_includes errors.values.flatten, "E-mail ou senha incorretos."
   end
 
   test "destroy" do

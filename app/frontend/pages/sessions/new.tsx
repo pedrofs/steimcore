@@ -21,7 +21,7 @@ export default function NewSession({ email_address }: Props) {
 
   return (
     <>
-      <Head title="Sign in" />
+      <Head title="Entrar" />
       <div className="flex min-h-dvh flex-col items-center justify-center gap-6 bg-muted/40 p-4">
         <BrandLockup size="lg" showTagline animate />
         <motion.form
@@ -38,7 +38,7 @@ export default function NewSession({ email_address }: Props) {
           <div className="space-y-2">
             <Input
               type="email"
-              placeholder="Email address"
+              placeholder="E-mail"
               autoComplete="username"
               value={form.data.email_address}
               onChange={(e) => form.setData("email_address", e.target.value)}
@@ -53,7 +53,7 @@ export default function NewSession({ email_address }: Props) {
           <div className="space-y-2">
             <Input
               type="password"
-              placeholder="Password"
+              placeholder="Senha"
               autoComplete="current-password"
               value={form.data.password}
               onChange={(e) => form.setData("password", e.target.value)}
@@ -71,12 +71,12 @@ export default function NewSession({ email_address }: Props) {
           )}
 
           <Button type="submit" disabled={form.processing} className="w-full">
-            Sign in
+            Entrar
           </Button>
 
           <div className="flex justify-end text-sm text-muted-foreground">
             <Link href="/passwords/new" className="underline">
-              Forgot password?
+              Esqueceu sua senha?
             </Link>
           </div>
         </motion.form>

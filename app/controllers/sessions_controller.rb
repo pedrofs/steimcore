@@ -1,6 +1,6 @@
 class SessionsController < InertiaController
   allow_unauthenticated_access only: %i[ new create ]
-  rate_limit to: 10, within: 3.minutes, only: :create, with: -> { redirect_to new_session_path, alert: "Try again later." }
+  rate_limit to: 10, within: 3.minutes, only: :create, with: -> { redirect_to new_session_path, alert: "Tente novamente em alguns minutos." }
 
   def new
     render inertia: "sessions/new", props: {
@@ -14,7 +14,7 @@ class SessionsController < InertiaController
       redirect_to after_authentication_url
     else
       redirect_to new_session_path(email_address: params[:email_address]),
-                  inertia: { errors: { base: [ "Try another email address or password." ] } }
+                  inertia: { errors: { base: [ "E-mail ou senha incorretos." ] } }
     end
   end
 
