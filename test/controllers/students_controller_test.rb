@@ -294,6 +294,43 @@ class StudentsControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "show exposes every session for a multi-session day in chronological order" do
+    sign_in_as(@user)
+
+    travel_to Time.zone.local(2026, 5, 13, 10, 0, 0) do
+      student = students(:alice)
+      trainer = users(:one)
+      periodization = student.periodizations.create!
+      version = periodization.versions.create!(trainer: trainer, status: "completed")
+
+      morning = TrainingSession.create!(
+        student: student, trainer: trainer, periodization_version: version,
+        workout_name_snapshot: "Treino A", workout_position_snapshot: 1,
+        blocks_snapshot: [], progress: []
+      )
+      morning.update_columns(
+        created_at: Time.zone.local(2026, 5, 13, 7, 0, 0),
+        finished_at: Time.zone.local(2026, 5, 13, 8, 0, 0)
+      )
+      evening = TrainingSession.create!(
+        student: student, trainer: trainer, periodization_version: version,
+        workout_name_snapshot: "Treino B", workout_position_snapshot: 2,
+        blocks_snapshot: [], progress: []
+      )
+      evening.update_columns(
+        created_at: Time.zone.local(2026, 5, 13, 19, 0, 0),
+        finished_at: Time.zone.local(2026, 5, 13, 20, 0, 0)
+      )
+
+      get student_path(student)
+
+      frequency = inertia.props[:frequency]
+      today_cell = frequency[:days].find { |d| d[:date].to_s == "2026-05-13" }
+      assert_equal [ morning.id, evening.id ], today_cell[:sessions].map { |s| s[:id] }
+      assert_equal [ "Treino A", "Treino B" ], today_cell[:sessions].map { |s| s[:workout_name_snapshot] }
+    end
+  end
+
   test "show returns frequency: nil for archived students" do
     sign_in_as(@user)
 

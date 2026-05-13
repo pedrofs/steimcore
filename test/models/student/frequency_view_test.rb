@@ -35,6 +35,20 @@ class Student::FrequencyViewTest < ActiveSupport::TestCase
     end
   end
 
+  test "sessions within a multi-session day are ordered by created_at ascending so the latest is last" do
+    travel_to Time.zone.local(2026, 5, 13, 10, 0, 0) do
+      early   = finished_session_at(Time.zone.local(2026, 5, 13, 7, 0, 0))
+      midday  = finished_session_at(Time.zone.local(2026, 5, 13, 12, 0, 0))
+      evening = finished_session_at(Time.zone.local(2026, 5, 13, 19, 0, 0))
+
+      view = Student::FrequencyView.new(@student).to_h
+      today_cell = view[:days].find { |d| d[:date] == Date.new(2026, 5, 13) }
+
+      assert_equal [ early.id, midday.id, evening.id ],
+                   today_cell[:sessions].map { |s| s[:id] }
+    end
+  end
+
   test "ignores unfinished sessions" do
     travel_to Time.zone.local(2026, 5, 13, 10, 0, 0) do
       build_session(finished: false, created_at: Time.zone.local(2026, 5, 13, 9, 0, 0))

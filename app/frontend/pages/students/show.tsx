@@ -20,6 +20,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
+import { Separator } from "@/components/ui/separator"
 import { cn } from "@/lib/utils"
 
 type VersionStatus = "pending" | "generating" | "completed" | "failed"
@@ -444,7 +445,7 @@ function FrequencySection({
                 isToday={isToday}
                 row={row}
                 col={col}
-                version={latest?.periodizationVersionId ? versionsById.get(latest.periodizationVersionId) : undefined}
+                versionsById={versionsById}
                 studentId={studentId}
               />
             )
@@ -471,7 +472,7 @@ function FrequencyCell({
   isToday,
   row,
   col,
-  version,
+  versionsById,
   studentId,
 }: {
   day: FrequencyDay
@@ -479,7 +480,7 @@ function FrequencyCell({
   isToday: boolean
   row: number
   col: number
-  version: FrequencyVersion | undefined
+  versionsById: Map<string, FrequencyVersion>
   studentId: string
 }) {
   const style = { gridRow: row + 2, gridColumn: col + 2 }
@@ -497,7 +498,12 @@ function FrequencyCell({
 
   const fillClass = paletteBgClass(latest.paletteSlot)
   const textClass = paletteTextClass(latest.paletteSlot)
-  const ariaLabel = `${formatLongDatePt(day.date)} · ${latest.workoutNameSnapshot} · ${latest.trainerEmailPrefix}`
+  const sessionCount = day.sessions.length
+  const extraCount = sessionCount - 1
+  const sessionsLatestFirst = [...day.sessions].reverse()
+  const ariaLabel = sessionCount > 1
+    ? `${formatLongDatePt(day.date)} · ${sessionCount} treinos · último ${latest.workoutNameSnapshot}`
+    : `${formatLongDatePt(day.date)} · ${latest.workoutNameSnapshot} · ${latest.trainerEmailPrefix}`
 
   return (
     <Popover>
@@ -507,10 +513,10 @@ function FrequencyCell({
           style={style}
           aria-label={ariaLabel}
           className={cn(
-            "rounded-sm",
+            "relative rounded-sm",
             fillClass,
             outlineClass,
-            "flex items-center justify-center overflow-hidden leading-none",
+            "flex items-center justify-center leading-none",
             "cursor-pointer transition-opacity hover:opacity-80",
             "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50 focus-visible:ring-offset-1 focus-visible:ring-offset-background",
           )}
@@ -524,40 +530,165 @@ function FrequencyCell({
           >
             {latest.workoutPositionSnapshot}
           </span>
+          {extraCount > 0 && (
+            <span
+              aria-hidden
+              className={cn(
+                "absolute -top-1 -right-1 inline-flex items-center justify-center",
+                "rounded-full bg-foreground text-background shadow-sm",
+                "text-[7px] sm:text-[8px] font-bold leading-none tabular-nums",
+                "h-3 min-w-3 px-[2px] sm:h-3.5 sm:min-w-3.5",
+              )}
+            >
+              +{extraCount}
+            </span>
+          )}
         </button>
       </PopoverTrigger>
       <PopoverContent align="center" className="w-64 gap-2">
-        <div className="text-xs font-medium text-muted-foreground">
-          {formatLongDatePt(day.date)}
-        </div>
-        <div className="text-sm font-semibold">
-          {latest.workoutNameSnapshot}{" "}
-          <span className="text-xs font-normal text-muted-foreground">
-            · Treino {latest.workoutPositionSnapshot}
-          </span>
-        </div>
-        <div className="text-xs text-muted-foreground">
-          {latest.trainerEmailPrefix}
-        </div>
-        {version && (
-          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <span
-              aria-hidden
-              className={cn("inline-block size-2.5 rounded-sm", paletteBgClass(version.paletteSlot))}
-            />
-            <span>Versão {version.number} — Periodização</span>
-          </div>
-        )}
-        {version && (
-          <Link
-            href={`/students/${studentId}/periodizations/${version.periodizationId}`}
-            className="inline-flex items-center text-xs font-medium text-brand hover:underline"
-          >
-            Ver periodização
-          </Link>
+        {sessionCount > 1 ? (
+          <MultiSessionPopoverBody
+            day={day}
+            sessions={sessionsLatestFirst}
+            versionsById={versionsById}
+            studentId={studentId}
+          />
+        ) : (
+          <SingleSessionPopoverBody
+            day={day}
+            session={latest}
+            version={latest.periodizationVersionId ? versionsById.get(latest.periodizationVersionId) : undefined}
+            studentId={studentId}
+          />
         )}
       </PopoverContent>
     </Popover>
+  )
+}
+
+function SingleSessionPopoverBody({
+  day,
+  session,
+  version,
+  studentId,
+}: {
+  day: FrequencyDay
+  session: FrequencySession
+  version: FrequencyVersion | undefined
+  studentId: string
+}) {
+  return (
+    <>
+      <div className="text-xs font-medium text-muted-foreground">
+        {formatLongDatePt(day.date)}
+      </div>
+      <div className="text-sm font-semibold">
+        {session.workoutNameSnapshot}{" "}
+        <span className="text-xs font-normal text-muted-foreground">
+          · Treino {session.workoutPositionSnapshot}
+        </span>
+      </div>
+      <div className="text-xs text-muted-foreground">
+        {session.trainerEmailPrefix}
+      </div>
+      {version && (
+        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <span
+            aria-hidden
+            className={cn("inline-block size-2.5 rounded-sm", paletteBgClass(version.paletteSlot))}
+          />
+          <span>Versão {version.number} — Periodização</span>
+        </div>
+      )}
+      {version && (
+        <Link
+          href={`/students/${studentId}/periodizations/${version.periodizationId}`}
+          className="inline-flex items-center text-xs font-medium text-brand hover:underline"
+        >
+          Ver periodização
+        </Link>
+      )}
+    </>
+  )
+}
+
+function MultiSessionPopoverBody({
+  day,
+  sessions,
+  versionsById,
+  studentId,
+}: {
+  day: FrequencyDay
+  sessions: FrequencySession[]
+  versionsById: Map<string, FrequencyVersion>
+  studentId: string
+}) {
+  const distinctPeriodizations: { periodizationId: string; number: number }[] = []
+  const seen = new Set<string>()
+  for (const session of sessions) {
+    const versionId = session.periodizationVersionId
+    const version = versionId ? versionsById.get(versionId) : undefined
+    if (!version) continue
+    if (seen.has(version.periodizationId)) continue
+    seen.add(version.periodizationId)
+    distinctPeriodizations.push({
+      periodizationId: version.periodizationId,
+      number: version.number,
+    })
+  }
+  const multiplePeriodizations = distinctPeriodizations.length > 1
+
+  return (
+    <>
+      <div className="text-xs font-medium text-muted-foreground">
+        {formatLongDatePt(day.date)}
+      </div>
+      <div className="flex flex-col gap-2">
+        {sessions.map((session, idx) => {
+          const version = session.periodizationVersionId
+            ? versionsById.get(session.periodizationVersionId)
+            : undefined
+          return (
+            <div key={session.id} className="flex flex-col gap-1">
+              {idx > 0 && <Separator className="mb-1" />}
+              <div className="text-sm font-semibold">
+                {session.workoutNameSnapshot}{" "}
+                <span className="text-xs font-normal text-muted-foreground">
+                  · Treino {session.workoutPositionSnapshot}
+                </span>
+              </div>
+              <div className="text-xs text-muted-foreground">
+                {session.trainerEmailPrefix}
+              </div>
+              {version && (
+                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <span
+                    aria-hidden
+                    className={cn("inline-block size-2.5 rounded-sm", paletteBgClass(version.paletteSlot))}
+                  />
+                  <span>Versão {version.number} — Periodização</span>
+                </div>
+              )}
+            </div>
+          )
+        })}
+      </div>
+      {distinctPeriodizations.length > 0 && (
+        <div className="flex flex-col gap-1">
+          {distinctPeriodizations.map((entry) => (
+            <Link
+              key={entry.periodizationId}
+              href={`/students/${studentId}/periodizations/${entry.periodizationId}`}
+              className="inline-flex items-center text-xs font-medium text-brand hover:underline"
+            >
+              {multiplePeriodizations
+                ? `Ver Versão ${entry.number} — Periodização`
+                : "Ver periodização"}
+            </Link>
+          ))}
+        </div>
+      )}
+    </>
   )
 }
 
