@@ -6,6 +6,7 @@ class TrainingSession < ApplicationRecord
   belongs_to :student
   belongs_to :trainer, class_name: "User"
   belongs_to :workout, optional: true
+  belongs_to :periodization_version, optional: true
 
   validates :workout_name_snapshot, presence: true
   validates :workout_position_snapshot, presence: true, numericality: { only_integer: true }
@@ -33,6 +34,7 @@ class TrainingSession < ApplicationRecord
         student: student,
         trainer: trainer,
         workout: workout,
+        periodization_version: workout.periodization_version,
         workout_name_snapshot: workout.name,
         workout_position_snapshot: workout.position,
         blocks_snapshot: workout.blocks

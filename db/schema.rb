@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.2].define(version: 2026_05_12_161956) do
+ActiveRecord::Schema[8.2].define(version: 2026_05_13_135215) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -107,6 +107,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_05_12_161956) do
     t.jsonb "blocks_snapshot", default: [], null: false
     t.datetime "created_at", null: false
     t.datetime "finished_at"
+    t.uuid "periodization_version_id"
     t.jsonb "progress", default: [], null: false
     t.uuid "student_id", null: false
     t.bigint "trainer_id", null: false
@@ -114,6 +115,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_05_12_161956) do
     t.uuid "workout_id"
     t.string "workout_name_snapshot", null: false
     t.integer "workout_position_snapshot", null: false
+    t.index ["periodization_version_id"], name: "index_training_sessions_on_periodization_version_id"
     t.index ["student_id", "finished_at"], name: "index_training_sessions_on_student_id_and_finished_at"
     t.index ["student_id"], name: "idx_one_active_training_session_per_student", unique: true, where: "(finished_at IS NULL)"
     t.index ["trainer_id", "finished_at"], name: "index_training_sessions_on_trainer_id_and_finished_at"
@@ -176,6 +178,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_05_12_161956) do
   add_foreign_key "sessions", "users"
   add_foreign_key "students", "organizations"
   add_foreign_key "students", "periodizations", column: "active_periodization_id"
+  add_foreign_key "training_sessions", "periodization_versions", on_delete: :nullify
   add_foreign_key "training_sessions", "students"
   add_foreign_key "training_sessions", "users", column: "trainer_id"
   add_foreign_key "training_sessions", "workouts", on_delete: :nullify

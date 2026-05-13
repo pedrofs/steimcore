@@ -43,9 +43,26 @@ type Student = {
   activePlan: ActivePlan | null
 }
 
+type FrequencySession = {
+  id: string
+  createdAt: string
+  periodizationVersionId: string | null
+  paletteSlot: number | null
+}
+
 type FrequencyDay = {
   date: string
-  sessions: { id: string; createdAt: string }[]
+  sessions: FrequencySession[]
+}
+
+type FrequencyVersion = {
+  id: string
+  number: number
+  periodizationId: string
+  paletteSlot: number
+  rangeStart: string
+  rangeEnd: string
+  isCurrent: boolean
 }
 
 type Frequency = {
@@ -53,6 +70,7 @@ type Frequency = {
   windowEnd: string
   today: string
   days: FrequencyDay[]
+  versions: FrequencyVersion[]
 }
 
 type Props = {
@@ -311,8 +329,24 @@ const MONTH_LABELS_PT = [
   "jul", "ago", "set", "out", "nov", "dez",
 ] as const
 
+// Tailwind cannot detect dynamically-concatenated class names, so the palette
+// is enumerated as full literals. Slot indices must match the server-side
+// PALETTE_SIZE in Student::FrequencyView.
+const PALETTE_BG = [
+  "bg-chart-1",
+  "bg-chart-2",
+  "bg-chart-3",
+  "bg-chart-4",
+  "bg-chart-5",
+] as const
+
+function paletteBgClass(slot: number | null | undefined): string {
+  if (slot == null) return "bg-muted-foreground/55"
+  return PALETTE_BG[slot % PALETTE_BG.length] ?? "bg-muted-foreground/55"
+}
+
 function FrequencySection({ frequency }: { frequency: Frequency }) {
-  const { days, today } = frequency
+  const { days, today, versions } = frequency
   const hasAnySession = days.some((day) => day.sessions.length > 0)
 
   const monthLabels: { col: number; label: string }[] = []
@@ -370,15 +404,18 @@ function FrequencySection({ frequency }: { frequency: Frequency }) {
           {days.map((day, i) => {
             const col = Math.floor(i / 7)
             const row = i % 7
-            const filled = day.sessions.length > 0
             const isToday = day.date === today
+            const latest = day.sessions.length > 0 ? day.sessions[day.sessions.length - 1] : undefined
+            const filledClass = latest
+              ? paletteBgClass(latest.paletteSlot)
+              : "bg-muted/50"
             return (
               <div
                 key={day.date}
                 style={{ gridRow: row + 2, gridColumn: col + 2 }}
                 className={cn(
                   "rounded-sm",
-                  filled ? "bg-muted-foreground/55" : "bg-muted/50",
+                  filledClass,
                   isToday && "outline outline-1 outline-foreground/70",
                 )}
               />
@@ -394,8 +431,45 @@ function FrequencySection({ frequency }: { frequency: Frequency }) {
           </div>
         )}
       </div>
+
+      {versions.length > 0 && <FrequencyLegend versions={versions} />}
     </motion.section>
   )
+}
+
+function FrequencyLegend({ versions }: { versions: FrequencyVersion[] }) {
+  const ordered = [...versions].reverse()
+  return (
+    <ul className="flex flex-wrap gap-2" aria-label="Legenda das versões da periodização">
+      {ordered.map((version) => {
+        const range = version.isCurrent
+          ? `desde ${formatDayMonth(version.rangeStart)}`
+          : `${formatDayMonth(version.rangeStart)} – ${formatDayMonth(version.rangeEnd)}`
+        return (
+          <li
+            key={version.id}
+            className="inline-flex items-center gap-1.5 text-xs text-muted-foreground"
+          >
+            <span
+              aria-hidden
+              className={cn("inline-block size-2.5 rounded-sm", paletteBgClass(version.paletteSlot))}
+            />
+            <span>
+              <span className="text-foreground">Versão {version.number}</span> · {range}
+              {version.isCurrent && <span className="ml-1">(atual)</span>}
+            </span>
+          </li>
+        )
+      })}
+    </ul>
+  )
+}
+
+function formatDayMonth(iso: string): string {
+  const d = parseDateOnly(iso)
+  const dd = String(d.getDate()).padStart(2, "0")
+  const mm = String(d.getMonth() + 1).padStart(2, "0")
+  return `${dd}/${mm}`
 }
 
 function parseDateOnly(iso: string): Date {
