@@ -40,11 +40,6 @@ namespace :students do
         skipped_existing += 1
         next
       end
-      if phone && organization.students.exists?(phone: phone)
-        puts "  SKIP existing phone: #{name} #{phone}"
-        skipped_existing += 1
-        next
-      end
 
       begin
         organization.students.create!(
