@@ -14,6 +14,8 @@ type Student = {
   primaryGoal: string | null
   restrictionsSummary: string | null
   weeklyFrequency: number | null
+  phone: string | null
+  email: string | null
   anamnesisMd: string
   notesMd: string
   archived: boolean
@@ -102,6 +104,45 @@ export default function Edit({ student }: Props) {
                   defaultValue={student.weeklyFrequency ?? ""}
                   className="h-11"
                 />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="phone">Telefone</Label>
+                <Input
+                  id="phone"
+                  name="student[phone]"
+                  type="tel"
+                  inputMode="tel"
+                  autoComplete="tel"
+                  defaultValue={student.phone ?? ""}
+                  className="h-11"
+                  placeholder="(11) 99999-0000"
+                />
+                {errors.phone && (
+                  <p className="text-sm text-destructive">
+                    {errors.phone.join(", ")}
+                  </p>
+                )}
+              </div>
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="email">E-mail</Label>
+                <Input
+                  id="email"
+                  name="student[email]"
+                  type="email"
+                  inputMode="email"
+                  autoComplete="email"
+                  defaultValue={student.email ?? ""}
+                  className="h-11"
+                  placeholder="aluno@exemplo.com"
+                />
+                {errors.email && (
+                  <p className="text-sm text-destructive">
+                    {errors.email.join(", ")}
+                  </p>
+                )}
               </div>
             </div>
 

@@ -3,8 +3,10 @@ import {
   AlertTriangle,
   Archive,
   ChevronRight,
+  Mail,
   Mic,
   Pencil,
+  Phone,
   Play,
   RotateCcw,
   Sparkles,
@@ -41,6 +43,8 @@ type Student = {
   primaryGoal: string | null
   restrictionsSummary: string | null
   weeklyFrequency: number | null
+  phone: string | null
+  email: string | null
   anamnesisMd: string
   notesMd: string
   archived: boolean
@@ -264,6 +268,9 @@ function StudentIdentity({ student }: { student: Student }) {
   const chips = buildChips(student)
   const restriction = (student.restrictionsSummary ?? "").trim()
   const hasRestriction = restriction.length > 0
+  const phone = student.phone?.trim()
+  const email = student.email?.trim()
+  const hasContact = Boolean(phone) || Boolean(email)
 
   return (
     <header className="flex flex-col gap-3">
@@ -306,6 +313,28 @@ function StudentIdentity({ student }: { student: Student }) {
                   {chip}
                 </Badge>
               ))}
+            </div>
+          )}
+          {hasContact && (
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
+              {phone && (
+                <a
+                  href={`tel:${phone.replace(/\s+/g, "")}`}
+                  className="inline-flex items-center gap-1.5 hover:text-foreground"
+                >
+                  <Phone className="size-3.5" aria-hidden />
+                  <span className="tabular-nums">{phone}</span>
+                </a>
+              )}
+              {email && (
+                <a
+                  href={`mailto:${email}`}
+                  className="inline-flex min-w-0 items-center gap-1.5 hover:text-foreground"
+                >
+                  <Mail className="size-3.5 shrink-0" aria-hidden />
+                  <span className="truncate">{email}</span>
+                </a>
+              )}
             </div>
           )}
         </div>

@@ -75,7 +75,7 @@ class StudentsController < InertiaController
     def update_params
       params.require(:student).permit(
         :name, :age, :sex, :primary_goal, :restrictions_summary,
-        :weekly_frequency, :anamnesis_md, :notes_md
+        :weekly_frequency, :phone, :email, :anamnesis_md, :notes_md
       )
     end
 
@@ -136,6 +136,8 @@ class StudentsController < InertiaController
         primary_goal: student.primary_goal,
         restrictions_summary: student.restrictions_summary,
         weekly_frequency: student.weekly_frequency,
+        phone: student.phone,
+        email: student.email,
         anamnesis_md: student.anamnesis_md,
         notes_md: student.notes_md,
         archived: student.archived?,
