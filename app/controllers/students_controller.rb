@@ -136,7 +136,32 @@ class StudentsController < InertiaController
         anamnesis_md: student.anamnesis_md,
         notes_md: student.notes_md,
         archived: student.archived?,
-        active_periodization_id: student.active_periodization_id
+        archived_at: student.archived_at&.iso8601,
+        active_periodization_id: student.active_periodization_id,
+        active_plan: active_plan_props(student)
+      }
+    end
+
+    def active_plan_props(student)
+      periodization = student.active_periodization
+      return nil if periodization.nil?
+
+      version = periodization.current_version
+      workouts_count = version&.workouts&.count || 0
+      next_workout = TrainingSession.next_workout_for(student)
+      last_finished = student.training_sessions.finished.order(finished_at: :desc).first
+      active_session = student.training_sessions.active.first
+
+      {
+        periodization_id: periodization.id,
+        version_status: version&.status,
+        next_workout: next_workout && {
+          name: next_workout.name,
+          position: next_workout.position,
+          total: workouts_count
+        },
+        last_session_at: last_finished&.finished_at&.iso8601,
+        active_session_id: active_session&.id
       }
     end
 end

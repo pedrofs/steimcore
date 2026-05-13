@@ -15,6 +15,7 @@ Rails.application.routes.draw do
     resource :periodization, only: [], module: :students do
       resource :printable, only: :show, module: :periodizations
     end
+    resource :restoration, only: :create, module: :students
   end
 
   resources :periodization_versions, only: [ :show, :destroy ] do
