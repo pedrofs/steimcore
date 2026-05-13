@@ -1,0 +1,11 @@
+pending:
+  email_address: invited@example.com
+  organization: steimfit
+  invited_by: one
+  accepted_at:
+
+accepted:
+  email_address: accepted@example.com
+  organization: steimfit
+  invited_by: one
+  accepted_at: <%= 1.day.ago.iso8601 %>

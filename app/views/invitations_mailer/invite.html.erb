@@ -1,0 +1,12 @@
+<p style="margin:0 0 16px 0;">
+  <strong><%= @inviter.email_address %></strong> convidou você para o <strong><%= @organization.name %></strong>.
+</p>
+
+<p style="margin:0 0 24px 0;">
+  <%= link_to "Criar minha senha", edit_invitation_acceptance_url(@token),
+              style: "display:inline-block;background-color:#a80038;color:#ffffff;padding:12px 20px;text-decoration:none;font-weight:600;border-radius:4px;" %>
+</p>
+
+<p style="margin:0;color:#71717a;font-size:14px;">
+  Este link expira em 7 dias.
+</p>

@@ -2,6 +2,8 @@ Rails.application.routes.draw do
   resource :prototype, only: :show
   resource :session, only: [ :new, :create, :destroy ]
   resources :passwords, param: :token, only: [ :new, :create, :edit, :update ]
+  resources :invitations, only: [ :new, :create ]
+  resources :invitation_acceptances, param: :token, only: [ :edit, :update ]
   resource :organization, only: [ :show, :edit, :update ]
   resource :inbox, only: :show
   resources :students, only: [ :index, :new, :create, :show, :edit, :update ] do
