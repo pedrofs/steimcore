@@ -41,7 +41,10 @@ class StudentsController < InertiaController
     @title = student.name
     add_breadcrumb(label: student.name, path: student_path(student))
 
-    render inertia: "students/show", props: { student: student_props(student) }
+    render inertia: "students/show", props: {
+      student: student_props(student),
+      frequency: frequency_props(student)
+    }
   end
 
   def edit
@@ -140,6 +143,11 @@ class StudentsController < InertiaController
         active_periodization_id: student.active_periodization_id,
         active_plan: active_plan_props(student)
       }
+    end
+
+    def frequency_props(student)
+      return nil if student.archived?
+      Student::FrequencyView.new(student).to_h
     end
 
     def active_plan_props(student)

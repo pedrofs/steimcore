@@ -43,11 +43,24 @@ type Student = {
   activePlan: ActivePlan | null
 }
 
-type Props = {
-  student: Student
+type FrequencyDay = {
+  date: string
+  sessions: { id: string; createdAt: string }[]
 }
 
-export default function Show({ student }: Props) {
+type Frequency = {
+  windowStart: string
+  windowEnd: string
+  today: string
+  days: FrequencyDay[]
+}
+
+type Props = {
+  student: Student
+  frequency: Frequency | null
+}
+
+export default function Show({ student, frequency }: Props) {
   return (
     <>
       <StudentIdentity student={student} />
@@ -68,6 +81,10 @@ export default function Show({ student }: Props) {
           >
             <PlanHeroCard student={student} plan={student.activePlan} />
           </motion.div>
+        )}
+
+        {!student.archived && frequency && (
+          <FrequencySection frequency={frequency} />
         )}
 
         <motion.section
@@ -282,6 +299,108 @@ function StudentIdentity({ student }: { student: Student }) {
       )}
     </header>
   )
+}
+
+const CELL_PX = 10
+const GAP_PX = 3
+const LABEL_PX = 24
+const WEEKS = 26
+const DAY_LABELS = ["Seg", "", "Qua", "", "Sex", "", ""] as const
+const MONTH_LABELS_PT = [
+  "jan", "fev", "mar", "abr", "mai", "jun",
+  "jul", "ago", "set", "out", "nov", "dez",
+] as const
+
+function FrequencySection({ frequency }: { frequency: Frequency }) {
+  const { days, today } = frequency
+  const hasAnySession = days.some((day) => day.sessions.length > 0)
+
+  const monthLabels: { col: number; label: string }[] = []
+  for (let col = 0; col < WEEKS; col++) {
+    for (let row = 0; row < 7; row++) {
+      const day = days[col * 7 + row]
+      if (!day) continue
+      const date = parseDateOnly(day.date)
+      if (date.getDate() === 1) {
+        monthLabels.push({ col, label: MONTH_LABELS_PT[date.getMonth()]! })
+        break
+      }
+    }
+  }
+
+  return (
+    <motion.section
+      className="flex flex-col gap-2"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.4, delay: 0.125, ease: "easeOut" }}
+    >
+      <h2 className="text-lg font-medium">Frequência</h2>
+      <div className="relative overflow-x-auto">
+        <div
+          className="inline-grid"
+          style={{
+            gridTemplateColumns: `${LABEL_PX}px repeat(${WEEKS}, ${CELL_PX}px)`,
+            gridTemplateRows: `auto repeat(7, ${CELL_PX}px)`,
+            columnGap: `${GAP_PX}px`,
+            rowGap: `${GAP_PX}px`,
+          }}
+          aria-label="Treinos finalizados nos últimos 6 meses"
+        >
+          {monthLabels.map(({ col, label }) => (
+            <div
+              key={`m-${col}`}
+              className="text-[10px] leading-none text-muted-foreground"
+              style={{ gridRow: 1, gridColumn: col + 2 }}
+            >
+              {label}
+            </div>
+          ))}
+
+          {DAY_LABELS.map((label, row) => (
+            <div
+              key={`dl-${row}`}
+              className="self-center text-[10px] leading-none text-muted-foreground"
+              style={{ gridRow: row + 2, gridColumn: 1 }}
+            >
+              {label}
+            </div>
+          ))}
+
+          {days.map((day, i) => {
+            const col = Math.floor(i / 7)
+            const row = i % 7
+            const filled = day.sessions.length > 0
+            const isToday = day.date === today
+            return (
+              <div
+                key={day.date}
+                style={{ gridRow: row + 2, gridColumn: col + 2 }}
+                className={cn(
+                  "rounded-sm",
+                  filled ? "bg-muted-foreground/55" : "bg-muted/50",
+                  isToday && "outline outline-1 outline-foreground/70",
+                )}
+              />
+            )
+          })}
+        </div>
+
+        {!hasAnySession && (
+          <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-background/75 px-4 text-center text-xs text-muted-foreground sm:text-sm">
+            <span className="max-w-xs">
+              Sem treinos finalizados nos últimos 6 meses · O primeiro aparece aqui após Iniciar treino
+            </span>
+          </div>
+        )}
+      </div>
+    </motion.section>
+  )
+}
+
+function parseDateOnly(iso: string): Date {
+  const [y, m, d] = iso.split("-").map((part) => Number(part))
+  return new Date(y!, (m ?? 1) - 1, d ?? 1)
 }
 
 function PlanHeroCard({

@@ -279,6 +279,30 @@ class StudentsControllerTest < ActionDispatch::IntegrationTest
     assert_equal true, inertia.props[:student][:archived]
   end
 
+  test "show exposes a frequency prop with the calendar-aligned 6-month window" do
+    sign_in_as(@user)
+
+    travel_to Time.zone.local(2026, 5, 13, 10, 0, 0) do
+      get student_path(students(:alice))
+
+      assert_response :success
+      frequency = inertia.props[:frequency]
+      assert_not_nil frequency
+      assert_equal Date.new(2025, 11, 17).to_s, frequency[:window_start].to_s
+      assert_equal Date.new(2026, 5, 17).to_s, frequency[:window_end].to_s
+      assert_equal 26 * 7, frequency[:days].length
+    end
+  end
+
+  test "show returns frequency: nil for archived students" do
+    sign_in_as(@user)
+
+    get student_path(students(:archived_carol))
+
+    assert_response :success
+    assert_nil inertia.props[:frequency]
+  end
+
   test "show is scoped to the current organization" do
     other_org = Organization.create!(name: "Outro Gym")
     other_student = other_org.students.create!(name: "Externo")
