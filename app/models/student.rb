@@ -5,9 +5,16 @@ class Student < ApplicationRecord
   belongs_to :active_periodization, class_name: "Periodization", optional: true
   has_many :voice_recordings, dependent: :destroy
   has_many :periodizations, dependent: :destroy
-  has_many :training_sessions
+  has_many :training_sessions, dependent: :destroy
 
   validates :name, presence: true
+
+  def age(today: Date.current)
+    return nil if birthday.nil?
+    age = today.year - birthday.year
+    age -= 1 if today < birthday + age.years
+    age
+  end
 
   # Begins a new periodization for this student. If an active one exists, it
   # gets archived in the same transaction; the new periodization is created

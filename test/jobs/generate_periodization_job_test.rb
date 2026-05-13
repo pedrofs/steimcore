@@ -7,7 +7,7 @@ class GeneratePeriodizationJobTest < ActiveJob::TestCase
 
     @student = students(:alice)
     @student.update!(
-      age: 32,
+      birthday: Date.new(1994, 1, 1),
       sex: "Feminino",
       primary_goal: "Hipertrofia",
       weekly_frequency: 3,
@@ -207,7 +207,7 @@ class GeneratePeriodizationJobTest < ActiveJob::TestCase
 
       @student = students(:alice)
       @student.update!(
-        age: 32, sex: "Feminino", primary_goal: "Hipertrofia",
+        birthday: Date.new(1994, 1, 1), sex: "Feminino", primary_goal: "Hipertrofia",
         weekly_frequency: 3, restrictions_summary: "Lombar sensível",
         anamnesis_md: "## Histórico\n\nLevantamento básico há 2 anos."
       )
@@ -376,7 +376,7 @@ class GeneratePeriodizationJobTest < ActiveJob::TestCase
 
       @student = students(:alice)
       @student.update!(
-        age: 32, sex: "Feminino", primary_goal: "Hipertrofia",
+        birthday: Date.new(1994, 1, 1), sex: "Feminino", primary_goal: "Hipertrofia",
         weekly_frequency: 3, restrictions_summary: "Lombar sensível",
         anamnesis_md: "## Histórico\n\nLevantamento básico há 2 anos."
       )
@@ -537,7 +537,7 @@ class GeneratePeriodizationJobTest < ActiveJob::TestCase
 
       @student = students(:alice)
       @student.update!(
-        age: 32, sex: "Feminino", primary_goal: "Hipertrofia",
+        birthday: Date.new(1994, 1, 1), sex: "Feminino", primary_goal: "Hipertrofia",
         weekly_frequency: 3, restrictions_summary: "Lombar sensível",
         anamnesis_md: "## Histórico\n\nLevantamento básico há 2 anos."
       )

@@ -4,7 +4,7 @@ class RegenerateAnamnesisJobTest < ActiveJob::TestCase
   setup do
     @student = students(:alice)
     @student.update!(
-      age: 32,
+      birthday: Date.new(1994, 1, 1),
       sex: "Feminino",
       primary_goal: "Hipertrofia",
       restrictions_summary: "Lombar sensível",

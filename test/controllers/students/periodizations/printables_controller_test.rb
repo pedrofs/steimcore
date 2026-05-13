@@ -15,7 +15,7 @@ class Students::Periodizations::PrintablesControllerTest < ActionDispatch::Integ
 
   test "show renders the printable for a completed current version" do
     @student.update!(
-      age: 32,
+      birthday: Date.new(1994, 1, 1),
       sex: "F",
       primary_goal: "Hipertrofia",
       weekly_frequency: 4,
@@ -28,7 +28,9 @@ class Students::Periodizations::PrintablesControllerTest < ActionDispatch::Integ
     ])
 
     sign_in_as(@user)
-    get student_periodization_printable_path(@student)
+    travel_to Time.zone.local(2026, 6, 1, 10, 0, 0) do
+      get student_periodization_printable_path(@student)
+    end
 
     assert_response :success
     assert_equal "students/periodizations/printables/show", inertia.component

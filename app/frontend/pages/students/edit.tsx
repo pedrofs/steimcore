@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea"
 type Student = {
   id: string
   name: string
-  age: number | null
+  birthday: string | null
   sex: string | null
   primaryGoal: string | null
   restrictionsSummary: string | null
@@ -59,14 +59,12 @@ export default function Edit({ student }: Props) {
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="flex flex-col gap-2">
-                <Label htmlFor="age">Idade</Label>
+                <Label htmlFor="birthday">Data de nascimento</Label>
                 <Input
-                  id="age"
-                  name="student[age]"
-                  type="number"
-                  inputMode="numeric"
-                  min={0}
-                  defaultValue={student.age ?? ""}
+                  id="birthday"
+                  name="student[birthday]"
+                  type="date"
+                  defaultValue={student.birthday ?? ""}
                   className="h-11"
                 />
               </div>

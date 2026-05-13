@@ -28,6 +28,7 @@ class StudentTest < ActiveSupport::TestCase
   test "structured and freeform fields default to null/empty on create" do
     student = Student.create!(name: "Alice", organization: @organization)
 
+    assert_nil student.birthday
     assert_nil student.age
     assert_nil student.sex
     assert_nil student.primary_goal
@@ -42,7 +43,7 @@ class StudentTest < ActiveSupport::TestCase
     student = Student.create!(name: "Alice", organization: @organization)
 
     student.update!(
-      age: 32,
+      birthday: Date.new(1994, 3, 15),
       sex: "Feminino",
       primary_goal: "Hipertrofia",
       restrictions_summary: "Lombar sensível",
@@ -52,13 +53,28 @@ class StudentTest < ActiveSupport::TestCase
     )
     student.reload
 
-    assert_equal 32, student.age
+    assert_equal Date.new(1994, 3, 15), student.birthday
     assert_equal "Feminino", student.sex
     assert_equal "Hipertrofia", student.primary_goal
     assert_equal "Lombar sensível", student.restrictions_summary
     assert_equal 4, student.weekly_frequency
     assert_equal "## Histórico\n\nLesão antiga.", student.anamnesis_md
     assert_equal "Toca dança duas vezes por semana.", student.notes_md
+  end
+
+  test "age is derived from birthday and accounts for whether the birthday has passed this year" do
+    student = Student.new(name: "Alice", organization: @organization)
+
+    student.birthday = Date.new(1990, 6, 15)
+    assert_equal 36, student.age(today: Date.new(2026, 6, 15))
+    assert_equal 36, student.age(today: Date.new(2026, 12, 31))
+    assert_equal 35, student.age(today: Date.new(2026, 6, 14))
+    assert_equal 35, student.age(today: Date.new(2026, 1, 1))
+  end
+
+  test "age returns nil when birthday is not set" do
+    student = Student.create!(name: "Alice", organization: @organization)
+    assert_nil student.age
   end
 
   test "archive! flips the archived state and is reflected by the scopes" do

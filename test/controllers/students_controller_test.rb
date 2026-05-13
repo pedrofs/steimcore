@@ -230,18 +230,18 @@ class StudentsControllerTest < ActionDispatch::IntegrationTest
     sign_in_as(@user)
 
     post students_path, params: {
-      student: { name: "Frank", age: 99, anamnesis_md: "should not be set yet" }
+      student: { name: "Frank", birthday: "1990-01-01", anamnesis_md: "should not be set yet" }
     }
 
     student = @organization.students.find_by!(name: "Frank")
-    assert_nil student.age
+    assert_nil student.birthday
     assert_equal "", student.anamnesis_md
   end
 
   test "show renders the full student profile" do
     student = @organization.students.create!(
       name: "Grace",
-      age: 28,
+      birthday: Date.new(1998, 6, 15),
       sex: "Feminino",
       primary_goal: "Hipertrofia",
       restrictions_summary: "Joelho",
@@ -251,7 +251,9 @@ class StudentsControllerTest < ActionDispatch::IntegrationTest
     )
     sign_in_as(@user)
 
-    get student_path(student)
+    travel_to Time.zone.local(2026, 6, 15, 10, 0, 0) do
+      get student_path(student)
+    end
 
     assert_response :success
     assert_equal "students/show", inertia.component
@@ -259,6 +261,7 @@ class StudentsControllerTest < ActionDispatch::IntegrationTest
     assert_equal student.id, props[:id]
     assert_equal "Grace", props[:name]
     assert_equal 28, props[:age]
+    assert_equal "1998-06-15", props[:birthday]
     assert_equal "Feminino", props[:sex]
     assert_equal "Hipertrofia", props[:primary_goal]
     assert_equal "Joelho", props[:restrictions_summary]
@@ -367,7 +370,7 @@ class StudentsControllerTest < ActionDispatch::IntegrationTest
 
     patch student_path(student), params: {
       student: {
-        age: 41,
+        birthday: "1985-04-02",
         sex: "Masculino",
         primary_goal: "Resistência",
         restrictions_summary: "Lombar",
@@ -379,7 +382,7 @@ class StudentsControllerTest < ActionDispatch::IntegrationTest
 
     assert_redirected_to student_path(student)
     student.reload
-    assert_equal 41, student.age
+    assert_equal Date.new(1985, 4, 2), student.birthday
     assert_equal "Masculino", student.sex
     assert_equal "Resistência", student.primary_goal
     assert_equal "Lombar", student.restrictions_summary
