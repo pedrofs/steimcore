@@ -250,11 +250,11 @@ export default function TrainingSessionsIndex({
     <>
       <Head title="Sessões ao vivo" />
       <FlashToaster />
-      <div className="relative flex min-h-screen flex-col bg-neutral-50">
+      <div className="relative flex min-h-screen flex-col bg-muted/30">
         <Link
           href="/"
           aria-label="Fechar"
-          className="absolute top-3 right-3 z-20 inline-flex size-9 items-center justify-center rounded-full bg-white/70 text-muted-foreground hover:bg-muted hover:text-foreground"
+          className="absolute top-3 right-3 z-20 inline-flex size-9 items-center justify-center rounded-full bg-background/70 text-muted-foreground hover:bg-muted hover:text-foreground"
         >
           <XIcon className="size-5" />
         </Link>
@@ -323,14 +323,14 @@ export default function TrainingSessionsIndex({
 
 function ScopeToggle({ scope }: { scope: Scope }) {
   return (
-    <div className="inline-flex rounded-full border border-neutral-200 bg-neutral-100 p-0.5 text-xs">
+    <div className="inline-flex rounded-full border border-border bg-muted p-0.5 text-xs">
       <Link
         href="/training_sessions"
         className={cn(
           "rounded-full px-3 py-1 font-medium transition",
           scope === "trainer"
-            ? "bg-white text-neutral-900 shadow-sm"
-            : "text-neutral-500 hover:text-neutral-700",
+            ? "bg-background text-foreground shadow-sm"
+            : "text-muted-foreground hover:text-foreground",
         )}
       >
         Minhas
@@ -340,8 +340,8 @@ function ScopeToggle({ scope }: { scope: Scope }) {
         className={cn(
           "rounded-full px-3 py-1 font-medium transition",
           scope === "org"
-            ? "bg-white text-neutral-900 shadow-sm"
-            : "text-neutral-500 hover:text-neutral-700",
+            ? "bg-background text-foreground shadow-sm"
+            : "text-muted-foreground hover:text-foreground",
         )}
       >
         Todas
@@ -366,7 +366,7 @@ function AvatarStrip({
   scope: Scope
 }) {
   return (
-    <div className="sticky top-0 z-10 border-b border-neutral-200 bg-white/95 backdrop-blur">
+    <div className="sticky top-0 z-10 border-b border-border bg-background/95 backdrop-blur">
       <div className="flex items-center justify-between px-3 pt-2">
         <ScopeToggle scope={scope} />
       </div>
@@ -384,8 +384,8 @@ function AvatarStrip({
               className={cn(
                 "flex shrink-0 flex-col items-center gap-1 rounded-2xl border px-2 py-2 transition",
                 isActive
-                  ? "border-neutral-900 bg-neutral-900 text-white shadow"
-                  : "border-neutral-200 bg-white text-neutral-700",
+                  ? "border-primary bg-primary text-primary-foreground shadow"
+                  : "border-border bg-card text-foreground/80",
                 session.stale && "opacity-60",
               )}
             >
@@ -403,7 +403,7 @@ function AvatarStrip({
                 {session.stale && (
                   <span
                     aria-label="Sessão antiga"
-                    className="absolute -right-0.5 -bottom-0.5 inline-flex size-4 items-center justify-center rounded-full bg-neutral-700 text-white shadow"
+                    className="absolute -right-0.5 -bottom-0.5 inline-flex size-4 items-center justify-center rounded-full bg-muted-foreground text-background shadow"
                   >
                     <ClockIcon className="size-3" />
                   </span>
@@ -415,7 +415,7 @@ function AvatarStrip({
               <span
                 className={cn(
                   "text-[10px] leading-none",
-                  isActive ? "text-white/80" : "text-neutral-500",
+                  isActive ? "text-primary-foreground/80" : "text-muted-foreground",
                 )}
               >
                 {done}/{total}
@@ -427,7 +427,7 @@ function AvatarStrip({
           type="button"
           onClick={onAdd}
           aria-label="Adicionar aluno"
-          className="flex shrink-0 flex-col items-center justify-center gap-1 rounded-2xl border border-dashed border-neutral-300 px-3 text-neutral-400 hover:border-neutral-500 hover:text-neutral-600"
+          className="flex shrink-0 flex-col items-center justify-center gap-1 rounded-2xl border border-dashed border-border px-3 text-muted-foreground/70 hover:border-foreground/40 hover:text-foreground"
         >
           <PlusIcon className="size-6" />
           <span className="text-[10px]">Add</span>
@@ -504,16 +504,16 @@ function FocusedView({
             {initials(session.student.name)}
           </div>
           <div className="flex flex-col">
-            <h1 className="text-lg font-semibold text-neutral-900">
+            <h1 className="text-lg font-semibold text-foreground">
               {session.student.name}
             </h1>
-            <p className="text-sm text-neutral-600">{session.workoutName}</p>
+            <p className="text-sm text-muted-foreground">{session.workoutName}</p>
             {showAttribution && (
-              <p className="text-xs text-neutral-500">
+              <p className="text-xs text-muted-foreground">
                 Iniciado por {session.trainerName}
               </p>
             )}
-            <p className="text-xs text-neutral-500">
+            <p className="text-xs text-muted-foreground">
               {doneCount} de {total} blocos · {pct}%
             </p>
           </div>
@@ -562,7 +562,7 @@ function FocusedView({
       </div>
 
       {total === 0 ? (
-        <p className="rounded-2xl border border-dashed bg-white p-6 text-center text-sm text-neutral-500">
+        <p className="rounded-2xl border border-dashed bg-card p-6 text-center text-sm text-muted-foreground">
           Esse treino não tem blocos.
         </p>
       ) : (
@@ -632,7 +632,7 @@ function BlockCard({
         "block w-full rounded-2xl border p-3 text-left transition active:scale-95",
         done
           ? "border-emerald-500 bg-emerald-500 text-white shadow-sm"
-          : "border-neutral-200 bg-white text-neutral-900",
+          : "border-border bg-card text-foreground",
       )}
     >
       {block.kind === "exercise" && <ExerciseCard block={block} done={done} />}
@@ -643,8 +643,8 @@ function BlockCard({
 }
 
 function ExerciseCard({ block, done }: { block: ExerciseBlock; done: boolean }) {
-  const muted = done ? "text-white/85" : "text-neutral-700"
-  const fine = done ? "text-white/70" : "text-neutral-500"
+  const muted = done ? "text-white/85" : "text-foreground/80"
+  const fine = done ? "text-white/70" : "text-muted-foreground"
   return (
     <div className="flex flex-col gap-1">
       <div className="text-base font-medium">{block.name}</div>
@@ -659,8 +659,8 @@ function ExerciseCard({ block, done }: { block: ExerciseBlock; done: boolean }) 
 
 function GroupCard({ block, done }: { block: GroupBlock; done: boolean }) {
   const label = block.label?.trim() || "Grupo"
-  const muted = done ? "text-white/85" : "text-neutral-700"
-  const fine = done ? "text-white/70" : "text-neutral-500"
+  const muted = done ? "text-white/85" : "text-foreground/80"
+  const fine = done ? "text-white/70" : "text-muted-foreground"
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-center justify-between gap-2">
@@ -740,7 +740,7 @@ function PickerSheet({
                   key={candidate.id}
                   type="button"
                   onClick={() => onPick(candidate.id)}
-                  className="flex h-12 items-center justify-between rounded-xl border border-transparent bg-white px-3 text-left text-sm font-medium text-neutral-900 transition hover:bg-muted active:scale-[0.98]"
+                  className="flex h-12 items-center justify-between rounded-xl border border-transparent bg-card px-3 text-left text-sm font-medium text-foreground transition hover:bg-muted active:scale-[0.98]"
                 >
                   {candidate.name}
                 </button>
@@ -748,11 +748,11 @@ function PickerSheet({
                 <div
                   key={candidate.id}
                   aria-disabled="true"
-                  className="flex min-h-12 flex-col justify-center rounded-xl border border-transparent bg-neutral-50 px-3 py-2 text-left text-sm text-neutral-400"
+                  className="flex min-h-12 flex-col justify-center rounded-xl border border-transparent bg-muted/40 px-3 py-2 text-left text-sm text-muted-foreground/70"
                 >
                   <span className="font-medium">{candidate.name}</span>
                   {candidate.ineligibleReason && (
-                    <span className="text-xs text-neutral-400">
+                    <span className="text-xs text-muted-foreground/70">
                       {INELIGIBLE_REASON_LABELS[candidate.ineligibleReason]}
                     </span>
                   )}
@@ -812,10 +812,10 @@ function SwapSheet({
         </SheetHeader>
         {pendingWorkout ? (
           <div className="flex flex-col gap-4 p-4 pt-0">
-            <p className="text-sm text-neutral-700">
+            <p className="text-sm text-foreground/80">
               O progresso atual será perdido. Continuar?
             </p>
-            <p className="text-xs text-neutral-500">
+            <p className="text-xs text-muted-foreground">
               Novo treino: <span className="font-medium">{pendingWorkout.name}</span>
             </p>
             <div className="flex gap-2">
@@ -851,7 +851,7 @@ function SwapSheet({
                       "flex h-12 items-center justify-between rounded-xl border border-transparent px-3 text-left text-sm font-medium transition",
                       isCurrent
                         ? "bg-muted/40 text-muted-foreground"
-                        : "bg-white text-neutral-900 hover:bg-muted active:scale-[0.98]",
+                        : "bg-card text-foreground hover:bg-muted active:scale-[0.98]",
                     )}
                   >
                     <span>{option.name}</span>
@@ -885,7 +885,7 @@ function FlashToaster() {
   return (
     <div
       role="status"
-      className="fixed inset-x-0 bottom-6 z-30 mx-auto w-fit max-w-[90%] rounded-full bg-neutral-900 px-4 py-2 text-sm font-medium text-white shadow-lg"
+      className="fixed inset-x-0 bottom-6 z-30 mx-auto w-fit max-w-[90%] rounded-full bg-foreground px-4 py-2 text-sm font-medium text-background shadow-lg"
     >
       {visible}
     </div>
