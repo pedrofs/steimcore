@@ -327,7 +327,6 @@ function StudentIdentity({ student }: { student: Student }) {
   )
 }
 
-const CELL_PX = 10
 const GAP_PX = 3
 const LABEL_PX = 24
 const WEEKS = 26
@@ -348,9 +347,24 @@ const PALETTE_BG = [
   "bg-chart-5",
 ] as const
 
+// Per-slot foreground for the desktop position digit, chosen to read against
+// each chart-* token's OKLCH lightness (slots with L≳0.6 take dark text).
+const PALETTE_TEXT = [
+  "text-white",
+  "text-white",
+  "text-foreground",
+  "text-white",
+  "text-foreground",
+] as const
+
 function paletteBgClass(slot: number | null | undefined): string {
   if (slot == null) return "bg-muted-foreground/55"
   return PALETTE_BG[slot % PALETTE_BG.length] ?? "bg-muted-foreground/55"
+}
+
+function paletteTextClass(slot: number | null | undefined): string {
+  if (slot == null) return "text-white"
+  return PALETTE_TEXT[slot % PALETTE_TEXT.length] ?? "text-white"
 }
 
 function FrequencySection({
@@ -388,10 +402,10 @@ function FrequencySection({
       <h2 className="text-lg font-medium">Frequência</h2>
       <div className="relative overflow-x-auto">
         <div
-          className="inline-grid"
+          className="inline-grid [--fcell:10px] sm:[--fcell:18px]"
           style={{
-            gridTemplateColumns: `${LABEL_PX}px repeat(${WEEKS}, ${CELL_PX}px)`,
-            gridTemplateRows: `auto repeat(7, ${CELL_PX}px)`,
+            gridTemplateColumns: `${LABEL_PX}px repeat(${WEEKS}, var(--fcell))`,
+            gridTemplateRows: `auto repeat(7, var(--fcell))`,
             columnGap: `${GAP_PX}px`,
             rowGap: `${GAP_PX}px`,
           }}
@@ -482,6 +496,7 @@ function FrequencyCell({
   }
 
   const fillClass = paletteBgClass(latest.paletteSlot)
+  const textClass = paletteTextClass(latest.paletteSlot)
   const ariaLabel = `${formatLongDatePt(day.date)} · ${latest.workoutNameSnapshot} · ${latest.trainerEmailPrefix}`
 
   return (
@@ -495,10 +510,21 @@ function FrequencyCell({
             "rounded-sm",
             fillClass,
             outlineClass,
+            "flex items-center justify-center overflow-hidden leading-none",
             "cursor-pointer transition-opacity hover:opacity-80",
             "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50 focus-visible:ring-offset-1 focus-visible:ring-offset-background",
           )}
-        />
+        >
+          <span
+            aria-hidden
+            className={cn(
+              "hidden sm:inline text-[10px] font-semibold tabular-nums",
+              textClass,
+            )}
+          >
+            {latest.workoutPositionSnapshot}
+          </span>
+        </button>
       </PopoverTrigger>
       <PopoverContent align="center" className="w-64 gap-2">
         <div className="text-xs font-medium text-muted-foreground">
