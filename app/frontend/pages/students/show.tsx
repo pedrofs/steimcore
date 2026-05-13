@@ -191,7 +191,7 @@ function StudentIdentity({ student }: { student: Student }) {
     <header className="flex flex-col gap-3">
       <div className="flex items-start gap-3">
         <Avatar className="size-12 sm:size-14">
-          <AvatarFallback className="bg-primary/10 text-base font-semibold text-primary">
+          <AvatarFallback className="bg-brand/10 text-base font-semibold text-brand">
             {initials(student.name)}
           </AvatarFallback>
         </Avatar>
@@ -381,7 +381,7 @@ function PlanCardShell({
   children: React.ReactNode
 }) {
   const toneStyles = {
-    primary: "border-primary/20 bg-gradient-to-br from-primary/10 via-primary/5 to-transparent",
+    primary: "border-brand/20 bg-gradient-to-br from-brand/10 via-brand/5 to-transparent",
     accent: "border-border bg-gradient-to-br from-muted/60 to-transparent",
     muted: "border-dashed border-border bg-muted/20",
     danger: "border-destructive/30 bg-destructive/5",
