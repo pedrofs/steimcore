@@ -51,7 +51,10 @@ class Student
           id: session.id,
           created_at: session.created_at,
           periodization_version_id: version_id,
-          palette_slot: palette_slot_for(version_id)
+          palette_slot: palette_slot_for(version_id),
+          workout_name_snapshot: session.workout_name_snapshot,
+          workout_position_snapshot: session.workout_position_snapshot,
+          trainer_email_prefix: session.trainer.email_address.split("@").first
         }
       end
 
@@ -102,7 +105,7 @@ class Student
 
       def sessions
         range = window_start.in_time_zone.beginning_of_day..window_end.in_time_zone.end_of_day
-        @sessions ||= @student.training_sessions.finished.where(created_at: range).order(:created_at).to_a
+        @sessions ||= @student.training_sessions.finished.where(created_at: range).includes(:trainer).order(:created_at).to_a
       end
   end
 end

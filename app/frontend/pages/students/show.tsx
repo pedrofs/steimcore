@@ -15,6 +15,11 @@ import { Markdown } from "@/components/markdown"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
 import { cn } from "@/lib/utils"
 
 type VersionStatus = "pending" | "generating" | "completed" | "failed"
@@ -48,6 +53,9 @@ type FrequencySession = {
   createdAt: string
   periodizationVersionId: string | null
   paletteSlot: number | null
+  workoutNameSnapshot: string
+  workoutPositionSnapshot: number
+  trainerEmailPrefix: string
 }
 
 type FrequencyDay = {
@@ -102,7 +110,7 @@ export default function Show({ student, frequency }: Props) {
         )}
 
         {!student.archived && frequency && (
-          <FrequencySection frequency={frequency} />
+          <FrequencySection frequency={frequency} studentId={student.id} />
         )}
 
         <motion.section
@@ -345,9 +353,17 @@ function paletteBgClass(slot: number | null | undefined): string {
   return PALETTE_BG[slot % PALETTE_BG.length] ?? "bg-muted-foreground/55"
 }
 
-function FrequencySection({ frequency }: { frequency: Frequency }) {
+function FrequencySection({
+  frequency,
+  studentId,
+}: {
+  frequency: Frequency
+  studentId: string
+}) {
   const { days, today, versions } = frequency
   const hasAnySession = days.some((day) => day.sessions.length > 0)
+
+  const versionsById = new Map(versions.map((v) => [v.id, v]))
 
   const monthLabels: { col: number; label: string }[] = []
   for (let col = 0; col < WEEKS; col++) {
@@ -406,18 +422,16 @@ function FrequencySection({ frequency }: { frequency: Frequency }) {
             const row = i % 7
             const isToday = day.date === today
             const latest = day.sessions.length > 0 ? day.sessions[day.sessions.length - 1] : undefined
-            const filledClass = latest
-              ? paletteBgClass(latest.paletteSlot)
-              : "bg-muted/50"
             return (
-              <div
+              <FrequencyCell
                 key={day.date}
-                style={{ gridRow: row + 2, gridColumn: col + 2 }}
-                className={cn(
-                  "rounded-sm",
-                  filledClass,
-                  isToday && "outline outline-1 outline-foreground/70",
-                )}
+                day={day}
+                latest={latest}
+                isToday={isToday}
+                row={row}
+                col={col}
+                version={latest?.periodizationVersionId ? versionsById.get(latest.periodizationVersionId) : undefined}
+                studentId={studentId}
               />
             )
           })}
@@ -435,6 +449,100 @@ function FrequencySection({ frequency }: { frequency: Frequency }) {
       {versions.length > 0 && <FrequencyLegend versions={versions} />}
     </motion.section>
   )
+}
+
+function FrequencyCell({
+  day,
+  latest,
+  isToday,
+  row,
+  col,
+  version,
+  studentId,
+}: {
+  day: FrequencyDay
+  latest: FrequencySession | undefined
+  isToday: boolean
+  row: number
+  col: number
+  version: FrequencyVersion | undefined
+  studentId: string
+}) {
+  const style = { gridRow: row + 2, gridColumn: col + 2 }
+  const outlineClass = isToday ? "outline outline-1 outline-foreground/70" : ""
+
+  if (!latest) {
+    return (
+      <div
+        aria-hidden
+        style={style}
+        className={cn("rounded-sm bg-muted/50", outlineClass)}
+      />
+    )
+  }
+
+  const fillClass = paletteBgClass(latest.paletteSlot)
+  const ariaLabel = `${formatLongDatePt(day.date)} · ${latest.workoutNameSnapshot} · ${latest.trainerEmailPrefix}`
+
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          style={style}
+          aria-label={ariaLabel}
+          className={cn(
+            "rounded-sm",
+            fillClass,
+            outlineClass,
+            "cursor-pointer transition-opacity hover:opacity-80",
+            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50 focus-visible:ring-offset-1 focus-visible:ring-offset-background",
+          )}
+        />
+      </PopoverTrigger>
+      <PopoverContent align="center" className="w-64 gap-2">
+        <div className="text-xs font-medium text-muted-foreground">
+          {formatLongDatePt(day.date)}
+        </div>
+        <div className="text-sm font-semibold">
+          {latest.workoutNameSnapshot}{" "}
+          <span className="text-xs font-normal text-muted-foreground">
+            · Treino {latest.workoutPositionSnapshot}
+          </span>
+        </div>
+        <div className="text-xs text-muted-foreground">
+          {latest.trainerEmailPrefix}
+        </div>
+        {version && (
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <span
+              aria-hidden
+              className={cn("inline-block size-2.5 rounded-sm", paletteBgClass(version.paletteSlot))}
+            />
+            <span>Versão {version.number} — Periodização</span>
+          </div>
+        )}
+        {version && (
+          <Link
+            href={`/students/${studentId}/periodizations/${version.periodizationId}`}
+            className="inline-flex items-center text-xs font-medium text-brand hover:underline"
+          >
+            Ver periodização
+          </Link>
+        )}
+      </PopoverContent>
+    </Popover>
+  )
+}
+
+const LONG_DATE_FORMATTER_PT = new Intl.DateTimeFormat("pt-BR", {
+  day: "numeric",
+  month: "long",
+  year: "numeric",
+})
+
+function formatLongDatePt(iso: string): string {
+  return LONG_DATE_FORMATTER_PT.format(parseDateOnly(iso))
 }
 
 function FrequencyLegend({ versions }: { versions: FrequencyVersion[] }) {

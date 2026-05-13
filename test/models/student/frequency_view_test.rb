@@ -129,6 +129,31 @@ class Student::FrequencyViewTest < ActiveSupport::TestCase
     end
   end
 
+  test "session payload includes workout snapshot and trainer email prefix" do
+    travel_to Time.zone.local(2026, 5, 13, 10, 0, 0) do
+      session = TrainingSession.create!(
+        student: @student,
+        trainer: @trainer,
+        periodization_version: build_periodization_version,
+        workout_name_snapshot: "Treino B",
+        workout_position_snapshot: 2,
+        blocks_snapshot: [],
+        progress: []
+      )
+      session.update_columns(
+        created_at: Time.zone.local(2026, 2, 1, 10, 0, 0),
+        finished_at: Time.zone.local(2026, 2, 1, 11, 0, 0)
+      )
+
+      view = Student::FrequencyView.new(@student).to_h
+      payload = view[:days].flat_map { |d| d[:sessions] }.find { |s| s[:id] == session.id }
+
+      assert_equal "Treino B", payload[:workout_name_snapshot]
+      assert_equal 2, payload[:workout_position_snapshot]
+      assert_equal @trainer.email_address.split("@").first, payload[:trainer_email_prefix]
+    end
+  end
+
   test "session payload tolerates a null periodization_version_id" do
     travel_to Time.zone.local(2026, 5, 13, 10, 0, 0) do
       orphan = finished_session_at(Time.zone.local(2026, 2, 1, 10, 0, 0), periodization_version: nil)
