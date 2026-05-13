@@ -106,4 +106,43 @@ class StudentTest < ActiveSupport::TestCase
     assert_not student.valid?
     assert_includes student.errors[:organization], "must exist"
   end
+
+  # Regression: the student↔periodization, periodization↔current_version, and
+  # periodization_version↔voice_recording FK pairs form three cycles. Destroy
+  # must succeed when all three are populated; deferred FKs let the cascade
+  # validate at COMMIT rather than per-statement.
+  test "destroy cascades through periodizations, versions, voice_recordings, and training_sessions without FK errors" do
+    student = Student.create!(name: "Eve", organization: @organization)
+    trainer = users(:one)
+    recording = VoiceRecording.create!(
+      organization: @organization,
+      student: student,
+      trainer: trainer,
+      kind: "periodization_create"
+    )
+    version = student.start_periodization!(trainer: trainer, voice_recording: recording)
+    workout = version.workouts.create!(name: "Treino A", position: 1, blocks: [])
+    version.periodization.update!(current_version: version)
+    # Fork a child version so periodization_versions.parent_version_id (a
+    # self-referential FK) is populated and gets exercised by the cascade.
+    version.periodization.versions.create!(trainer: trainer, voice_recording: recording, parent_version: version)
+    TrainingSession.create!(
+      student: student,
+      trainer: trainer,
+      workout: workout,
+      periodization_version: version,
+      workout_name_snapshot: workout.name,
+      workout_position_snapshot: workout.position,
+      blocks_snapshot: workout.blocks
+    )
+
+    assert_difference -> { Student.count } => -1,
+                      -> { Periodization.count } => -1,
+                      -> { PeriodizationVersion.count } => -2,
+                      -> { VoiceRecording.count } => -1,
+                      -> { Workout.count } => -1,
+                      -> { TrainingSession.count } => -1 do
+      student.destroy!
+    end
+  end
 end

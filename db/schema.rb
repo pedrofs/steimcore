@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.2].define(version: 2026_05_13_180109) do
+ActiveRecord::Schema[8.2].define(version: 2026_05_13_230000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -87,9 +87,9 @@ ActiveRecord::Schema[8.2].define(version: 2026_05_13_180109) do
 
   create_table "students", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
     t.uuid "active_periodization_id"
-    t.integer "age"
     t.text "anamnesis_md", default: "", null: false
     t.datetime "archived_at"
+    t.date "birthday"
     t.datetime "created_at", null: false
     t.string "email"
     t.string "name", null: false
@@ -102,7 +102,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_05_13_180109) do
     t.datetime "updated_at", null: false
     t.integer "weekly_frequency"
     t.index ["archived_at"], name: "index_students_on_archived_at"
-    t.index ["email"], name: "index_students_on_email", unique: true, where: "(email IS NOT NULL)"
+    t.index ["email"], name: "index_students_on_email", where: "(email IS NOT NULL)"
     t.index ["organization_id"], name: "index_students_on_organization_id"
     t.index ["phone"], name: "index_students_on_phone", unique: true, where: "(phone IS NOT NULL)"
   end
@@ -173,15 +173,15 @@ ActiveRecord::Schema[8.2].define(version: 2026_05_13_180109) do
 
   add_foreign_key "active_storage_attachments", "active_storage_blobs", column: "blob_id"
   add_foreign_key "active_storage_variant_records", "active_storage_blobs", column: "blob_id"
-  add_foreign_key "periodization_versions", "periodization_versions", column: "parent_version_id"
+  add_foreign_key "periodization_versions", "periodization_versions", column: "parent_version_id", name: "fk_rails_periodization_versions_parent_version_id", deferrable: :deferred
   add_foreign_key "periodization_versions", "periodizations"
   add_foreign_key "periodization_versions", "users", column: "trainer_id"
-  add_foreign_key "periodization_versions", "voice_recordings"
-  add_foreign_key "periodizations", "periodization_versions", column: "current_version_id"
+  add_foreign_key "periodization_versions", "voice_recordings", name: "fk_rails_periodization_versions_voice_recording_id", deferrable: :deferred
+  add_foreign_key "periodizations", "periodization_versions", column: "current_version_id", name: "fk_rails_periodizations_current_version_id", deferrable: :deferred
   add_foreign_key "periodizations", "students"
   add_foreign_key "sessions", "users"
   add_foreign_key "students", "organizations"
-  add_foreign_key "students", "periodizations", column: "active_periodization_id"
+  add_foreign_key "students", "periodizations", column: "active_periodization_id", name: "fk_rails_students_active_periodization_id", deferrable: :deferred
   add_foreign_key "training_sessions", "periodization_versions", on_delete: :nullify
   add_foreign_key "training_sessions", "students"
   add_foreign_key "training_sessions", "users", column: "trainer_id"
