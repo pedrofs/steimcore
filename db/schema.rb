@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.2].define(version: 2026_05_13_135215) do
+ActiveRecord::Schema[8.2].define(version: 2026_05_13_180109) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -91,16 +91,20 @@ ActiveRecord::Schema[8.2].define(version: 2026_05_13_135215) do
     t.text "anamnesis_md", default: "", null: false
     t.datetime "archived_at"
     t.datetime "created_at", null: false
+    t.string "email"
     t.string "name", null: false
     t.text "notes_md", default: "", null: false
     t.uuid "organization_id", null: false
+    t.string "phone"
     t.string "primary_goal"
     t.text "restrictions_summary"
     t.string "sex"
     t.datetime "updated_at", null: false
     t.integer "weekly_frequency"
     t.index ["archived_at"], name: "index_students_on_archived_at"
+    t.index ["email"], name: "index_students_on_email", unique: true, where: "(email IS NOT NULL)"
     t.index ["organization_id"], name: "index_students_on_organization_id"
+    t.index ["phone"], name: "index_students_on_phone", unique: true, where: "(phone IS NOT NULL)"
   end
 
   create_table "training_sessions", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
