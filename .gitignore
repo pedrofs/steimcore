@@ -4,6 +4,8 @@
 # belong in git's global ignore instead:
 # `$XDG_CONFIG_HOME/git/ignore` or `~/.config/git/ignore`
 
+/package-lock.json
+
 # Ignore bundler config.
 /.bundle
 
@@ -53,4 +55,3 @@ node_modules
 
 # Ignore key files for decrypting credentials and more.
 /config/credentials/*.key
-
