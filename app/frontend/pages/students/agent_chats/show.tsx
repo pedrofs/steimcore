@@ -3,10 +3,15 @@ import {
   AlertCircle,
   ArrowLeft,
   CalendarRange,
+  Camera,
   Dumbbell,
   FileText,
   Loader2,
+  Mic,
+  Paperclip,
+  Play,
   Send,
+  Square,
   X,
 } from "lucide-react"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
@@ -75,6 +80,17 @@ type ToolCall = {
     | null
 }
 
+type AttachmentKind = "audio" | "image" | "pdf" | "file"
+
+type Attachment = {
+  id: string
+  filename: string
+  contentType: string
+  byteSize: number
+  url: string
+  kind: AttachmentKind
+}
+
 type Message = {
   id: string
   role: "user" | "assistant" | "tool" | "system"
@@ -82,6 +98,7 @@ type Message = {
   createdAt: string
   trainerEmailPrefix: string | null
   toolCalls: ToolCall[]
+  attachments: Attachment[]
 }
 
 type Props = {
@@ -96,6 +113,9 @@ type DrawerState = {
   versionId: string | null
   workoutId: string | null
 }
+
+const MAX_ATTACHMENT_COUNT = 5
+const MAX_ATTACHMENT_BYTES = 20 * 1024 * 1024
 
 export default function AgentChatShow({
   student,
@@ -125,6 +145,8 @@ export default function AgentChatShow({
     workoutId: null,
   })
 
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null)
+
   const chatPath = `/students/${student.id}/agent_chat`
 
   const refreshOpenVersion = useCallback(
@@ -145,9 +167,6 @@ export default function AgentChatShow({
   const openDrawer = useCallback(
     (versionId: string, workoutId: string | null) => {
       setDrawerState({ open: true, versionId, workoutId })
-      // replace: false so the browser back button (device back on mobile)
-      // pops the drawer open_version_id off the URL, which then drives the
-      // drawer-close effect below.
       refreshOpenVersion(versionId, { replace: false })
     },
     [ refreshOpenVersion ],
@@ -162,12 +181,6 @@ export default function AgentChatShow({
     [ refreshOpenVersion ],
   )
 
-  // Close the drawer when the open_version_id is removed from the URL by an
-  // external navigation — e.g., the user tapping the device back button on
-  // mobile or following a link inside the drawer that returns without the
-  // param. We only fire after the prop has first been populated so the very
-  // first render (before the open request completes) doesn't slam the
-  // drawer shut.
   const sawOpenVersionRef = useRef(false)
   useEffect(() => {
     if (openVersion != null) {
@@ -215,7 +228,12 @@ export default function AgentChatShow({
         ) : (
           <ol className="mx-auto flex max-w-3xl flex-col gap-4">
             {visibleMessages.map((message) => (
-              <MessageBubble key={message.id} message={message} onOpen={openDrawer} />
+              <MessageBubble
+                key={message.id}
+                message={message}
+                onOpen={openDrawer}
+                onLightbox={setLightboxUrl}
+              />
             ))}
             {liveMessage != null && (
               <LiveMessageBubble live={liveMessage} />
@@ -243,6 +261,10 @@ export default function AgentChatShow({
         }
         returnTo={drawerReturnTo}
       />
+
+      {lightboxUrl != null && (
+        <Lightbox url={lightboxUrl} onClose={() => setLightboxUrl(null)} />
+      )}
     </div>
   )
 }
@@ -305,15 +327,19 @@ function ChatHeader({ student }: { student: Student }) {
 }
 
 type OpenDrawer = (versionId: string, workoutId: string | null) => void
+type OpenLightbox = (url: string) => void
 
 function MessageBubble({
   message,
   onOpen,
+  onLightbox,
 }: {
   message: Message
   onOpen: OpenDrawer
+  onLightbox: OpenLightbox
 }) {
   const isTrainer = message.role === "user"
+  const hasText = message.content != null && message.content.trim().length > 0
   return (
     <li
       className={cn(
@@ -321,7 +347,14 @@ function MessageBubble({
         isTrainer ? "items-end" : "items-start",
       )}
     >
-      {message.content && message.content.trim().length > 0 && (
+      {message.attachments.length > 0 && (
+        <MessageAttachments
+          attachments={message.attachments}
+          isTrainer={isTrainer}
+          onLightbox={onLightbox}
+        />
+      )}
+      {hasText && (
         <div
           className={cn(
             "max-w-[85%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed sm:max-w-[75%]",
@@ -330,7 +363,7 @@ function MessageBubble({
               : "rounded-bl-sm bg-muted text-foreground",
           )}
         >
-          <Markdown content={message.content} className="text-sm" />
+          <Markdown content={message.content!} className="text-sm" />
         </div>
       )}
       {message.toolCalls.length > 0 && (
@@ -346,6 +379,71 @@ function MessageBubble({
         </span>
       )}
     </li>
+  )
+}
+
+function MessageAttachments({
+  attachments,
+  isTrainer,
+  onLightbox,
+}: {
+  attachments: Attachment[]
+  isTrainer: boolean
+  onLightbox: OpenLightbox
+}) {
+  return (
+    <div
+      className={cn(
+        "flex max-w-[85%] flex-col gap-1.5 sm:max-w-[75%]",
+        isTrainer ? "items-end" : "items-start",
+      )}
+    >
+      {attachments.map((att) => {
+        if (att.kind === "audio") {
+          return (
+            <audio
+              key={att.id}
+              controls
+              src={att.url}
+              className="w-full max-w-[280px]"
+              preload="metadata"
+            />
+          )
+        }
+        if (att.kind === "image") {
+          return (
+            <button
+              key={att.id}
+              type="button"
+              onClick={() => onLightbox(att.url)}
+              className="overflow-hidden rounded-xl border border-border focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+              aria-label={`Abrir ${att.filename}`}
+            >
+              <img
+                src={att.url}
+                alt={att.filename}
+                className="block max-h-64 max-w-[260px] object-cover"
+              />
+            </button>
+          )
+        }
+        return (
+          <a
+            key={att.id}
+            href={att.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-2 rounded-xl border border-border bg-muted/40 px-3 py-2 text-xs text-foreground hover:bg-muted/70"
+          >
+            <FileText className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+            <div className="flex min-w-0 flex-col">
+              <span className="truncate font-medium">{att.filename}</span>
+              <span className="text-muted-foreground">{formatBytes(att.byteSize)}</span>
+            </div>
+          </a>
+        )
+      })}
+    </div>
   )
 }
 
@@ -630,6 +728,47 @@ function EmptyState({ studentName }: { studentName: string }) {
   )
 }
 
+type PendingAttachment = {
+  uid: string
+  file: File
+  kind: AttachmentKind
+  previewUrl: string
+  durationSec?: number
+}
+
+function classifyFile(file: File): AttachmentKind {
+  const type = file.type
+  if (type.startsWith("audio/")) return "audio"
+  if (type.startsWith("image/")) return "image"
+  if (type === "application/pdf") return "pdf"
+  return "file"
+}
+
+function preferredAudioMimeType(): string {
+  const candidates = [
+    "audio/webm;codecs=opus",
+    "audio/webm",
+    "audio/mp4",
+    "audio/ogg;codecs=opus",
+  ]
+  for (const candidate of candidates) {
+    if (
+      typeof MediaRecorder !== "undefined" &&
+      MediaRecorder.isTypeSupported(candidate)
+    ) {
+      return candidate
+    }
+  }
+  return ""
+}
+
+function extensionForMime(mime: string): string {
+  if (mime.startsWith("audio/webm")) return "webm"
+  if (mime.startsWith("audio/mp4")) return "m4a"
+  if (mime.startsWith("audio/ogg")) return "ogg"
+  return "webm"
+}
+
 function Composer({
   studentId,
   disabled,
@@ -639,20 +778,160 @@ function Composer({
 }) {
   const [content, setContent] = useState("")
   const [submitting, setSubmitting] = useState(false)
+  const [pending, setPending] = useState<PendingAttachment[]>([])
+  const [micError, setMicError] = useState<string | null>(null)
+  const [isRecording, setIsRecording] = useState(false)
+  const [recordingMs, setRecordingMs] = useState(0)
   const textareaRef = useRef<HTMLTextAreaElement | null>(null)
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
+  const cameraInputRef = useRef<HTMLInputElement | null>(null)
+  const recorderRef = useRef<MediaRecorder | null>(null)
+  const recordedChunksRef = useRef<Blob[]>([])
+  const recordingStartRef = useRef<number>(0)
+  const recordingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const mediaStreamRef = useRef<MediaStream | null>(null)
+
+  // Revoke any remaining object URLs on unmount.
+  useEffect(() => {
+    return () => {
+      pending.forEach((p) => URL.revokeObjectURL(p.previewUrl))
+      if (recordingTimerRef.current != null) {
+        clearInterval(recordingTimerRef.current)
+      }
+      mediaStreamRef.current?.getTracks().forEach((t) => t.stop())
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  function addFiles(files: FileList | File[]) {
+    const incoming = Array.from(files)
+    setPending((prev) => {
+      const room = MAX_ATTACHMENT_COUNT - prev.length
+      if (room <= 0) return prev
+      const accepted: PendingAttachment[] = []
+      for (const file of incoming.slice(0, room)) {
+        if (file.size > MAX_ATTACHMENT_BYTES) continue
+        accepted.push({
+          uid: cryptoRandomId(),
+          file,
+          kind: classifyFile(file),
+          previewUrl: URL.createObjectURL(file),
+        })
+      }
+      return [ ...prev, ...accepted ]
+    })
+  }
+
+  function removePending(uid: string) {
+    setPending((prev) => {
+      const next = prev.filter((p) => p.uid !== uid)
+      const removed = prev.find((p) => p.uid === uid)
+      if (removed) URL.revokeObjectURL(removed.previewUrl)
+      return next
+    })
+  }
+
+  function resetComposer() {
+    pending.forEach((p) => URL.revokeObjectURL(p.previewUrl))
+    setPending([])
+    setContent("")
+  }
+
+  async function startRecording() {
+    if (isRecording) return
+    setMicError(null)
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      mediaStreamRef.current = stream
+      const mimeType = preferredAudioMimeType()
+      const recorder = mimeType
+        ? new MediaRecorder(stream, { mimeType })
+        : new MediaRecorder(stream)
+      recordedChunksRef.current = []
+      recorder.addEventListener("dataavailable", (event) => {
+        if (event.data && event.data.size > 0) {
+          recordedChunksRef.current.push(event.data)
+        }
+      })
+      recorder.addEventListener("stop", () => {
+        const effectiveMime = recorder.mimeType || mimeType || "audio/webm"
+        const blob = new Blob(recordedChunksRef.current, { type: effectiveMime })
+        const ext = extensionForMime(effectiveMime)
+        const filename = `gravacao-${Date.now()}.${ext}`
+        const file = new File([ blob ], filename, { type: effectiveMime })
+        const durationSec = Math.max(1, Math.round((Date.now() - recordingStartRef.current) / 1000))
+        setPending((prev) => {
+          if (prev.length >= MAX_ATTACHMENT_COUNT) return prev
+          return [
+            ...prev,
+            {
+              uid: cryptoRandomId(),
+              file,
+              kind: "audio",
+              previewUrl: URL.createObjectURL(file),
+              durationSec,
+            },
+          ]
+        })
+        stream.getTracks().forEach((t) => t.stop())
+        mediaStreamRef.current = null
+        recordedChunksRef.current = []
+      })
+      recorder.start()
+      recorderRef.current = recorder
+      recordingStartRef.current = Date.now()
+      setRecordingMs(0)
+      setIsRecording(true)
+      recordingTimerRef.current = setInterval(() => {
+        setRecordingMs(Date.now() - recordingStartRef.current)
+      }, 250)
+    } catch (err) {
+      const message =
+        err instanceof Error && err.name === "NotAllowedError"
+          ? "Permissão de microfone negada. Habilite o microfone nas configurações do navegador para gravar áudio."
+          : "Não foi possível acessar o microfone. Verifique as permissões do navegador."
+      setMicError(message)
+      mediaStreamRef.current?.getTracks().forEach((t) => t.stop())
+      mediaStreamRef.current = null
+    }
+  }
+
+  function stopRecording() {
+    const recorder = recorderRef.current
+    if (recorder && recorder.state !== "inactive") recorder.stop()
+    recorderRef.current = null
+    setIsRecording(false)
+    if (recordingTimerRef.current != null) {
+      clearInterval(recordingTimerRef.current)
+      recordingTimerRef.current = null
+    }
+  }
+
+  function toggleRecording() {
+    if (isRecording) stopRecording()
+    else startRecording()
+  }
 
   function handleSubmit(event?: React.FormEvent) {
     event?.preventDefault()
+    if (disabled || submitting) return
+    if (isRecording) return
     const trimmed = content.trim()
-    if (trimmed.length === 0 || disabled || submitting) return
+    if (trimmed.length === 0 && pending.length === 0) return
 
     setSubmitting(true)
     router.post(
       `/students/${studentId}/agent_chat/messages`,
-      { message: { content: trimmed } },
       {
+        message: {
+          content: trimmed,
+          attachments: pending.map((p) => p.file),
+        },
+      },
+      {
+        forceFormData: true,
         preserveScroll: false,
-        onSuccess: () => setContent(""),
+        onSuccess: () => resetComposer(),
         onFinish: () => setSubmitting(false),
       },
     )
@@ -666,17 +945,120 @@ function Composer({
   }
 
   const busy = disabled || submitting
-  const canSend = content.trim().length > 0 && !busy
+  const canSend =
+    (content.trim().length > 0 || pending.length > 0) && !busy && !isRecording
+  const roomLeft = MAX_ATTACHMENT_COUNT - pending.length
 
   return (
     <form
       onSubmit={handleSubmit}
-      className="sticky bottom-0 z-10 border-t border-border/60 bg-background/95 px-4 py-3 backdrop-blur sm:px-6"
+      className="sticky bottom-0 z-10 flex flex-col gap-2 border-t border-border/60 bg-background/95 px-4 py-3 backdrop-blur sm:px-6"
       style={{
         paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))",
       }}
     >
-      <div className="mx-auto flex max-w-3xl items-end gap-2">
+      <input
+        ref={fileInputRef}
+        type="file"
+        multiple
+        accept="application/pdf,image/*,audio/*"
+        className="hidden"
+        onChange={(event) => {
+          if (event.target.files) addFiles(event.target.files)
+          event.target.value = ""
+        }}
+      />
+      <input
+        ref={cameraInputRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        className="hidden"
+        onChange={(event) => {
+          if (event.target.files) addFiles(event.target.files)
+          event.target.value = ""
+        }}
+      />
+
+      {pending.length > 0 && (
+        <div className="mx-auto flex w-full max-w-3xl flex-wrap gap-1.5">
+          {pending.map((p) => (
+            <PendingChip key={p.uid} pending={p} onRemove={() => removePending(p.uid)} />
+          ))}
+        </div>
+      )}
+
+      {micError && (
+        <div className="mx-auto flex w-full max-w-3xl items-start gap-2 rounded-xl border border-destructive/40 bg-destructive/5 px-3 py-2 text-xs text-destructive">
+          <AlertCircle className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+          <span className="flex-1">{micError}</span>
+          <button
+            type="button"
+            onClick={() => setMicError(null)}
+            className="-mr-1 rounded-md p-1 text-destructive/80 hover:bg-destructive/10"
+            aria-label="Fechar aviso"
+          >
+            <X className="size-3.5" aria-hidden />
+          </button>
+        </div>
+      )}
+
+      {isRecording && (
+        <div className="mx-auto flex w-full max-w-3xl items-center gap-2 rounded-xl border border-destructive/40 bg-destructive/5 px-3 py-2 text-xs text-destructive">
+          <span className="relative flex size-2.5 shrink-0" aria-hidden>
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-destructive opacity-75" />
+            <span className="relative inline-flex size-2.5 rounded-full bg-destructive" />
+          </span>
+          <span className="flex-1">Gravando… {formatRecordingTime(recordingMs)}</span>
+          <button
+            type="button"
+            onClick={stopRecording}
+            className="rounded-md bg-destructive px-2 py-0.5 text-[11px] font-medium text-destructive-foreground"
+          >
+            Parar
+          </button>
+        </div>
+      )}
+
+      <div className="mx-auto flex w-full max-w-3xl items-end gap-1.5">
+        <Button
+          type="button"
+          size="icon"
+          variant="ghost"
+          disabled={busy || isRecording || roomLeft <= 0}
+          aria-label="Anexar arquivo"
+          className="size-10 shrink-0"
+          onClick={() => fileInputRef.current?.click()}
+        >
+          <Paperclip className="size-4" aria-hidden />
+        </Button>
+        <Button
+          type="button"
+          size="icon"
+          variant="ghost"
+          disabled={busy || isRecording || roomLeft <= 0}
+          aria-label="Tirar foto"
+          className="size-10 shrink-0"
+          onClick={() => cameraInputRef.current?.click()}
+        >
+          <Camera className="size-4" aria-hidden />
+        </Button>
+        <Button
+          type="button"
+          size="icon"
+          variant={isRecording ? "destructive" : "ghost"}
+          disabled={busy || (!isRecording && roomLeft <= 0)}
+          aria-label={isRecording ? "Parar gravação" : "Gravar áudio"}
+          aria-pressed={isRecording}
+          className="size-10 shrink-0"
+          onClick={toggleRecording}
+        >
+          {isRecording ? (
+            <Square className="size-4" aria-hidden />
+          ) : (
+            <Mic className="size-4" aria-hidden />
+          )}
+        </Button>
         <Textarea
           ref={textareaRef}
           value={content}
@@ -685,10 +1067,12 @@ function Composer({
           placeholder={
             busy
               ? "Aguardando resposta do assistente…"
-              : "Conte o que houve. Ex.: atualize a anamnese para incluir lesão no joelho direito."
+              : isRecording
+                ? "Gravando áudio…"
+                : "Conte o que houve, anexe arquivos ou grave um áudio."
           }
           rows={2}
-          disabled={busy}
+          disabled={busy || isRecording}
           className="min-h-[44px] resize-none"
         />
         <Button
@@ -707,6 +1091,161 @@ function Composer({
       </div>
     </form>
   )
+}
+
+function PendingChip({
+  pending,
+  onRemove,
+}: {
+  pending: PendingAttachment
+  onRemove: () => void
+}) {
+  if (pending.kind === "image") {
+    return (
+      <div className="group relative overflow-hidden rounded-xl border border-border bg-muted/40">
+        <img
+          src={pending.previewUrl}
+          alt={pending.file.name}
+          className="block size-16 object-cover"
+        />
+        <RemoveButton onRemove={onRemove} />
+      </div>
+    )
+  }
+
+  if (pending.kind === "audio") {
+    return (
+      <div className="relative flex items-center gap-2 rounded-xl border border-border bg-muted/40 px-3 py-2 pr-8 text-xs">
+        <AudioPreviewButton url={pending.previewUrl} />
+        <span className="font-medium">
+          {pending.durationSec != null
+            ? formatDuration(pending.durationSec)
+            : pending.file.name}
+        </span>
+        <RemoveButton onRemove={onRemove} />
+      </div>
+    )
+  }
+
+  return (
+    <div className="relative flex items-center gap-2 rounded-xl border border-border bg-muted/40 px-3 py-2 pr-8 text-xs">
+      <FileText className="size-3.5 text-muted-foreground" aria-hidden />
+      <div className="flex min-w-0 flex-col">
+        <span className="truncate font-medium max-w-[160px]">{pending.file.name}</span>
+        <span className="text-muted-foreground">{formatBytes(pending.file.size)}</span>
+      </div>
+      <RemoveButton onRemove={onRemove} />
+    </div>
+  )
+}
+
+function AudioPreviewButton({ url }: { url: string }) {
+  const audioRef = useRef<HTMLAudioElement | null>(null)
+  const [playing, setPlaying] = useState(false)
+
+  useEffect(() => {
+    const audio = audioRef.current
+    if (!audio) return
+    const handleEnded = () => setPlaying(false)
+    audio.addEventListener("ended", handleEnded)
+    return () => audio.removeEventListener("ended", handleEnded)
+  }, [])
+
+  function toggle() {
+    const audio = audioRef.current
+    if (!audio) return
+    if (playing) {
+      audio.pause()
+      setPlaying(false)
+    } else {
+      audio.currentTime = 0
+      void audio.play().then(() => setPlaying(true)).catch(() => setPlaying(false))
+    }
+  }
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={toggle}
+        className="flex size-6 items-center justify-center rounded-full bg-brand/15 text-brand"
+        aria-label={playing ? "Pausar prévia" : "Reproduzir prévia"}
+      >
+        {playing ? <Square className="size-3" aria-hidden /> : <Play className="size-3" aria-hidden />}
+      </button>
+      <audio ref={audioRef} src={url} preload="metadata" />
+    </>
+  )
+}
+
+function RemoveButton({ onRemove }: { onRemove: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onRemove}
+      className="absolute right-1 top-1 flex size-5 items-center justify-center rounded-full bg-background/80 text-foreground/80 hover:bg-background"
+      aria-label="Remover anexo"
+    >
+      <X className="size-3" aria-hidden />
+    </button>
+  )
+}
+
+function Lightbox({ url, onClose }: { url: string; onClose: () => void }) {
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose()
+    }
+    document.addEventListener("keydown", onKey)
+    return () => document.removeEventListener("keydown", onKey)
+  }, [onClose])
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+    >
+      <img
+        src={url}
+        alt=""
+        className="max-h-full max-w-full object-contain"
+        onClick={(e) => e.stopPropagation()}
+      />
+      <button
+        type="button"
+        onClick={onClose}
+        className="absolute right-4 top-4 flex size-10 items-center justify-center rounded-full bg-background/80 text-foreground"
+        aria-label="Fechar"
+      >
+        <X className="size-5" aria-hidden />
+      </button>
+    </div>
+  )
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
+
+function formatDuration(sec: number): string {
+  const m = Math.floor(sec / 60)
+  const s = sec % 60
+  return `${m}:${s.toString().padStart(2, "0")}`
+}
+
+function formatRecordingTime(ms: number): string {
+  return formatDuration(Math.floor(ms / 1000))
+}
+
+function cryptoRandomId(): string {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    return crypto.randomUUID()
+  }
+  return Math.random().toString(36).slice(2)
 }
 
 function initials(name: string): string {

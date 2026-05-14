@@ -91,8 +91,33 @@ class Students::AgentChatsController < InertiaController
         content: message.content,
         created_at: message.created_at.iso8601,
         trainer_email_prefix: trainer_email_prefix(message.trainer),
-        tool_calls: tool_calls_props(message)
+        tool_calls: tool_calls_props(message),
+        attachments: attachments_props(message)
       }
+    end
+
+    def attachments_props(message)
+      return [] unless message.attachments.attached?
+
+      message.attachments.map do |att|
+        {
+          id: att.id,
+          filename: att.filename.to_s,
+          content_type: att.content_type,
+          byte_size: att.byte_size,
+          url: Rails.application.routes.url_helpers.rails_blob_path(att, only_path: true),
+          kind: attachment_kind(att.content_type)
+        }
+      end
+    end
+
+    def attachment_kind(content_type)
+      case content_type.to_s
+      when %r{\Aaudio/}      then "audio"
+      when %r{\Aimage/}      then "image"
+      when "application/pdf" then "pdf"
+      else "file"
+      end
     end
 
     def tool_calls_props(message)
