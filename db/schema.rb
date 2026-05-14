@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.2].define(version: 2026_05_14_130000) do
+ActiveRecord::Schema[8.2].define(version: 2026_05_14_150000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -135,6 +135,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_05_14_130000) do
   end
 
   create_table "periodization_versions", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
+    t.uuid "agent_tool_call_id"
     t.text "body_md", default: "", null: false
     t.datetime "created_at", null: false
     t.text "error_message"
@@ -144,6 +145,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_05_14_130000) do
     t.bigint "trainer_id", null: false
     t.datetime "updated_at", null: false
     t.uuid "voice_recording_id"
+    t.index ["agent_tool_call_id"], name: "index_periodization_versions_on_agent_tool_call_id"
     t.index ["parent_version_id"], name: "index_periodization_versions_on_parent_version_id"
     t.index ["periodization_id", "created_at"], name: "idx_on_periodization_id_created_at_2ccdf56ebe"
     t.index ["periodization_id"], name: "index_periodization_versions_on_periodization_id"
@@ -267,6 +269,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_05_14_130000) do
   add_foreign_key "agent_tool_calls", "agent_messages", column: "message_id"
   add_foreign_key "invitations", "organizations"
   add_foreign_key "invitations", "users", column: "invited_by_id"
+  add_foreign_key "periodization_versions", "agent_tool_calls"
   add_foreign_key "periodization_versions", "periodization_versions", column: "parent_version_id", name: "fk_rails_periodization_versions_parent_version_id", deferrable: :deferred
   add_foreign_key "periodization_versions", "periodizations"
   add_foreign_key "periodization_versions", "users", column: "trainer_id"

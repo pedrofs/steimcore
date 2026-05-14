@@ -6,6 +6,7 @@ class PeriodizationVersion < ApplicationRecord
   belongs_to :periodization
   belongs_to :trainer, class_name: "User"
   belongs_to :voice_recording, optional: true
+  belongs_to :agent_tool_call, class_name: "Agent::ToolCall", optional: true
   belongs_to :parent_version, class_name: "PeriodizationVersion", optional: true
 
   has_many :workouts, dependent: :destroy

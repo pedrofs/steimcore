@@ -1,5 +1,12 @@
 import { Link, router } from "@inertiajs/react"
-import { ArrowLeft, FileText, Loader2, Send } from "lucide-react"
+import {
+  ArrowLeft,
+  CalendarRange,
+  Dumbbell,
+  FileText,
+  Loader2,
+  Send,
+} from "lucide-react"
 import { useEffect, useMemo, useRef, useState } from "react"
 
 import { Markdown } from "@/components/markdown"
@@ -28,11 +35,36 @@ type Chat = {
 
 type UpdateAnamnesisResult = { ok?: boolean; summaryMd?: string; error?: string }
 
+type PeriodizationToolResult = {
+  ok?: boolean
+  versionId?: string
+  versionNumber?: number
+  scope?: string
+  workoutCount?: number
+  summaryMd?: string
+  error?: string
+}
+
+type UpdateWorkoutResult = {
+  ok?: boolean
+  versionId?: string
+  workoutId?: string
+  workoutName?: string
+  versionNumber?: number
+  summaryMd?: string
+  error?: string
+}
+
 type ToolCall = {
   id: string
   name: string
   arguments: Record<string, unknown> | null
-  result: UpdateAnamnesisResult | Record<string, unknown> | null
+  result:
+    | UpdateAnamnesisResult
+    | PeriodizationToolResult
+    | UpdateWorkoutResult
+    | Record<string, unknown>
+    | null
 }
 
 type Message = {
@@ -174,28 +206,16 @@ function MessageBubble({ message }: { message: Message }) {
 
 function ToolCallCard({ toolCall }: { toolCall: ToolCall }) {
   if (toolCall.name === "update_anamnesis") {
-    const result = (toolCall.result ?? {}) as UpdateAnamnesisResult
-    const args = (toolCall.arguments ?? {}) as { summaryMd?: string }
-    const summary =
-      (result.summaryMd && result.summaryMd.trim()) ||
-      (args.summaryMd && args.summaryMd.trim()) ||
-      "anamnese atualizada"
-    if (result.error) {
-      return (
-        <div className="flex items-start gap-2 rounded-xl border border-destructive/40 bg-destructive/5 px-3 py-2 text-xs text-destructive">
-          <FileText className="mt-0.5 size-3.5 shrink-0" aria-hidden />
-          <span>Falha ao atualizar anamnese: {result.error}</span>
-        </div>
-      )
-    }
-    return (
-      <div className="flex items-start gap-2 rounded-xl border border-brand/30 bg-brand/5 px-3 py-2 text-xs text-foreground">
-        <FileText className="mt-0.5 size-3.5 shrink-0 text-brand" aria-hidden />
-        <span>
-          <span className="font-medium">Anamnese atualizada</span> · {summary}
-        </span>
-      </div>
-    )
+    return <UpdateAnamnesisCard toolCall={toolCall} />
+  }
+  if (
+    toolCall.name === "create_periodization" ||
+    toolCall.name === "update_periodization"
+  ) {
+    return <PeriodizationCard toolCall={toolCall} />
+  }
+  if (toolCall.name === "update_workout") {
+    return <UpdateWorkoutCard toolCall={toolCall} />
   }
   return (
     <div className="rounded-xl border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
@@ -204,13 +224,153 @@ function ToolCallCard({ toolCall }: { toolCall: ToolCall }) {
   )
 }
 
+function UpdateAnamnesisCard({ toolCall }: { toolCall: ToolCall }) {
+  const result = (toolCall.result ?? {}) as UpdateAnamnesisResult
+  const args = (toolCall.arguments ?? {}) as { summaryMd?: string }
+  const summary =
+    (result.summaryMd && result.summaryMd.trim()) ||
+    (args.summaryMd && args.summaryMd.trim()) ||
+    "anamnese atualizada"
+  if (result.error) {
+    return (
+      <div className="flex items-start gap-2 rounded-xl border border-destructive/40 bg-destructive/5 px-3 py-2 text-xs text-destructive">
+        <FileText className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+        <span>Falha ao atualizar anamnese: {result.error}</span>
+      </div>
+    )
+  }
+  return (
+    <div className="flex items-start gap-2 rounded-xl border border-brand/30 bg-brand/5 px-3 py-2 text-xs text-foreground">
+      <FileText className="mt-0.5 size-3.5 shrink-0 text-brand" aria-hidden />
+      <span>
+        <span className="font-medium">Anamnese atualizada</span> · {summary}
+      </span>
+    </div>
+  )
+}
+
+function PeriodizationCard({ toolCall }: { toolCall: ToolCall }) {
+  const result = (toolCall.result ?? {}) as PeriodizationToolResult
+  const args = (toolCall.arguments ?? {}) as { summaryMd?: string }
+  const summary =
+    (result.summaryMd && result.summaryMd.trim()) ||
+    (args.summaryMd && args.summaryMd.trim()) ||
+    null
+
+  const isCreate = toolCall.name === "create_periodization"
+  const title = isCreate ? "Nova periodização criada" : "Periodização atualizada"
+  const errorTitle = isCreate
+    ? "Falha ao criar periodização"
+    : "Falha ao atualizar periodização"
+
+  if (result.error) {
+    return (
+      <div className="flex items-start gap-2 rounded-xl border border-destructive/40 bg-destructive/5 px-3 py-2 text-xs text-destructive">
+        <CalendarRange className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+        <span>
+          {errorTitle}: {result.error}
+        </span>
+      </div>
+    )
+  }
+
+  const metaParts: string[] = []
+  if (typeof result.workoutCount === "number") {
+    metaParts.push(`${result.workoutCount} treino${result.workoutCount === 1 ? "" : "s"}`)
+  }
+  if (typeof result.versionNumber === "number") {
+    metaParts.push(`esboço v${result.versionNumber}`)
+  }
+
+  return (
+    <div className="flex flex-col gap-2 rounded-xl border border-brand/30 bg-brand/5 px-3 py-2.5 text-xs text-foreground">
+      <div className="flex items-start gap-2">
+        <CalendarRange
+          className="mt-0.5 size-3.5 shrink-0 text-brand"
+          aria-hidden
+        />
+        <div className="flex-1">
+          <div className="font-medium">
+            {title}
+            {metaParts.length > 0 && (
+              <span className="font-normal text-muted-foreground">
+                {" — "}
+                {metaParts.join(" · ")}
+              </span>
+            )}
+          </div>
+          {summary && <div className="text-muted-foreground">{summary}</div>}
+        </div>
+      </div>
+      {result.versionId && (
+        <Button
+          asChild
+          size="sm"
+          variant="outline"
+          className="h-7 w-fit px-3 text-xs"
+        >
+          <Link href={`/periodization_versions/${result.versionId}`}>Abrir</Link>
+        </Button>
+      )}
+    </div>
+  )
+}
+
+function UpdateWorkoutCard({ toolCall }: { toolCall: ToolCall }) {
+  const result = (toolCall.result ?? {}) as UpdateWorkoutResult
+  const args = (toolCall.arguments ?? {}) as {
+    summaryMd?: string
+    name?: string
+  }
+  const summary =
+    (result.summaryMd && result.summaryMd.trim()) ||
+    (args.summaryMd && args.summaryMd.trim()) ||
+    null
+  const workoutName =
+    result.workoutName || (args.name && args.name.trim()) || "treino"
+
+  if (result.error) {
+    return (
+      <div className="flex items-start gap-2 rounded-xl border border-destructive/40 bg-destructive/5 px-3 py-2 text-xs text-destructive">
+        <Dumbbell className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+        <span>Falha ao atualizar treino: {result.error}</span>
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex flex-col gap-2 rounded-xl border border-brand/30 bg-brand/5 px-3 py-2.5 text-xs text-foreground">
+      <div className="flex items-start gap-2">
+        <Dumbbell className="mt-0.5 size-3.5 shrink-0 text-brand" aria-hidden />
+        <div className="flex-1">
+          <div className="font-medium">
+            Treino <span className="font-semibold">{workoutName}</span>{" "}
+            atualizado
+          </div>
+          {summary && <div className="text-muted-foreground">{summary}</div>}
+        </div>
+      </div>
+      {result.versionId && (
+        <Button
+          asChild
+          size="sm"
+          variant="outline"
+          className="h-7 w-fit px-3 text-xs"
+        >
+          <Link href={`/periodization_versions/${result.versionId}`}>Abrir</Link>
+        </Button>
+      )}
+    </div>
+  )
+}
+
 function EmptyState({ studentName }: { studentName: string }) {
   return (
     <div className="mx-auto flex max-w-3xl flex-col items-start gap-3">
       <div className="max-w-[85%] rounded-2xl rounded-bl-sm bg-muted px-4 py-2.5 text-sm leading-relaxed sm:max-w-[75%]">
-        Olá! Posso atualizar a anamnese do(a) {studentName} a partir do que você
-        me contar. Em breve também vou criar e editar a periodização — por
-        enquanto, é só anamnese.
+        Olá! Posso atualizar a anamnese do(a) {studentName}, criar uma
+        periodização nova, revisar a ativa, ou editar um treino específico —
+        é só me contar o que precisa.
       </div>
     </div>
   )

@@ -22,7 +22,12 @@ class Student < ApplicationRecord
   # with a first PeriodizationVersion in :generating, the student is repointed
   # to the new periodization, and the new version is returned for the caller
   # to enqueue generation against.
-  def start_periodization!(trainer:, voice_recording:)
+  #
+  # `voice_recording:` is optional — the voice pipeline passes it so the
+  # resulting version carries the originating recording reference; the agent
+  # chat flow leaves it nil (the originator there is an Agent::ToolCall, set
+  # downstream by the tool).
+  def start_periodization!(trainer:, voice_recording: nil)
     transaction do
       active_periodization&.archive!
 
