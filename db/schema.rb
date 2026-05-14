@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.2].define(version: 2026_05_14_120000) do
+ActiveRecord::Schema[8.2].define(version: 2026_05_14_130000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -40,6 +40,79 @@ ActiveRecord::Schema[8.2].define(version: 2026_05_14_120000) do
     t.uuid "blob_id", null: false
     t.string "variation_digest", null: false
     t.index ["blob_id", "variation_digest"], name: "index_active_storage_variant_records_uniqueness", unique: true
+  end
+
+  create_table "agent_chats", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
+    t.uuid "chattable_id", null: false
+    t.string "chattable_type", null: false
+    t.datetime "created_at", null: false
+    t.uuid "model_id"
+    t.uuid "organization_id", null: false
+    t.string "state", default: "idle", null: false
+    t.datetime "updated_at", null: false
+    t.index ["chattable_type", "chattable_id"], name: "index_agent_chats_on_chattable_type_and_chattable_id", unique: true
+    t.index ["model_id"], name: "index_agent_chats_on_model_id"
+    t.index ["organization_id"], name: "index_agent_chats_on_organization_id"
+  end
+
+  create_table "agent_messages", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
+    t.integer "cache_creation_tokens"
+    t.integer "cached_tokens"
+    t.uuid "chat_id", null: false
+    t.text "content"
+    t.jsonb "content_raw"
+    t.datetime "created_at", null: false
+    t.integer "input_tokens"
+    t.uuid "model_id"
+    t.integer "output_tokens"
+    t.string "role", null: false
+    t.text "thinking_signature"
+    t.text "thinking_text"
+    t.integer "thinking_tokens"
+    t.uuid "tool_call_id"
+    t.bigint "trainer_id"
+    t.datetime "updated_at", null: false
+    t.index ["chat_id"], name: "index_agent_messages_on_chat_id"
+    t.index ["model_id"], name: "index_agent_messages_on_model_id"
+    t.index ["role"], name: "index_agent_messages_on_role"
+    t.index ["tool_call_id"], name: "index_agent_messages_on_tool_call_id"
+    t.index ["trainer_id"], name: "index_agent_messages_on_trainer_id"
+  end
+
+  create_table "agent_models", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
+    t.jsonb "capabilities", default: []
+    t.integer "context_window"
+    t.datetime "created_at", null: false
+    t.string "family"
+    t.date "knowledge_cutoff"
+    t.integer "max_output_tokens"
+    t.jsonb "metadata", default: {}
+    t.jsonb "modalities", default: {}
+    t.datetime "model_created_at"
+    t.string "model_id", null: false
+    t.string "name", null: false
+    t.jsonb "pricing", default: {}
+    t.string "provider", null: false
+    t.datetime "updated_at", null: false
+    t.index ["capabilities"], name: "index_agent_models_on_capabilities", using: :gin
+    t.index ["family"], name: "index_agent_models_on_family"
+    t.index ["modalities"], name: "index_agent_models_on_modalities", using: :gin
+    t.index ["provider", "model_id"], name: "index_agent_models_on_provider_and_model_id", unique: true
+    t.index ["provider"], name: "index_agent_models_on_provider"
+  end
+
+  create_table "agent_tool_calls", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
+    t.jsonb "arguments", default: {}
+    t.datetime "created_at", null: false
+    t.uuid "message_id", null: false
+    t.string "name", null: false
+    t.jsonb "result"
+    t.text "thought_signature"
+    t.string "tool_call_id", null: false
+    t.datetime "updated_at", null: false
+    t.index ["message_id"], name: "index_agent_tool_calls_on_message_id"
+    t.index ["name"], name: "index_agent_tool_calls_on_name"
+    t.index ["tool_call_id"], name: "index_agent_tool_calls_on_tool_call_id", unique: true
   end
 
   create_table "invitations", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
@@ -185,6 +258,13 @@ ActiveRecord::Schema[8.2].define(version: 2026_05_14_120000) do
 
   add_foreign_key "active_storage_attachments", "active_storage_blobs", column: "blob_id"
   add_foreign_key "active_storage_variant_records", "active_storage_blobs", column: "blob_id"
+  add_foreign_key "agent_chats", "agent_models", column: "model_id"
+  add_foreign_key "agent_chats", "organizations"
+  add_foreign_key "agent_messages", "agent_chats", column: "chat_id"
+  add_foreign_key "agent_messages", "agent_models", column: "model_id"
+  add_foreign_key "agent_messages", "agent_tool_calls", column: "tool_call_id"
+  add_foreign_key "agent_messages", "users", column: "trainer_id"
+  add_foreign_key "agent_tool_calls", "agent_messages", column: "message_id"
   add_foreign_key "invitations", "organizations"
   add_foreign_key "invitations", "users", column: "invited_by_id"
   add_foreign_key "periodization_versions", "periodization_versions", column: "parent_version_id", name: "fk_rails_periodization_versions_parent_version_id", deferrable: :deferred

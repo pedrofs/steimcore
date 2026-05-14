@@ -1,0 +1,103 @@
+# frozen_string_literal: true
+
+# Read view of the per-student agent chat. Finds or creates the chat lazily
+# so the first visit is a normal idempotent GET — no separate "open chat"
+# create action.
+class Students::AgentChatsController < InertiaController
+  before_action :load_student
+  before_action :load_or_create_chat
+
+  def show
+    @title = "Chat — #{@student.name}"
+    add_breadcrumb(label: "Alunos", path: students_path)
+    add_breadcrumb(label: @student.name, path: student_path(@student))
+    add_breadcrumb(label: "Chat", path: student_agent_chat_path(@student))
+
+    render inertia: "students/agent_chats/show", props: {
+      student: student_props(@student),
+      chat: chat_props(@chat),
+      messages: messages_props(@chat)
+    }
+  end
+
+  private
+    def load_student
+      @student = current_organization.students.find(params[:student_id])
+    end
+
+    def load_or_create_chat
+      @chat = @student.agent_chat || @student.create_agent_chat!(
+        organization: current_organization,
+        model: StudentAgent.chat_kwargs[:model]
+      )
+    end
+
+    def student_props(student)
+      {
+        id: student.id,
+        name: student.name,
+        age: student.age,
+        sex: student.sex,
+        primary_goal: student.primary_goal,
+        weekly_frequency: student.weekly_frequency,
+        anamnesis_md: student.anamnesis_md
+      }
+    end
+
+    def chat_props(chat)
+      {
+        id: chat.id,
+        state: chat.state
+      }
+    end
+
+    def messages_props(chat)
+      chat.messages.order(:created_at).map { |message| message_props(message) }
+    end
+
+    def message_props(message)
+      {
+        id: message.id,
+        role: message.role,
+        content: message.content,
+        created_at: message.created_at.iso8601,
+        trainer_email_prefix: trainer_email_prefix(message.trainer),
+        tool_calls: tool_calls_props(message)
+      }
+    end
+
+    def tool_calls_props(message)
+      return [] if message.role.to_s != "assistant"
+
+      message.tool_calls.order(:created_at).map do |tc|
+        result_payload = result_payload_for(message, tc)
+        {
+          id: tc.id,
+          name: tc.name,
+          arguments: tc.arguments,
+          result: result_payload
+        }
+      end
+    end
+
+    # The gem stores the tool's return value as the `content` of the next
+    # `role: :tool` message, keyed by tool_call_id. Parse it back to a hash so
+    # the frontend can render the card from the stable per-tool shape (e.g.
+    # `summary_md` for update_anamnesis).
+    def result_payload_for(_message, tool_call)
+      result_message = tool_call.result_message
+      return nil if result_message.nil?
+
+      raw = result_message.content.to_s
+      return nil if raw.empty?
+
+      JSON.parse(raw)
+    rescue JSON::ParserError
+      { "raw" => raw }
+    end
+
+    def trainer_email_prefix(trainer)
+      return nil if trainer.nil?
+      trainer.email_address.to_s.split("@").first
+    end
+end

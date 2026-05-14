@@ -6,6 +6,7 @@ class Student < ApplicationRecord
   has_many :voice_recordings, dependent: :destroy
   has_many :periodizations, dependent: :destroy
   has_many :training_sessions, dependent: :destroy
+  has_one :agent_chat, class_name: "Agent::Chat", as: :chattable, dependent: :destroy
 
   validates :name, presence: true
 

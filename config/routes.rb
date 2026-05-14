@@ -19,6 +19,9 @@ Rails.application.routes.draw do
     resource :periodization, only: [], module: :students do
       resource :printable, only: :show, module: :periodizations
     end
+    resource :agent_chat, only: :show, module: :students do
+      resources :messages, only: :create, module: :agent_chats
+    end
     resource :restoration, only: :create, module: :students
   end
 

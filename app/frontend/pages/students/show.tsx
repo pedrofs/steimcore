@@ -4,6 +4,7 @@ import {
   Archive,
   ChevronRight,
   Mail,
+  MessageSquare,
   Mic,
   Pencil,
   Phone,
@@ -112,6 +113,15 @@ export default function Show({ student, frequency }: Props) {
           >
             <PlanHeroCard student={student} plan={student.activePlan} />
           </motion.div>
+        )}
+
+        {!student.archived && (
+          <Button asChild size="lg" className="h-12 w-full sm:w-auto sm:self-start">
+            <Link href={`/students/${student.id}/agent_chat`}>
+              <MessageSquare className="size-5" aria-hidden />
+              Conversar
+            </Link>
+          </Button>
         )}
 
         {!student.archived && frequency && (
