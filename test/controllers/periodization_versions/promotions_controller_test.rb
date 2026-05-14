@@ -5,21 +5,14 @@ class PeriodizationVersions::PromotionsControllerTest < ActionDispatch::Integrat
     @user = users(:one)
     @organization = @user.organization
     @student = students(:alice)
-    @recording = VoiceRecording.create!(
-      organization: @organization,
-      student: @student,
-      trainer: @user,
-      kind: "periodization_create"
-    )
-    @version = @student.start_periodization!(trainer: @user, voice_recording: @recording)
+    @version = @student.start_periodization!(trainer: @user)
     @version.fork_with!(
       scope: :create,
       patch: {
         body_md: "## Plano",
         workouts: [ { name: "A", blocks: [ { kind: "exercise", name: "Agachamento", prescription: "4x8" } ], position: 1 } ]
       },
-      trainer: @user,
-      voice_recording: @recording
+      trainer: @user
     )
   end
 
@@ -66,13 +59,8 @@ class PeriodizationVersions::PromotionsControllerTest < ActionDispatch::Integrat
   test "create is scoped to the current organization" do
     other_org = Organization.create!(name: "Outro Gym")
     foreign_student = other_org.students.create!(name: "Externo")
-    foreign_recording = VoiceRecording.create!(
-      organization: other_org,
-      student: foreign_student,
-      trainer: User.create!(email_address: "x@y.com", password: "password", organization: other_org),
-      kind: "periodization_create"
-    )
-    foreign_version = foreign_student.start_periodization!(trainer: foreign_recording.trainer, voice_recording: foreign_recording)
+    foreign_trainer = User.create!(email_address: "x@y.com", password: "password", organization: other_org)
+    foreign_version = foreign_student.start_periodization!(trainer: foreign_trainer)
     sign_in_as(@user)
 
     post periodization_version_promotion_path(foreign_version)

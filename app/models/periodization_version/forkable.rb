@@ -20,8 +20,7 @@
 #   :clone         — byte-identical copy of parent_version. No patch, no LLM.
 #                    Entry point from a promoted version into the inline editor:
 #                    forks a fresh draft the trainer can hand-edit. The new
-#                    version is born :completed (no async generation step) and
-#                    has no voice_recording.
+#                    version is born :completed (no async generation step).
 #
 # `apply_patch!` scopes (mutate-in-place on an editable draft — no new row):
 #   :workout       — replaces the receiver's workout at target_workout.position
@@ -31,18 +30,18 @@
 module PeriodizationVersion::Forkable
   extend ActiveSupport::Concern
 
-  def fork_with!(scope:, patch:, trainer:, voice_recording: nil, target_workout: nil)
+  def fork_with!(scope:, patch:, trainer:, target_workout: nil)
     case scope.to_sym
     when :create
       raise ArgumentError, "create scope expects parent_version_id to be nil" if parent_version_id.present?
-      apply_full_plan!(patch, trainer: trainer, voice_recording: voice_recording)
+      apply_full_plan!(patch, trainer: trainer)
     when :workout
       raise ArgumentError, ":workout scope requires parent_version" if parent_version.nil?
       raise ArgumentError, ":workout scope requires target_workout" if target_workout.nil?
-      apply_workout_carry_forward!(patch, target_workout: target_workout, trainer: trainer, voice_recording: voice_recording)
+      apply_workout_carry_forward!(patch, target_workout: target_workout, trainer: trainer)
     when :periodization
       raise ArgumentError, ":periodization scope requires parent_version" if parent_version.nil?
-      apply_full_plan!(patch, trainer: trainer, voice_recording: voice_recording)
+      apply_full_plan!(patch, trainer: trainer)
     when :clone
       raise ArgumentError, ":clone scope expects a nil patch" unless patch.nil?
       raise ArgumentError, ":clone scope requires parent_version" if parent_version.nil?
@@ -54,13 +53,13 @@ module PeriodizationVersion::Forkable
     self
   end
 
-  def apply_patch!(scope:, patch:, trainer:, voice_recording: nil, target_workout: nil)
+  def apply_patch!(scope:, patch:, trainer:, target_workout: nil)
     case scope.to_sym
     when :workout
       raise ArgumentError, ":workout scope requires target_workout" if target_workout.nil?
-      apply_workout_in_place!(patch, target_workout: target_workout, trainer: trainer, voice_recording: voice_recording)
+      apply_workout_in_place!(patch, target_workout: target_workout, trainer: trainer)
     when :periodization
-      apply_full_plan!(patch, trainer: trainer, voice_recording: voice_recording)
+      apply_full_plan!(patch, trainer: trainer)
     when :create, :clone
       raise ArgumentError, "#{scope.inspect} scope is not supported by apply_patch!"
     else
@@ -71,18 +70,12 @@ module PeriodizationVersion::Forkable
   end
 
   private
-    # Replaces body_md (from the patch) and the full workouts array. Used by
-    # both `fork_with!(:create | :periodization)` and `apply_patch!(:periodization)`.
-    def apply_full_plan!(patch, trainer:, voice_recording:)
+    def apply_full_plan!(patch, trainer:)
       body_md = (patch[:body_md] || patch["body_md"]).to_s
       workouts_attrs = extract_workouts_attrs(patch)
 
       transaction do
-        assign_attributes(
-          body_md: body_md,
-          trainer: trainer,
-          voice_recording: voice_recording
-        )
+        assign_attributes(body_md: body_md, trainer: trainer)
 
         workouts.destroy_all if workouts.loaded? || persisted?
         workouts_attrs.each { |attrs| workouts.build(attrs) }
@@ -91,19 +84,12 @@ module PeriodizationVersion::Forkable
       end
     end
 
-    # Builds workouts on `self` by carrying forward parent_version.workouts and
-    # replacing the one at target_workout.position with the patch. Used only
-    # by `fork_with!(:workout)` since the receiver is a fresh fork.
-    def apply_workout_carry_forward!(patch, target_workout:, trainer:, voice_recording:)
+    def apply_workout_carry_forward!(patch, target_workout:, trainer:)
       patch_name, patch_blocks = extract_workout_patch(patch)
       target_position = target_workout.position
 
       transaction do
-        assign_attributes(
-          body_md: parent_version.body_md.to_s,
-          trainer: trainer,
-          voice_recording: voice_recording
-        )
+        assign_attributes(body_md: parent_version.body_md.to_s, trainer: trainer)
 
         workouts.destroy_all if workouts.loaded? || persisted?
 
@@ -123,15 +109,12 @@ module PeriodizationVersion::Forkable
       end
     end
 
-    # Updates the receiver's existing workout at target_workout.position in
-    # place. Other workouts and body_md remain untouched. Used by
-    # `apply_patch!(:workout)`.
-    def apply_workout_in_place!(patch, target_workout:, trainer:, voice_recording:)
+    def apply_workout_in_place!(patch, target_workout:, trainer:)
       patch_name, patch_blocks = extract_workout_patch(patch)
       target_position = target_workout.position
 
       transaction do
-        assign_attributes(trainer: trainer, voice_recording: voice_recording)
+        assign_attributes(trainer: trainer)
 
         target = workouts.find_by(position: target_position)
         raise ArgumentError, ":workout scope: no workout at position #{target_position}" if target.nil?
@@ -143,11 +126,7 @@ module PeriodizationVersion::Forkable
 
     def apply_clone!(trainer:)
       transaction do
-        assign_attributes(
-          body_md: parent_version.body_md.to_s,
-          trainer: trainer,
-          voice_recording: nil
-        )
+        assign_attributes(body_md: parent_version.body_md.to_s, trainer: trainer)
 
         workouts.destroy_all if workouts.loaded? || persisted?
 

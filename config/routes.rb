@@ -7,14 +7,7 @@ Rails.application.routes.draw do
   end
   resources :invitation_acceptances, param: :token, only: [ :edit, :update ]
   resource :organization, only: [ :show, :edit, :update ]
-  resource :inbox, only: :show
   resources :students, only: [ :index, :new, :create, :show, :edit, :update ] do
-    resources :voice_recordings, only: [ :new, :create, :show ], module: :students do
-      resource :transcription, only: :create, module: :voice_recordings
-      resource :anamnesis_commit, only: :create, module: :voice_recordings
-      resource :retry, only: :create, module: :voice_recordings
-      resource :dismissal, only: :create, module: :voice_recordings
-    end
     resources :periodizations, only: [ :new, :show ], module: :students
     resource :periodization, only: [], module: :students do
       resource :printable, only: :show, module: :periodizations
@@ -27,14 +20,10 @@ Rails.application.routes.draw do
 
   resources :periodization_versions, only: [ :show, :destroy ] do
     resource :promotion, only: :create, module: :periodization_versions
-    resource :edit, only: :create, module: :periodization_versions
-    resources :workouts, only: :update, module: :periodization_versions do
-      resource :edit, only: :create, module: :workouts
-    end
+    resources :workouts, only: :update, module: :periodization_versions
   end
 
   resources :periodizations, only: [] do
-    resource :edit, only: :create, module: :periodizations
     resource :inline_edit, only: :create, module: :periodizations
   end
 

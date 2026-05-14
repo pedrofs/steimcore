@@ -8,7 +8,6 @@ class WorkoutTest < ActiveSupport::TestCase
     periodization = @student.periodizations.create!
     @version = periodization.versions.create!(
       trainer: @trainer,
-      voice_recording: nil,
       parent_version: nil
     )
   end

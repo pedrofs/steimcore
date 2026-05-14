@@ -5,7 +5,6 @@ import {
   ChevronRight,
   Mail,
   MessageSquare,
-  Mic,
   Pencil,
   Phone,
   Play,
@@ -141,8 +140,8 @@ export default function Show({ student, frequency }: Props) {
             emptyAction={
               !student.archived ? (
                 <Button asChild size="sm" variant="outline">
-                  <Link href={`/students/${student.id}/voice_recordings/new`}>
-                    Gravar agora
+                  <Link href={`/students/${student.id}/agent_chat`}>
+                    Abrir chat
                   </Link>
                 </Button>
               ) : undefined
@@ -174,8 +173,6 @@ export default function Show({ student, frequency }: Props) {
       </div>
 
       <div aria-hidden className="h-20 sm:h-0" />
-
-      {!student.archived && <RecordingFab studentId={student.id} />}
     </>
   )
 }
@@ -229,49 +226,6 @@ function formatArchivedDate(iso: string | null): string | null {
     month: "short",
     year: "numeric",
   }).format(date)
-}
-
-function RecordingFab({ studentId }: { studentId: string }) {
-  function handlePress() {
-    if (typeof navigator !== "undefined" && "vibrate" in navigator) {
-      navigator.vibrate(10)
-    }
-  }
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, scale: 0.5 }}
-      animate={{ opacity: 1, scale: 1 }}
-      transition={{ duration: 0.4, delay: 0.3, ease: [0.16, 1, 0.3, 1] }}
-      whileHover={{ scale: 1.05 }}
-      whileTap={{ scale: 0.95 }}
-      className={cn(
-        "fixed z-40",
-        "bottom-[max(1rem,calc(env(safe-area-inset-bottom)+0.5rem))]",
-        "right-[max(1rem,env(safe-area-inset-right))]",
-        "sm:bottom-6 sm:right-6",
-      )}
-    >
-      <Link
-        href={`/students/${studentId}/voice_recordings/new`}
-        aria-label="Gravar anamnese"
-        title="Gravar anamnese"
-        onPointerDown={handlePress}
-        className={cn(
-          "group inline-flex items-center justify-center",
-          "size-14 sm:size-16 rounded-full",
-          "bg-primary text-primary-foreground shadow-lg shadow-foreground/20",
-          "ring-2 ring-transparent ring-offset-2 ring-offset-background",
-          "transition-[box-shadow,ring-color] duration-150 ease-out",
-          "hover:shadow-xl hover:shadow-foreground/25",
-          "active:ring-brand/40",
-          "focus-visible:outline-none focus-visible:ring-brand/50",
-        )}
-      >
-        <Mic className="size-6" aria-hidden />
-      </Link>
-    </motion.div>
-  )
 }
 
 function StudentIdentity({ student }: { student: Student }) {
@@ -834,10 +788,10 @@ function PlanHeroCard({
         <PlanCardBody
           eyebrow="Periodização"
           title="Geração falhou"
-          meta="Veja os detalhes na inbox e gere uma nova versão."
+          meta="Abra o chat para gerar uma nova versão."
         />
         <PlanCardActions>
-          <PlanCardCta href="/inbox" label="Abrir inbox" />
+          <PlanCardCta href={`/students/${student.id}/agent_chat`} label="Abrir chat" />
           {openPlanCta}
         </PlanCardActions>
       </PlanCardShell>

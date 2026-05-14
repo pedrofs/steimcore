@@ -1,9 +1,7 @@
-import { router } from "@inertiajs/react"
 import {
   ChevronDownIcon,
   ChevronRightIcon,
   PencilIcon,
-  WandSparklesIcon,
 } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 
@@ -53,7 +51,6 @@ type Props = {
    * sheet header already names the artifact).
    */
   presentation?: PeriodizationViewPresentation
-  editingDisabled?: boolean
   returnTo?: string
   /**
    * Reports the dirty state of the inline workout editor so the surrounding
@@ -67,7 +64,6 @@ export function PeriodizationVersionView({
   version,
   scope = { kind: "periodization" },
   presentation = "page",
-  editingDisabled = false,
   returnTo,
   onDirtyWorkoutChange,
 }: Props) {
@@ -102,36 +98,10 @@ export function PeriodizationVersionView({
   }, [dirtyEditedWorkoutName])
   useEffect(() => () => dirtyCallbackRef.current?.(null), [])
 
-  const discardLocalEdits = () =>
-    setEditingState({ editingWorkoutId: null, dirty: false })
-
-  const guardVoiceTrigger = (action: () => void) => {
-    if (dirtyEditedWorkoutName) {
-      if (
-        !window.confirm(
-          `Você tem alterações não salvas em ${dirtyEditedWorkoutName}. Descartar?`,
-        )
-      )
-        return
-      discardLocalEdits()
-    }
-    action()
-  }
-
-  const canEditPlan = !version.readOnly && !editingDisabled
-
   return (
     <div className="flex flex-col gap-6">
       {scope.kind === "periodization" && (
-        <PlanSection
-          bodyMd={version.bodyMd}
-          editable={canEditPlan}
-          onEditPlan={() =>
-            guardVoiceTrigger(() =>
-              router.post(`/periodization_versions/${version.id}/edit`),
-            )
-          }
-        />
+        <PlanSection bodyMd={version.bodyMd} />
       )}
 
       <WorkoutsTabs
@@ -154,87 +124,34 @@ export function PeriodizationVersionView({
           setEditingState((prev) => ({ ...prev, dirty: d }))
         }
         dirtyEditedWorkoutName={dirtyEditedWorkoutName}
-        onDiscardLocalEdits={discardLocalEdits}
-        editingDisabled={editingDisabled}
-        guardVoiceTrigger={guardVoiceTrigger}
         returnTo={returnTo}
       />
     </div>
   )
 }
 
-function PlanSection({
-  bodyMd,
-  editable,
-  onEditPlan,
-}: {
-  bodyMd: string
-  editable: boolean
-  onEditPlan: () => void
-}) {
+function PlanSection({ bodyMd }: { bodyMd: string }) {
   const [expanded, setExpanded] = useState(false)
 
   return (
     <section className="flex flex-col gap-2">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <button
-          type="button"
-          aria-expanded={expanded}
-          onClick={() => setExpanded((v) => !v)}
-          className="-mx-1 inline-flex items-center gap-1.5 rounded-md px-1 py-0.5 text-lg font-medium hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        >
-          {expanded ? (
-            <ChevronDownIcon className="size-4 text-muted-foreground" />
-          ) : (
-            <ChevronRightIcon className="size-4 text-muted-foreground" />
-          )}
-          Plano
-        </button>
-        {editable && (
-          <AiButton onClick={onEditPlan}>Editar periodização</AiButton>
+      <button
+        type="button"
+        aria-expanded={expanded}
+        onClick={() => setExpanded((v) => !v)}
+        className="-mx-1 inline-flex w-fit items-center gap-1.5 rounded-md px-1 py-0.5 text-lg font-medium hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        {expanded ? (
+          <ChevronDownIcon className="size-4 text-muted-foreground" />
+        ) : (
+          <ChevronRightIcon className="size-4 text-muted-foreground" />
         )}
-      </div>
+        Plano
+      </button>
       {expanded && (
         <Markdown content={bodyMd} placeholder="Plano sem conteúdo." />
       )}
     </section>
-  )
-}
-
-function AiButton({
-  onClick,
-  disabled,
-  children,
-  fullWidthOnMobile = false,
-}: {
-  onClick: () => void
-  disabled?: boolean
-  children: React.ReactNode
-  fullWidthOnMobile?: boolean
-}) {
-  return (
-    <Button
-      type="button"
-      variant="outline"
-      disabled={disabled}
-      onClick={onClick}
-      className={
-        "h-11 gap-2 sm:h-10 " +
-        (fullWidthOnMobile ? "w-full sm:w-auto " : "")
-      }
-    >
-      <WandSparklesIcon className="size-4" />
-      <span>{children}</span>
-      <IaPill />
-    </Button>
-  )
-}
-
-function IaPill() {
-  return (
-    <span className="ml-1 rounded-full border border-foreground/15 bg-foreground/5 px-1.5 py-px text-[10px] font-semibold uppercase tracking-[0.12em] text-foreground/70">
-      IA
-    </span>
   )
 }
 
@@ -248,9 +165,6 @@ function WorkoutsTabs({
   onSaved,
   onDirtyChange,
   dirtyEditedWorkoutName,
-  onDiscardLocalEdits,
-  editingDisabled,
-  guardVoiceTrigger,
   returnTo,
 }: {
   version: PeriodizationVersionData
@@ -262,9 +176,6 @@ function WorkoutsTabs({
   onSaved: () => void
   onDirtyChange: (dirty: boolean) => void
   dirtyEditedWorkoutName: string | null
-  onDiscardLocalEdits: () => void
-  editingDisabled: boolean
-  guardVoiceTrigger: (action: () => void) => void
   returnTo?: string
 }) {
   const [activeTab, setActiveTab] = useState<string | undefined>(
@@ -283,8 +194,7 @@ function WorkoutsTabs({
   }
 
   const someoneEditing = editingWorkoutId != null
-  const showEditControls =
-    !version.readOnly && !someoneEditing && !editingDisabled
+  const showEditControls = !version.readOnly && !someoneEditing
 
   const handleTabChange = (next: string) => {
     if (next === activeTab) return
@@ -296,7 +206,6 @@ function WorkoutsTabs({
       ) {
         return
       }
-      onDiscardLocalEdits()
     }
     setActiveTab(next)
   }
@@ -331,18 +240,6 @@ function WorkoutsTabs({
                 />
                 {showEditControls && (
                   <div className="mt-1 flex flex-col gap-2 sm:flex-row sm:justify-end">
-                    <AiButton
-                      fullWidthOnMobile
-                      onClick={() =>
-                        guardVoiceTrigger(() =>
-                          router.post(
-                            `/periodization_versions/${version.id}/workouts/${w.id}/edit`,
-                          ),
-                        )
-                      }
-                    >
-                      Editar treino
-                    </AiButton>
                     <Button
                       type="button"
                       variant="outline"

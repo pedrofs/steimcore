@@ -1,14 +1,14 @@
 # frozen_string_literal: true
 
 # Read view of a student's active periodization (or any periodization the
-# student owns). The flow that creates a periodization runs through the voice
-# recording pipeline (`kind: :periodization_create`); this controller is just
-# the read surface and the entry-point redirect into that pipeline.
+# student owns). Creation and edits flow through the agent chat; this
+# controller is just the read surface and the entry-point redirect into the
+# chat for new plans.
 class Students::PeriodizationsController < InertiaController
   before_action :load_student
 
   def new
-    redirect_to new_student_voice_recording_path(@student, kind: "periodization_create")
+    redirect_to student_agent_chat_path(@student)
   end
 
   def show
@@ -22,7 +22,7 @@ class Students::PeriodizationsController < InertiaController
 
     history = periodization.versions
                             .where(status: "completed")
-                            .includes(:trainer, :voice_recording)
+                            .includes(:trainer)
                             .order(:created_at)
 
     render inertia: "students/periodizations/show", props: {
@@ -41,8 +41,6 @@ class Students::PeriodizationsController < InertiaController
   end
 
   private
-    TRANSCRIPT_EXCERPT_LIMIT = 240
-
     def load_student
       @student = current_organization.students.find(params[:student_id])
     end
@@ -57,7 +55,6 @@ class Students::PeriodizationsController < InertiaController
     end
 
     def version_summary(version, periodization)
-      transcript = version.voice_recording&.transcript.to_s
       promoted = version.id == periodization.current_version_id
       {
         id: version.id,
@@ -65,7 +62,6 @@ class Students::PeriodizationsController < InertiaController
         current: promoted,
         draft: !promoted && !version.superseded?,
         trainer: { id: version.trainer_id, email: version.trainer.email_address },
-        transcript_excerpt: transcript.truncate(TRANSCRIPT_EXCERPT_LIMIT),
         path: periodization_version_path(version)
       }
     end

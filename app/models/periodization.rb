@@ -11,15 +11,10 @@ class Periodization < ApplicationRecord
   end
 
   # Begins a new pending PeriodizationVersion derived from current_version. The
-  # caller is responsible for enqueueing GeneratePeriodizationJob against the
-  # returned version. Promotion is deliberately deferred until the trainer
-  # reviews the generated patch.
-  #
-  # `voice_recording:` is optional — the voice pipeline passes it so the
-  # resulting version carries the originating recording reference; the agent
-  # chat flow leaves it nil (the originator there is an Agent::ToolCall, set
-  # downstream by the tool).
-  def start_edit!(scope:, trainer:, voice_recording: nil, target_workout: nil)
+  # caller is responsible for enqueueing generation against the returned
+  # version. Promotion is deliberately deferred until the trainer reviews the
+  # generated patch.
+  def start_edit!(scope:, trainer:, target_workout: nil)
     raise ArgumentError, "current_version must be set before editing" if current_version.nil?
 
     case scope.to_sym
@@ -35,7 +30,6 @@ class Periodization < ApplicationRecord
     transaction do
       new_version = versions.create!(
         trainer: trainer,
-        voice_recording: voice_recording,
         parent_version: current_version
       )
       new_version.transition_to!(:generating)

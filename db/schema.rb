@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.2].define(version: 2026_05_14_150000) do
+ActiveRecord::Schema[8.2].define(version: 2026_05_14_160000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -144,13 +144,11 @@ ActiveRecord::Schema[8.2].define(version: 2026_05_14_150000) do
     t.string "status", null: false
     t.bigint "trainer_id", null: false
     t.datetime "updated_at", null: false
-    t.uuid "voice_recording_id"
     t.index ["agent_tool_call_id"], name: "index_periodization_versions_on_agent_tool_call_id"
     t.index ["parent_version_id"], name: "index_periodization_versions_on_parent_version_id"
     t.index ["periodization_id", "created_at"], name: "idx_on_periodization_id_created_at_2ccdf56ebe"
     t.index ["periodization_id"], name: "index_periodization_versions_on_periodization_id"
     t.index ["trainer_id"], name: "index_periodization_versions_on_trainer_id"
-    t.index ["voice_recording_id"], name: "index_periodization_versions_on_voice_recording_id"
   end
 
   create_table "periodizations", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
@@ -223,30 +221,6 @@ ActiveRecord::Schema[8.2].define(version: 2026_05_14_150000) do
     t.index ["organization_id"], name: "index_users_on_organization_id"
   end
 
-  create_table "voice_recordings", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
-    t.datetime "created_at", null: false
-    t.datetime "dismissed_at"
-    t.text "error_message"
-    t.string "kind", null: false
-    t.uuid "organization_id", null: false
-    t.text "proposed_anamnesis_md"
-    t.string "status", null: false
-    t.uuid "student_id", null: false
-    t.uuid "target_periodization_version_id"
-    t.uuid "target_workout_id"
-    t.bigint "trainer_id", null: false
-    t.text "transcript", default: "", null: false
-    t.datetime "transcript_edited_at"
-    t.datetime "updated_at", null: false
-    t.index ["organization_id"], name: "index_voice_recordings_on_organization_id"
-    t.index ["status", "created_at"], name: "index_voice_recordings_on_status_and_created_at"
-    t.index ["student_id", "created_at"], name: "index_voice_recordings_on_student_id_and_created_at"
-    t.index ["student_id"], name: "index_voice_recordings_on_student_id"
-    t.index ["target_periodization_version_id"], name: "index_voice_recordings_on_target_periodization_version_id"
-    t.index ["target_workout_id"], name: "index_voice_recordings_on_target_workout_id"
-    t.index ["trainer_id"], name: "index_voice_recordings_on_trainer_id"
-  end
-
   create_table "workouts", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
     t.jsonb "blocks", default: [], null: false
     t.datetime "created_at", null: false
@@ -273,7 +247,6 @@ ActiveRecord::Schema[8.2].define(version: 2026_05_14_150000) do
   add_foreign_key "periodization_versions", "periodization_versions", column: "parent_version_id", name: "fk_rails_periodization_versions_parent_version_id", deferrable: :deferred
   add_foreign_key "periodization_versions", "periodizations"
   add_foreign_key "periodization_versions", "users", column: "trainer_id"
-  add_foreign_key "periodization_versions", "voice_recordings", name: "fk_rails_periodization_versions_voice_recording_id", deferrable: :deferred
   add_foreign_key "periodizations", "periodization_versions", column: "current_version_id", name: "fk_rails_periodizations_current_version_id", deferrable: :deferred
   add_foreign_key "periodizations", "students"
   add_foreign_key "sessions", "users"
@@ -284,10 +257,5 @@ ActiveRecord::Schema[8.2].define(version: 2026_05_14_150000) do
   add_foreign_key "training_sessions", "users", column: "trainer_id"
   add_foreign_key "training_sessions", "workouts", on_delete: :nullify
   add_foreign_key "users", "organizations"
-  add_foreign_key "voice_recordings", "organizations"
-  add_foreign_key "voice_recordings", "periodization_versions", column: "target_periodization_version_id"
-  add_foreign_key "voice_recordings", "students"
-  add_foreign_key "voice_recordings", "users", column: "trainer_id"
-  add_foreign_key "voice_recordings", "workouts", column: "target_workout_id"
   add_foreign_key "workouts", "periodization_versions"
 end

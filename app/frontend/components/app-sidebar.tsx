@@ -1,6 +1,6 @@
 import * as React from "react"
 import { Link, router, usePage } from "@inertiajs/react"
-import { Activity, ChevronsUpDown, DumbbellIcon, HomeIcon, InboxIcon, LogOut, UsersIcon } from "lucide-react"
+import { Activity, ChevronsUpDown, DumbbellIcon, HomeIcon, LogOut, UsersIcon } from "lucide-react"
 
 import { BrandLockup, BrandMark } from "@/components/brand"
 
@@ -33,7 +33,6 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { state } = useSidebar()
   const collapsed = state === "collapsed"
   const user = pageProps.currentUser
-  const inboxCount = pageProps.inboxCount
   const activeSessionCount = pageProps.activeSessionCount
   const initials = (user?.email ?? "?").slice(0, 2).toUpperCase()
 
@@ -68,24 +67,6 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                 <Link href="/">
                   <HomeIcon />
                   <span>Home</span>
-                </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-            <SidebarMenuItem>
-              <SidebarMenuButton
-                asChild
-                tooltip="Inbox"
-                isActive={url.startsWith("/inbox")}
-                className="h-11 md:h-8"
-              >
-                <Link href="/inbox">
-                  <InboxIcon />
-                  <span>Inbox</span>
-                  {inboxCount > 0 && (
-                    <Badge variant="secondary" className="ml-auto">
-                      {inboxCount}
-                    </Badge>
-                  )}
                 </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>

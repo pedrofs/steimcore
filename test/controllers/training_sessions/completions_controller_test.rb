@@ -66,16 +66,7 @@ class TrainingSessions::CompletionsControllerTest < ActionDispatch::IntegrationT
 
   private
     def make_eligible(student, workout_count:, blocks: [])
-      voice_recording = VoiceRecording.create!(
-        organization: @organization, student: student, trainer: @user,
-        kind: "periodization_create"
-      )
-      voice_recording.transition_to!(:transcribing)
-      voice_recording.update!(transcript: "x")
-      voice_recording.transition_to!(:transcribed)
-      voice_recording.transition_to!(:generating)
-
-      version = student.start_periodization!(trainer: @user, voice_recording: voice_recording)
+      version = student.start_periodization!(trainer: @user)
       workouts = Array.new(workout_count) do |i|
         version.workouts.create!(name: "Treino #{i + 1}", position: i + 1, blocks: blocks)
       end

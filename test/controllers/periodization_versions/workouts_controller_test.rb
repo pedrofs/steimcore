@@ -5,13 +5,7 @@ class PeriodizationVersions::WorkoutsControllerTest < ActionDispatch::Integratio
     @user = users(:one)
     @organization = @user.organization
     @student = students(:alice)
-    @recording = VoiceRecording.create!(
-      organization: @organization,
-      student: @student,
-      trainer: @user,
-      kind: "periodization_create"
-    )
-    @version = @student.start_periodization!(trainer: @user, voice_recording: @recording)
+    @version = @student.start_periodization!(trainer: @user)
     @version.fork_with!(
       scope: :create,
       patch: {
@@ -21,8 +15,7 @@ class PeriodizationVersions::WorkoutsControllerTest < ActionDispatch::Integratio
           { name: "B", blocks: [ exercise_block("Supino", "4x8") ], position: 2 }
         ]
       },
-      trainer: @user,
-      voice_recording: @recording
+      trainer: @user
     )
     @version.transition_to!(:completed)
     @workout = @version.workouts.order(:position).first
@@ -74,13 +67,7 @@ class PeriodizationVersions::WorkoutsControllerTest < ActionDispatch::Integratio
   end
 
   test "update on a superseded version redirects with flash alert and does not mutate" do
-    rec_v2 = VoiceRecording.create!(
-      organization: @organization, student: @student, trainer: @user,
-      kind: "periodization_edit_periodization"
-    )
-    @version.periodization.versions.create!(
-      trainer: @user, voice_recording: rec_v2, parent_version: @version
-    )
+    @version.periodization.versions.create!(trainer: @user, parent_version: @version)
     sign_in_as(@user)
     original_blocks = @workout.blocks
 
@@ -123,23 +110,14 @@ class PeriodizationVersions::WorkoutsControllerTest < ActionDispatch::Integratio
     foreign_trainer = User.create!(
       email_address: "x@y.com", password: "password", organization: other_org
     )
-    foreign_recording = VoiceRecording.create!(
-      organization: other_org,
-      student: foreign_student,
-      trainer: foreign_trainer,
-      kind: "periodization_create"
-    )
-    foreign_version = foreign_student.start_periodization!(
-      trainer: foreign_trainer, voice_recording: foreign_recording
-    )
+    foreign_version = foreign_student.start_periodization!(trainer: foreign_trainer)
     foreign_version.fork_with!(
       scope: :create,
       patch: {
         body_md: "## P",
         workouts: [ { name: "X", blocks: [ exercise_block("Y", "3x5") ], position: 1 } ]
       },
-      trainer: foreign_trainer,
-      voice_recording: foreign_recording
+      trainer: foreign_trainer
     )
     foreign_workout = foreign_version.workouts.first
     sign_in_as(@user)

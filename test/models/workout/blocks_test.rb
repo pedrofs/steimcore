@@ -152,7 +152,7 @@ class Workout::BlocksTest < ActiveSupport::TestCase
     student = students(:alice)
     trainer = users(:one)
     periodization = student.periodizations.create!
-    version = periodization.versions.create!(trainer: trainer, voice_recording: nil, parent_version: nil)
+    version = periodization.versions.create!(trainer: trainer, parent_version: nil)
 
     workout = Workout.new(
       periodization_version: version,
@@ -170,7 +170,7 @@ class Workout::BlocksTest < ActiveSupport::TestCase
     student = students(:alice)
     trainer = users(:one)
     periodization = student.periodizations.create!
-    version = periodization.versions.create!(trainer: trainer, voice_recording: nil, parent_version: nil)
+    version = periodization.versions.create!(trainer: trainer, parent_version: nil)
 
     workout = Workout.new(
       periodization_version: version,

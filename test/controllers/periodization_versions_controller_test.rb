@@ -5,13 +5,7 @@ class PeriodizationVersionsControllerTest < ActionDispatch::IntegrationTest
     @user = users(:one)
     @organization = @user.organization
     @student = students(:alice)
-    @recording = VoiceRecording.create!(
-      organization: @organization,
-      student: @student,
-      trainer: @user,
-      kind: "periodization_create"
-    )
-    @version = @student.start_periodization!(trainer: @user, voice_recording: @recording)
+    @version = @student.start_periodization!(trainer: @user)
   end
 
   test "show renders the version with workouts and body" do
@@ -31,40 +25,14 @@ class PeriodizationVersionsControllerTest < ActionDispatch::IntegrationTest
     assert_equal false, props[:promoted]
   end
 
-  test "show exposes the originating recording transcript when the version has a voice recording" do
-    @recording.update!(transcript: "Quero três treinos semanais com foco em força.")
-    apply_completed_plan
-    sign_in_as(@user)
-
-    get periodization_version_path(@version)
-
-    assert_response :success
-    assert_equal "Quero três treinos semanais com foco em força.", inertia.props[:version][:transcript]
-  end
-
-  test "show omits the transcript when the version has no associated voice recording" do
-    apply_completed_plan
-    @version.update!(voice_recording: nil)
-    sign_in_as(@user)
-
-    get periodization_version_path(@version)
-
-    assert_response :success
-    assert_nil inertia.props[:version][:transcript]
-  end
-
   test "show marks a superseded promoted version as read-only" do
     apply_completed_plan
     @version.periodization.update!(current_version: @version)
 
-    rec_v2 = VoiceRecording.create!(
-      organization: @organization, student: @student, trainer: @user,
-      kind: "periodization_edit_periodization"
-    )
-    v2 = @version.periodization.start_edit!(scope: :periodization, trainer: @user, voice_recording: rec_v2)
+    v2 = @version.periodization.start_edit!(scope: :periodization, trainer: @user)
     v2.fork_with!(scope: :periodization, patch: { body_md: "## v2", workouts: [
       { name: "A", blocks: [ exercise_block("Agachamento", "4x8") ], position: 1 }
-    ] }, trainer: @user, voice_recording: rec_v2)
+    ] }, trainer: @user)
     v2.transition_to!(:completed)
     @version.periodization.set_current_version!(v2)
 
@@ -92,13 +60,8 @@ class PeriodizationVersionsControllerTest < ActionDispatch::IntegrationTest
   test "show is scoped to the current organization" do
     other_org = Organization.create!(name: "Outro Gym")
     foreign_student = other_org.students.create!(name: "Externo")
-    foreign_recording = VoiceRecording.create!(
-      organization: other_org,
-      student: foreign_student,
-      trainer: User.create!(email_address: "x@y.com", password: "password", organization: other_org),
-      kind: "periodization_create"
-    )
-    foreign_version = foreign_student.start_periodization!(trainer: foreign_recording.trainer, voice_recording: foreign_recording)
+    foreign_trainer = User.create!(email_address: "x@y.com", password: "password", organization: other_org)
+    foreign_version = foreign_student.start_periodization!(trainer: foreign_trainer)
     sign_in_as(@user)
 
     get periodization_version_path(foreign_version)
@@ -129,60 +92,7 @@ class PeriodizationVersionsControllerTest < ActionDispatch::IntegrationTest
     assert PeriodizationVersion.exists?(@version.id)
   end
 
-  test "destroy cancels every in-flight recording targeting the draft, in one transaction" do
-    apply_completed_plan
-    rec_a = build_in_flight_recording(kind: "periodization_edit_periodization", target_version: @version)
-    rec_b = build_in_flight_recording(kind: "periodization_edit_periodization", target_version: @version)
-    completed_recording = VoiceRecording.create!(
-      organization: @organization, student: @student, trainer: @user,
-      kind: "periodization_edit_periodization", target_periodization_version: @version
-    )
-    completed_recording.update_columns(status: "completed")
-    sign_in_as(@user)
-
-    delete periodization_version_path(@version)
-
-    assert_redirected_to student_path(@student)
-    assert_not PeriodizationVersion.exists?(@version.id)
-    assert_equal "cancelled", rec_a.reload.status
-    assert_equal "cancelled", rec_b.reload.status
-    assert_equal "completed", completed_recording.reload.status, "terminal recordings are not touched"
-  end
-
-  test "show exposes voice_in_flight true when a non-terminal recording targets the version" do
-    apply_completed_plan
-    build_in_flight_recording(kind: "periodization_edit_periodization", target_version: @version)
-    sign_in_as(@user)
-
-    get periodization_version_path(@version)
-
-    assert_response :success
-    assert_equal true, inertia.props[:voice_in_flight]
-  end
-
-  test "show exposes voice_in_flight false when no non-terminal recording targets the version" do
-    apply_completed_plan
-    completed_recording = VoiceRecording.create!(
-      organization: @organization, student: @student, trainer: @user,
-      kind: "periodization_edit_periodization", target_periodization_version: @version
-    )
-    completed_recording.update_columns(status: "completed")
-    sign_in_as(@user)
-
-    get periodization_version_path(@version)
-
-    assert_response :success
-    assert_equal false, inertia.props[:voice_in_flight]
-  end
-
   private
-    def build_in_flight_recording(kind:, target_version:)
-      VoiceRecording.create!(
-        organization: @organization, student: @student, trainer: @user,
-        kind: kind, target_periodization_version: target_version
-      )
-    end
-
     def exercise_block(name, prescription)
       { "kind" => "exercise", "name" => name, "prescription" => prescription }
     end
@@ -197,8 +107,7 @@ class PeriodizationVersionsControllerTest < ActionDispatch::IntegrationTest
             { name: "B", blocks: [ exercise_block("Supino", "4x8") ], position: 2 }
           ]
         },
-        trainer: @user,
-        voice_recording: @recording
+        trainer: @user
       )
       @version.transition_to!(:completed)
     end

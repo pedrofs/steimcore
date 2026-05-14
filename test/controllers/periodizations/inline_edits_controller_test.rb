@@ -5,13 +5,7 @@ class Periodizations::InlineEditsControllerTest < ActionDispatch::IntegrationTes
     @user = users(:one)
     @organization = @user.organization
     @student = students(:alice)
-    @recording = VoiceRecording.create!(
-      organization: @organization,
-      student: @student,
-      trainer: @user,
-      kind: "periodization_create"
-    )
-    @version = @student.start_periodization!(trainer: @user, voice_recording: @recording)
+    @version = @student.start_periodization!(trainer: @user)
     @version.fork_with!(
       scope: :create,
       patch: {
@@ -21,8 +15,7 @@ class Periodizations::InlineEditsControllerTest < ActionDispatch::IntegrationTes
           { name: "B", blocks: [ exercise_block("Supino", "4x8") ], position: 2 }
         ]
       },
-      trainer: @user,
-      voice_recording: @recording
+      trainer: @user
     )
     @version.transition_to!(:completed)
     @periodization = @version.periodization

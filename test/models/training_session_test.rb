@@ -102,15 +102,7 @@ class TrainingSessionTest < ActiveSupport::TestCase
     end
 
     def create_workout
-      voice_recording = VoiceRecording.create!(
-        organization: @organization, student: @student, trainer: @trainer,
-        kind: "periodization_create"
-      )
-      voice_recording.transition_to!(:transcribing)
-      voice_recording.update!(transcript: "x")
-      voice_recording.transition_to!(:transcribed)
-      voice_recording.transition_to!(:generating)
-      version = @student.start_periodization!(trainer: @trainer, voice_recording: voice_recording)
+      version = @student.start_periodization!(trainer: @trainer)
       version.workouts.create!(name: "Treino A", position: 1, blocks: [])
     end
 end

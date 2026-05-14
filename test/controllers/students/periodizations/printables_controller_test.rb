@@ -5,12 +5,6 @@ class Students::Periodizations::PrintablesControllerTest < ActionDispatch::Integ
     @user = users(:one)
     @organization = @user.organization
     @student = students(:alice)
-    @recording = VoiceRecording.create!(
-      organization: @organization,
-      student: @student,
-      trainer: @user,
-      kind: "periodization_create"
-    )
   end
 
   test "show renders the printable for a completed current version" do
@@ -74,7 +68,7 @@ class Students::Periodizations::PrintablesControllerTest < ActionDispatch::Integ
   end
 
   test "show redirects with an alert when the current version is not completed" do
-    version = @student.start_periodization!(trainer: @user, voice_recording: @recording)
+    version = @student.start_periodization!(trainer: @user)
     # Active periodization exists, but no current_version has been promoted yet.
     assert_nil version.periodization.current_version_id
 
@@ -132,12 +126,11 @@ class Students::Periodizations::PrintablesControllerTest < ActionDispatch::Integ
     end
 
     def promote_completed_plan!(workouts:)
-      version = @student.start_periodization!(trainer: @user, voice_recording: @recording)
+      version = @student.start_periodization!(trainer: @user)
       version.fork_with!(
         scope: :create,
         patch: { body_md: "## Plano", workouts: workouts },
-        trainer: @user,
-        voice_recording: @recording
+        trainer: @user
       )
       version.transition_to!(:completed)
       version.periodization.set_current_version!(version)

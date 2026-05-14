@@ -7,12 +7,12 @@ class Students::PeriodizationsControllerTest < ActionDispatch::IntegrationTest
     @student = students(:alice)
   end
 
-  test "new redirects to the voice recording flow with kind=periodization_create" do
+  test "new redirects to the agent chat" do
     sign_in_as(@user)
 
     get new_student_periodization_path(@student)
 
-    assert_redirected_to new_student_voice_recording_path(@student, kind: "periodization_create")
+    assert_redirected_to student_agent_chat_path(@student)
   end
 
   test "new is scoped to the current organization" do
@@ -26,13 +26,7 @@ class Students::PeriodizationsControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "show renders the active periodization with body and workouts" do
-    recording = VoiceRecording.create!(
-      organization: @organization,
-      student: @student,
-      trainer: @user,
-      kind: "periodization_create"
-    )
-    version = @student.start_periodization!(trainer: @user, voice_recording: recording)
+    version = @student.start_periodization!(trainer: @user)
     version.fork_with!(
       scope: :create,
       patch: {
@@ -42,8 +36,7 @@ class Students::PeriodizationsControllerTest < ActionDispatch::IntegrationTest
           { name: "B", blocks: [ exercise_block("Supino", "4x8") ], position: 2 }
         ]
       },
-      trainer: @user,
-      voice_recording: recording
+      trainer: @user
     )
     version.transition_to!(:completed)
     periodization = version.periodization
@@ -75,30 +68,19 @@ class Students::PeriodizationsControllerTest < ActionDispatch::IntegrationTest
   test "show includes completed versions in chronological order with authoring trainer, marking the current version" do
     other_trainer = User.create!(email_address: "outro@example.com", password: "password", organization: @organization)
 
-    rec_v1 = VoiceRecording.create!(
-      organization: @organization, student: @student, trainer: @user,
-      kind: "periodization_create"
-    )
-    v1 = @student.start_periodization!(trainer: @user, voice_recording: rec_v1)
+    v1 = @student.start_periodization!(trainer: @user)
     v1.fork_with!(scope: :create, patch: { body_md: "## v1", workouts: [
       { name: "A", blocks: [ exercise_block("Agachamento", "4x8") ], position: 1 }
-    ] }, trainer: @user, voice_recording: rec_v1)
+    ] }, trainer: @user)
     v1.transition_to!(:completed)
     periodization = v1.periodization
     periodization.set_current_version!(v1)
 
-    rec_v1.update!(transcript: "Primeira versão: foco em hipertrofia para o aluno teste.")
-
-    rec_v2 = VoiceRecording.create!(
-      organization: @organization, student: @student, trainer: other_trainer,
-      kind: "periodization_edit_periodization",
-      transcript: "Adicionar treino C para o membro inferior."
-    )
-    v2 = periodization.start_edit!(scope: :periodization, trainer: other_trainer, voice_recording: rec_v2)
+    v2 = periodization.start_edit!(scope: :periodization, trainer: other_trainer)
     v2.fork_with!(scope: :periodization, patch: { body_md: "## v2", workouts: [
       { name: "A", blocks: [ exercise_block("Agachamento", "4x8") ], position: 1 },
       { name: "C", blocks: [ exercise_block("Leg press", "4x10") ], position: 2 }
-    ] }, trainer: other_trainer, voice_recording: rec_v2)
+    ] }, trainer: other_trainer)
     v2.transition_to!(:completed)
     periodization.set_current_version!(v2)
 
@@ -113,44 +95,31 @@ class Students::PeriodizationsControllerTest < ActionDispatch::IntegrationTest
 
     assert_response :success
     versions = inertia.props[:periodization][:versions]
-    assert_equal [ v1.id, v2.id ], versions.map { |v| v[:id] }
-    assert_equal [ @user.email_address, other_trainer.email_address ], versions.map { |v| v[:trainer][:email] }
-    assert_equal [ false, true ], versions.map { |v| v[:current] }
-    assert_equal "Primeira versão: foco em hipertrofia para o aluno teste.", versions.first[:transcript_excerpt]
+    assert_equal [ v2.id, v1.id ], versions.map { |v| v[:id] }
+    assert_equal [ other_trainer.email_address, @user.email_address ], versions.map { |v| v[:trainer][:email] }
+    assert_equal [ true, false ], versions.map { |v| v[:current] }
   end
 
   test "show flags non-promoted, non-superseded completed versions as drafts" do
-    rec_v1 = VoiceRecording.create!(
-      organization: @organization, student: @student, trainer: @user,
-      kind: "periodization_create"
-    )
-    v1 = @student.start_periodization!(trainer: @user, voice_recording: rec_v1)
+    v1 = @student.start_periodization!(trainer: @user)
     v1.fork_with!(scope: :create, patch: { body_md: "## v1", workouts: [
       { name: "A", blocks: [ exercise_block("Agachamento", "4x8") ], position: 1 }
-    ] }, trainer: @user, voice_recording: rec_v1)
+    ] }, trainer: @user)
     v1.transition_to!(:completed)
     periodization = v1.periodization
     periodization.set_current_version!(v1)
 
-    rec_v2 = VoiceRecording.create!(
-      organization: @organization, student: @student, trainer: @user,
-      kind: "periodization_edit_periodization"
-    )
-    v2 = periodization.start_edit!(scope: :periodization, trainer: @user, voice_recording: rec_v2)
+    v2 = periodization.start_edit!(scope: :periodization, trainer: @user)
     v2.fork_with!(scope: :periodization, patch: { body_md: "## v2", workouts: [
       { name: "A", blocks: [ exercise_block("Agachamento", "4x8") ], position: 1 }
-    ] }, trainer: @user, voice_recording: rec_v2)
+    ] }, trainer: @user)
     v2.transition_to!(:completed)
     periodization.set_current_version!(v2)
 
-    rec_v3 = VoiceRecording.create!(
-      organization: @organization, student: @student, trainer: @user,
-      kind: "periodization_edit_periodization"
-    )
-    v3 = periodization.start_edit!(scope: :periodization, trainer: @user, voice_recording: rec_v3)
+    v3 = periodization.start_edit!(scope: :periodization, trainer: @user)
     v3.fork_with!(scope: :periodization, patch: { body_md: "## v3", workouts: [
       { name: "A", blocks: [ exercise_block("Agachamento", "4x8") ], position: 1 }
-    ] }, trainer: @user, voice_recording: rec_v3)
+    ] }, trainer: @user)
     v3.transition_to!(:completed)
 
     sign_in_as(@user)

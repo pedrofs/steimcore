@@ -99,13 +99,7 @@ class Students::AgentChatsControllerTest < ActionDispatch::IntegrationTest
 
   private
     def build_completed_version_for(student)
-      recording = VoiceRecording.create!(
-        organization: student.organization,
-        student: student,
-        trainer: @user,
-        kind: "periodization_create"
-      )
-      version = student.start_periodization!(trainer: @user, voice_recording: recording)
+      version = student.start_periodization!(trainer: @user)
       version.fork_with!(
         scope: :create,
         patch: {
@@ -115,8 +109,7 @@ class Students::AgentChatsControllerTest < ActionDispatch::IntegrationTest
             { name: "B", blocks: [ { kind: "exercise", name: "Supino", prescription: "4x8" } ], position: 2 }
           ]
         },
-        trainer: @user,
-        voice_recording: recording
+        trainer: @user
       )
       version.transition_to!(:completed)
       version

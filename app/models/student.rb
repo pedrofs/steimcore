@@ -3,7 +3,6 @@ class Student < ApplicationRecord
 
   belongs_to :organization
   belongs_to :active_periodization, class_name: "Periodization", optional: true
-  has_many :voice_recordings, dependent: :destroy
   has_many :periodizations, dependent: :destroy
   has_many :training_sessions, dependent: :destroy
   has_one :agent_chat, class_name: "Agent::Chat", as: :chattable, dependent: :destroy
@@ -22,19 +21,13 @@ class Student < ApplicationRecord
   # with a first PeriodizationVersion in :generating, the student is repointed
   # to the new periodization, and the new version is returned for the caller
   # to enqueue generation against.
-  #
-  # `voice_recording:` is optional — the voice pipeline passes it so the
-  # resulting version carries the originating recording reference; the agent
-  # chat flow leaves it nil (the originator there is an Agent::ToolCall, set
-  # downstream by the tool).
-  def start_periodization!(trainer:, voice_recording: nil)
+  def start_periodization!(trainer:)
     transaction do
       active_periodization&.archive!
 
       new_periodization = periodizations.create!
       new_version = new_periodization.versions.create!(
         trainer: trainer,
-        voice_recording: voice_recording,
         parent_version: nil
       )
       new_version.transition_to!(:generating)

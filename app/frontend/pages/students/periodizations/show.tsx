@@ -47,7 +47,6 @@ type VersionSummary = {
   current: boolean
   draft: boolean
   trainer: { id: string; email: string }
-  transcriptExcerpt: string
   path: string
 }
 
@@ -275,11 +274,6 @@ function VersionHistory({ versions }: { versions: VersionSummary[] }) {
                   </Badge>
                 )}
               </div>
-              {v.transcriptExcerpt.length > 0 && (
-                <p className="text-sm text-muted-foreground italic">
-                  "{v.transcriptExcerpt}"
-                </p>
-              )}
               <div>
                 <Link
                   href={v.path}

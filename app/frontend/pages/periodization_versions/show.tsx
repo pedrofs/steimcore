@@ -7,7 +7,6 @@ import {
   PeriodizationVersionView,
   type PeriodizationVersionData,
 } from "@/components/periodization-version-view"
-import { TranscriptDetails } from "@/components/transcript-details"
 import { Button } from "@/components/ui/button"
 import {
   Tooltip,
@@ -16,11 +15,11 @@ import {
 } from "@/components/ui/tooltip"
 import { useJobStatus } from "@/hooks/use-job-status"
 
-type Version = PeriodizationVersionData & { transcript: string | null }
+type Version = PeriodizationVersionData
 
 type Student = { id: string; name: string }
 
-type Props = { version: Version; student: Student; voiceInFlight: boolean }
+type Props = { version: Version; student: Student }
 
 function PrintButton({ enabled, href }: { enabled: boolean; href: string }) {
   const button = (
@@ -51,13 +50,8 @@ function PrintButton({ enabled, href }: { enabled: boolean; href: string }) {
 export default function ShowPeriodizationVersion({
   version,
   student,
-  voiceInFlight,
 }: Props) {
-  useJobStatus(
-    version.status,
-    [ "version", "student", "voiceInFlight", "flash", "errors" ],
-    { forceActive: voiceInFlight },
-  )
+  useJobStatus(version.status, [ "version", "student", "flash", "errors" ])
 
   const versionPath = `/periodization_versions/${version.id}`
   const promotePath = `${versionPath}/promotion`
@@ -71,10 +65,6 @@ export default function ShowPeriodizationVersion({
       </PageHeader>
 
       <StatusBanner status={version.status} />
-
-      {voiceInFlight && <VoiceInFlightBanner />}
-
-      <TranscriptDetails transcript={version.transcript} />
 
       {version.status === "failed" && (
         <FailureBlock
@@ -90,7 +80,6 @@ export default function ShowPeriodizationVersion({
           student={student}
           versionPath={versionPath}
           promotePath={promotePath}
-          voiceInFlight={voiceInFlight}
         />
       )}
     </>
@@ -102,13 +91,11 @@ function CompletedVersion({
   student,
   versionPath,
   promotePath,
-  voiceInFlight,
 }: {
   version: Version
   student: Student
   versionPath: string
   promotePath: string
-  voiceInFlight: boolean
 }) {
   const printablePath = `/students/${student.id}/periodization/printable`
   const [dirtyWorkoutName, setDirtyWorkoutName] = useState<string | null>(null)
@@ -130,7 +117,6 @@ function CompletedVersion({
     <div className="flex flex-col gap-6">
       <PeriodizationVersionView
         version={version}
-        editingDisabled={voiceInFlight}
         onDirtyWorkoutChange={setDirtyWorkoutName}
       />
 
@@ -163,25 +149,12 @@ function CompletedVersion({
           <Button
             type="button"
             className="h-11 sm:h-10"
-            disabled={voiceInFlight}
             onClick={promoteWithDirtyGuard}
           >
             Salvar como ativa
           </Button>
         </div>
       )}
-    </div>
-  )
-}
-
-function VoiceInFlightBanner() {
-  return (
-    <div className="flex items-center gap-3 rounded-xl border border-primary/30 bg-primary/5 p-4 text-sm">
-      <Loader2Icon
-        className="size-5 shrink-0 animate-spin text-primary"
-        aria-hidden
-      />
-      <span>Aplicando edição por voz...</span>
     </div>
   )
 }
