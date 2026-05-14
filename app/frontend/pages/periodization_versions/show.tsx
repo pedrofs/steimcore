@@ -1,22 +1,14 @@
 import { Link, router } from "@inertiajs/react"
-import {
-  ChevronDownIcon,
-  ChevronRightIcon,
-  Loader2Icon,
-  PencilIcon,
-  PrinterIcon,
-  WandSparklesIcon,
-} from "lucide-react"
+import { Loader2Icon, PrinterIcon } from "lucide-react"
 import { useState } from "react"
 
-import { BlocksRenderer, type Block } from "@/components/blocks-renderer"
-import { Markdown } from "@/components/markdown"
 import { PageHeader } from "@/components/page-header"
+import {
+  PeriodizationVersionView,
+  type PeriodizationVersionData,
+} from "@/components/periodization-version-view"
 import { TranscriptDetails } from "@/components/transcript-details"
 import { Button } from "@/components/ui/button"
-import { Tabs, TabsContent } from "@/components/ui/tabs"
-import { WorkoutEditor } from "@/components/workout-editor"
-import { WorkoutsTabsList } from "@/components/workouts-tabs-list"
 import {
   Tooltip,
   TooltipContent,
@@ -24,24 +16,7 @@ import {
 } from "@/components/ui/tooltip"
 import { useJobStatus } from "@/hooks/use-job-status"
 
-type Workout = {
-  id: string
-  name: string
-  position: number
-  blocks: Block[]
-}
-
-type Version = {
-  id: string
-  status: "pending" | "generating" | "completed" | "failed"
-  bodyMd: string
-  errorMessage: string | null
-  promoted: boolean
-  readOnly: boolean
-  periodizationId: string
-  transcript: string | null
-  workouts: Workout[]
-}
+type Version = PeriodizationVersionData & { transcript: string | null }
 
 type Student = { id: string; name: string }
 
@@ -136,76 +111,27 @@ function CompletedVersion({
   voiceInFlight: boolean
 }) {
   const printablePath = `/students/${student.id}/periodization/printable`
-  const [editingWorkoutId, setEditingWorkoutId] = useState<string | null>(null)
-  const [dirty, setDirty] = useState(false)
-  const editingDisabled = voiceInFlight
+  const [dirtyWorkoutName, setDirtyWorkoutName] = useState<string | null>(null)
 
-  const editingWorkout =
-    editingWorkoutId != null
-      ? version.workouts.find((w) => w.id === editingWorkoutId) ?? null
-      : null
-  const dirtyEditedWorkoutName =
-    dirty && editingWorkout ? editingWorkout.name : null
-
-  const discardLocalEdits = () => {
-    setEditingWorkoutId(null)
-    setDirty(false)
-  }
-
-  const runWithDiscardConfirm = (
-    action: () => void,
-    message: (name: string) => string,
-  ): boolean => {
-    if (dirtyEditedWorkoutName) {
-      if (!window.confirm(message(dirtyEditedWorkoutName))) return false
-      discardLocalEdits()
+  const promoteWithDirtyGuard = () => {
+    if (dirtyWorkoutName) {
+      if (
+        !window.confirm(
+          `Promover descartará as alterações não salvas em ${dirtyWorkoutName}. Continuar?`,
+        )
+      ) {
+        return
+      }
     }
-    action()
-    return true
+    router.post(promotePath)
   }
-
-  const guardVoiceTrigger = (action: () => void) =>
-    runWithDiscardConfirm(
-      action,
-      (name) => `Você tem alterações não salvas em ${name}. Descartar?`,
-    )
-
-  const guardPromote = (action: () => void) =>
-    runWithDiscardConfirm(
-      action,
-      (name) =>
-        `Promover descartará as alterações não salvas em ${name}. Continuar?`,
-    )
-
-  const canEditPlan = !version.readOnly && !editingDisabled
 
   return (
     <div className="flex flex-col gap-6">
-      <PlanSection
-        bodyMd={version.bodyMd}
-        editable={canEditPlan}
-        onEditPlan={() =>
-          guardVoiceTrigger(() => router.post(`${versionPath}/edit`))
-        }
-      />
-
-      <WorkoutsTabs
+      <PeriodizationVersionView
         version={version}
-        editingWorkoutId={editingWorkoutId}
-        onEdit={(id) => setEditingWorkoutId(id)}
-        onCancelEdit={() => {
-          setEditingWorkoutId(null)
-          setDirty(false)
-        }}
-        onSaved={() => {
-          setEditingWorkoutId(null)
-          setDirty(false)
-        }}
-        onDirtyChange={setDirty}
-        dirtyEditedWorkoutName={dirtyEditedWorkoutName}
-        onDiscardLocalEdits={discardLocalEdits}
-        editingDisabled={editingDisabled}
-        guardVoiceTrigger={guardVoiceTrigger}
+        editingDisabled={voiceInFlight}
+        onDirtyWorkoutChange={setDirtyWorkoutName}
       />
 
       {version.readOnly ? (
@@ -238,201 +164,13 @@ function CompletedVersion({
             type="button"
             className="h-11 sm:h-10"
             disabled={voiceInFlight}
-            onClick={() =>
-              guardPromote(() => router.post(promotePath))
-            }
+            onClick={promoteWithDirtyGuard}
           >
             Salvar como ativa
           </Button>
         </div>
       )}
     </div>
-  )
-}
-
-function PlanSection({
-  bodyMd,
-  editable,
-  onEditPlan,
-}: {
-  bodyMd: string
-  editable: boolean
-  onEditPlan: () => void
-}) {
-  const [expanded, setExpanded] = useState(false)
-
-  return (
-    <section className="flex flex-col gap-2">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <button
-          type="button"
-          aria-expanded={expanded}
-          onClick={() => setExpanded((v) => !v)}
-          className="-mx-1 inline-flex items-center gap-1.5 rounded-md px-1 py-0.5 text-lg font-medium hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        >
-          {expanded ? (
-            <ChevronDownIcon className="size-4 text-muted-foreground" />
-          ) : (
-            <ChevronRightIcon className="size-4 text-muted-foreground" />
-          )}
-          Plano
-        </button>
-        {editable && <AiButton onClick={onEditPlan}>Editar periodização</AiButton>}
-      </div>
-      {expanded && (
-        <Markdown content={bodyMd} placeholder="Plano sem conteúdo." />
-      )}
-    </section>
-  )
-}
-
-function AiButton({
-  onClick,
-  disabled,
-  children,
-  fullWidthOnMobile = false,
-}: {
-  onClick: () => void
-  disabled?: boolean
-  children: React.ReactNode
-  fullWidthOnMobile?: boolean
-}) {
-  return (
-    <Button
-      type="button"
-      variant="outline"
-      disabled={disabled}
-      onClick={onClick}
-      className={
-        "h-11 gap-2 sm:h-10 " +
-        (fullWidthOnMobile ? "w-full sm:w-auto " : "")
-      }
-    >
-      <WandSparklesIcon className="size-4" />
-      <span>{children}</span>
-      <IaPill />
-    </Button>
-  )
-}
-
-function IaPill() {
-  return (
-    <span className="ml-1 rounded-full border border-foreground/15 bg-foreground/5 px-1.5 py-px text-[10px] font-semibold uppercase tracking-[0.12em] text-foreground/70">
-      IA
-    </span>
-  )
-}
-
-function WorkoutsTabs({
-  version,
-  editingWorkoutId,
-  onEdit,
-  onCancelEdit,
-  onSaved,
-  onDirtyChange,
-  dirtyEditedWorkoutName,
-  onDiscardLocalEdits,
-  editingDisabled,
-  guardVoiceTrigger,
-}: {
-  version: Version
-  editingWorkoutId: string | null
-  onEdit: (id: string) => void
-  onCancelEdit: () => void
-  onSaved: () => void
-  onDirtyChange: (dirty: boolean) => void
-  dirtyEditedWorkoutName: string | null
-  onDiscardLocalEdits: () => void
-  editingDisabled: boolean
-  guardVoiceTrigger: (action: () => void) => boolean
-}) {
-  const workouts = version.workouts
-  const [activeTab, setActiveTab] = useState<string | undefined>(
-    workouts[0]?.id,
-  )
-
-  if (workouts.length === 0) {
-    return (
-      <section className="flex flex-col gap-3">
-        <h2 className="text-lg font-medium">Treinos</h2>
-        <p className="text-sm text-muted-foreground">
-          Nenhum treino registrado.
-        </p>
-      </section>
-    )
-  }
-
-  const someoneEditing = editingWorkoutId != null
-  const showEditControls = !version.readOnly && !someoneEditing && !editingDisabled
-
-  const handleTabChange = (next: string) => {
-    if (next === activeTab) return
-    if (dirtyEditedWorkoutName) {
-      if (
-        !window.confirm(
-          `Você tem alterações não salvas em ${dirtyEditedWorkoutName}. Descartar?`,
-        )
-      ) {
-        return
-      }
-      onDiscardLocalEdits()
-    }
-    setActiveTab(next)
-  }
-
-  return (
-    <section className="flex flex-col gap-3">
-      <h2 className="text-lg font-medium">Treinos</h2>
-      <Tabs value={activeTab} onValueChange={handleTabChange}>
-        <WorkoutsTabsList workouts={workouts} />
-        {workouts.map((w) => (
-          <TabsContent key={w.id} value={w.id} className="flex flex-col gap-3">
-            {editingWorkoutId === w.id ? (
-              <WorkoutEditor
-                versionId={version.id}
-                workoutId={w.id}
-                blocks={w.blocks}
-                onCancel={onCancelEdit}
-                onSaved={onSaved}
-                onDirtyChange={onDirtyChange}
-              />
-            ) : (
-              <>
-                <BlocksRenderer
-                  blocks={w.blocks}
-                  emptyPlaceholder="Treino sem conteúdo."
-                />
-                {showEditControls && (
-                  <div className="mt-1 flex flex-col gap-2 sm:flex-row sm:justify-end">
-                    <AiButton
-                      fullWidthOnMobile
-                      onClick={() =>
-                        guardVoiceTrigger(() =>
-                          router.post(
-                            `/periodization_versions/${version.id}/workouts/${w.id}/edit`,
-                          ),
-                        )
-                      }
-                    >
-                      Editar treino
-                    </AiButton>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="h-11 w-full gap-2 sm:h-10 sm:w-auto"
-                      onClick={() => onEdit(w.id)}
-                    >
-                      <PencilIcon className="size-4" />
-                      Editar manualmente
-                    </Button>
-                  </div>
-                )}
-              </>
-            )}
-          </TabsContent>
-        ))}
-      </Tabs>
-    </section>
   )
 }
 

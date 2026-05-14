@@ -14,7 +14,7 @@ class PeriodizationVersions::PromotionsController < InertiaController
 
     periodization.set_current_version!(@version)
 
-    redirect_to student_periodization_path(periodization.student, periodization),
+    redirect_to safe_return_to || student_periodization_path(periodization.student, periodization),
                 notice: "Periodização salva."
   end
 

@@ -11,11 +11,12 @@ class PeriodizationVersions::WorkoutsController < InertiaController
   before_action :ensure_version_editable
 
   def update
+    destination = safe_return_to || periodization_version_path(@version)
+
     if @workout.update(workout_params)
-      redirect_to periodization_version_path(@version), notice: "Treino atualizado."
+      redirect_to destination, notice: "Treino atualizado."
     else
-      redirect_to periodization_version_path(@version),
-                  inertia: { errors: @workout.errors.to_hash(true) }
+      redirect_to destination, inertia: { errors: @workout.errors.to_hash(true) }
     end
   end
 

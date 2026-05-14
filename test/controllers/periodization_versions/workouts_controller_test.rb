@@ -92,6 +92,31 @@ class PeriodizationVersions::WorkoutsControllerTest < ActionDispatch::Integratio
     assert_equal original_blocks, @workout.reload.blocks
   end
 
+  test "update honors a same-origin return_to query param" do
+    sign_in_as(@user)
+    new_blocks = [ exercise_block("Levantamento terra", "4x6") ]
+
+    patch periodization_version_workout_path(@version, @workout),
+          params: {
+            workout: { blocks: new_blocks },
+            return_to: student_agent_chat_path(@student, open_version_id: @version.id)
+          }
+
+    assert_redirected_to student_agent_chat_path(@student, open_version_id: @version.id)
+  end
+
+  test "update ignores an absolute-URL return_to and falls back to the version page" do
+    sign_in_as(@user)
+
+    patch periodization_version_workout_path(@version, @workout),
+          params: {
+            workout: { blocks: [ exercise_block("Outro", "3x5") ] },
+            return_to: "https://evil.example.com/steal"
+          }
+
+    assert_redirected_to periodization_version_path(@version)
+  end
+
   test "update is scoped to the current organization" do
     other_org = Organization.create!(name: "Outro Gym")
     foreign_student = other_org.students.create!(name: "Externo")

@@ -16,13 +16,42 @@ class Students::AgentChatsController < InertiaController
     render inertia: "students/agent_chats/show", props: {
       student: student_props(@student),
       chat: chat_props(@chat),
-      messages: messages_props(@chat)
+      messages: messages_props(@chat),
+      open_version: open_version_props
     }
   end
 
   private
     def load_student
       @student = current_organization.students.find(params[:student_id])
+    end
+
+    def open_version_props
+      version_id = params[:open_version_id].presence
+      return nil unless version_id
+
+      version = PeriodizationVersion
+                .joins(:periodization)
+                .where(periodizations: { student_id: @student.id })
+                .find_by(id: version_id)
+      return nil unless version
+
+      version_props(version)
+    end
+
+    def version_props(version)
+      {
+        id: version.id,
+        status: version.status,
+        body_md: version.body_md,
+        error_message: version.error_message,
+        promoted: version.promoted?,
+        read_only: version.read_only?,
+        periodization_id: version.periodization_id,
+        workouts: version.workouts.order(:position).map { |w|
+          { id: w.id, name: w.name, position: w.position, blocks: w.blocks }
+        }
+      }
     end
 
     def load_or_create_chat

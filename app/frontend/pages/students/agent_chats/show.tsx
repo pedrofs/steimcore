@@ -7,9 +7,14 @@ import {
   Loader2,
   Send,
 } from "lucide-react"
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 
+import { ArtifactDrawer } from "@/components/artifact-drawer"
 import { Markdown } from "@/components/markdown"
+import type {
+  PeriodizationVersionData,
+  PeriodizationViewScope,
+} from "@/components/periodization-version-view"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -80,9 +85,21 @@ type Props = {
   student: Student
   chat: Chat
   messages: Message[]
+  openVersion: PeriodizationVersionData | null
 }
 
-export default function AgentChatShow({ student, chat, messages }: Props) {
+type DrawerState = {
+  open: boolean
+  versionId: string | null
+  workoutId: string | null
+}
+
+export default function AgentChatShow({
+  student,
+  chat,
+  messages,
+  openVersion,
+}: Props) {
   const visibleMessages = useMemo(
     () => messages.filter((m) => m.role !== "tool" && m.role !== "system"),
     [messages],
@@ -94,6 +111,88 @@ export default function AgentChatShow({ student, chat, messages }: Props) {
     if (!el) return
     el.scrollTop = el.scrollHeight
   }, [visibleMessages.length])
+
+  const [drawerState, setDrawerState] = useState<DrawerState>({
+    open: false,
+    versionId: null,
+    workoutId: null,
+  })
+
+  const chatPath = `/students/${student.id}/agent_chat`
+
+  const refreshOpenVersion = useCallback(
+    (versionId: string | null, opts: { replace?: boolean } = {}) => {
+      router.reload({
+        only: [ "open_version" ],
+        data: versionId
+          ? { open_version_id: versionId }
+          : { open_version_id: undefined },
+        preserveScroll: true,
+        preserveState: true,
+        replace: opts.replace ?? false,
+      })
+    },
+    [],
+  )
+
+  const openDrawer = useCallback(
+    (versionId: string, workoutId: string | null) => {
+      setDrawerState({ open: true, versionId, workoutId })
+      // replace: false so the browser back button (device back on mobile)
+      // pops the drawer open_version_id off the URL, which then drives the
+      // drawer-close effect below.
+      refreshOpenVersion(versionId, { replace: false })
+    },
+    [ refreshOpenVersion ],
+  )
+
+  const handleOpenChange = useCallback(
+    (open: boolean) => {
+      if (open) return
+      setDrawerState((prev) => ({ ...prev, open: false }))
+      refreshOpenVersion(null, { replace: true })
+    },
+    [ refreshOpenVersion ],
+  )
+
+  // Close the drawer when the open_version_id is removed from the URL by an
+  // external navigation — e.g., the user tapping the device back button on
+  // mobile or following a link inside the drawer that returns without the
+  // param. We only fire after the prop has first been populated so the very
+  // first render (before the open request completes) doesn't slam the
+  // drawer shut.
+  const sawOpenVersionRef = useRef(false)
+  useEffect(() => {
+    if (openVersion != null) {
+      sawOpenVersionRef.current = true
+      return
+    }
+    if (sawOpenVersionRef.current && drawerState.open) {
+      setDrawerState({ open: false, versionId: null, workoutId: null })
+      sawOpenVersionRef.current = false
+    }
+  }, [openVersion, drawerState.open])
+
+  const handleEscalateToPeriodization = useCallback(() => {
+    setDrawerState((prev) =>
+      prev.versionId
+        ? { open: true, versionId: prev.versionId, workoutId: null }
+        : prev,
+    )
+  }, [])
+
+  const drawerVersion =
+    drawerState.versionId && openVersion?.id === drawerState.versionId
+      ? openVersion
+      : null
+
+  const drawerScope: PeriodizationViewScope = drawerState.workoutId
+    ? { kind: "workout", workoutId: drawerState.workoutId }
+    : { kind: "periodization" }
+
+  const drawerReturnTo = drawerState.versionId
+    ? buildReturnTo(chatPath, drawerState.versionId, drawerState.workoutId)
+    : chatPath
 
   return (
     <div className="flex h-[100dvh] flex-col bg-background">
@@ -109,15 +208,36 @@ export default function AgentChatShow({ student, chat, messages }: Props) {
         ) : (
           <ol className="mx-auto flex max-w-3xl flex-col gap-4">
             {visibleMessages.map((message) => (
-              <MessageBubble key={message.id} message={message} />
+              <MessageBubble key={message.id} message={message} onOpen={openDrawer} />
             ))}
           </ol>
         )}
       </div>
 
       <Composer studentId={student.id} disabled={chat.state === "running"} />
+
+      <ArtifactDrawer
+        open={drawerState.open}
+        onOpenChange={handleOpenChange}
+        version={drawerVersion}
+        scope={drawerScope}
+        onEscalateToPeriodization={
+          drawerState.workoutId ? handleEscalateToPeriodization : undefined
+        }
+        returnTo={drawerReturnTo}
+      />
     </div>
   )
+}
+
+function buildReturnTo(
+  chatPath: string,
+  versionId: string,
+  workoutId: string | null,
+): string {
+  const params = new URLSearchParams({ open_version_id: versionId })
+  if (workoutId) params.set("open_workout_id", workoutId)
+  return `${chatPath}?${params.toString()}`
 }
 
 function ChatHeader({ student }: { student: Student }) {
@@ -167,7 +287,15 @@ function ChatHeader({ student }: { student: Student }) {
   )
 }
 
-function MessageBubble({ message }: { message: Message }) {
+type OpenDrawer = (versionId: string, workoutId: string | null) => void
+
+function MessageBubble({
+  message,
+  onOpen,
+}: {
+  message: Message
+  onOpen: OpenDrawer
+}) {
   const isTrainer = message.role === "user"
   return (
     <li
@@ -191,7 +319,7 @@ function MessageBubble({ message }: { message: Message }) {
       {message.toolCalls.length > 0 && (
         <div className="flex w-full max-w-[85%] flex-col gap-1.5 sm:max-w-[75%]">
           {message.toolCalls.map((tc) => (
-            <ToolCallCard key={tc.id} toolCall={tc} />
+            <ToolCallCard key={tc.id} toolCall={tc} onOpen={onOpen} />
           ))}
         </div>
       )}
@@ -204,7 +332,13 @@ function MessageBubble({ message }: { message: Message }) {
   )
 }
 
-function ToolCallCard({ toolCall }: { toolCall: ToolCall }) {
+function ToolCallCard({
+  toolCall,
+  onOpen,
+}: {
+  toolCall: ToolCall
+  onOpen: OpenDrawer
+}) {
   if (toolCall.name === "update_anamnesis") {
     return <UpdateAnamnesisCard toolCall={toolCall} />
   }
@@ -212,10 +346,10 @@ function ToolCallCard({ toolCall }: { toolCall: ToolCall }) {
     toolCall.name === "create_periodization" ||
     toolCall.name === "update_periodization"
   ) {
-    return <PeriodizationCard toolCall={toolCall} />
+    return <PeriodizationCard toolCall={toolCall} onOpen={onOpen} />
   }
   if (toolCall.name === "update_workout") {
-    return <UpdateWorkoutCard toolCall={toolCall} />
+    return <UpdateWorkoutCard toolCall={toolCall} onOpen={onOpen} />
   }
   return (
     <div className="rounded-xl border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
@@ -249,7 +383,13 @@ function UpdateAnamnesisCard({ toolCall }: { toolCall: ToolCall }) {
   )
 }
 
-function PeriodizationCard({ toolCall }: { toolCall: ToolCall }) {
+function PeriodizationCard({
+  toolCall,
+  onOpen,
+}: {
+  toolCall: ToolCall
+  onOpen: OpenDrawer
+}) {
   const result = (toolCall.result ?? {}) as PeriodizationToolResult
   const args = (toolCall.arguments ?? {}) as { summaryMd?: string }
   const summary =
@@ -304,19 +444,26 @@ function PeriodizationCard({ toolCall }: { toolCall: ToolCall }) {
       </div>
       {result.versionId && (
         <Button
-          asChild
+          type="button"
           size="sm"
           variant="outline"
           className="h-7 w-fit px-3 text-xs"
+          onClick={() => onOpen(result.versionId!, null)}
         >
-          <Link href={`/periodization_versions/${result.versionId}`}>Abrir</Link>
+          Abrir
         </Button>
       )}
     </div>
   )
 }
 
-function UpdateWorkoutCard({ toolCall }: { toolCall: ToolCall }) {
+function UpdateWorkoutCard({
+  toolCall,
+  onOpen,
+}: {
+  toolCall: ToolCall
+  onOpen: OpenDrawer
+}) {
   const result = (toolCall.result ?? {}) as UpdateWorkoutResult
   const args = (toolCall.arguments ?? {}) as {
     summaryMd?: string
@@ -350,14 +497,15 @@ function UpdateWorkoutCard({ toolCall }: { toolCall: ToolCall }) {
           {summary && <div className="text-muted-foreground">{summary}</div>}
         </div>
       </div>
-      {result.versionId && (
+      {result.versionId && result.workoutId && (
         <Button
-          asChild
+          type="button"
           size="sm"
           variant="outline"
           className="h-7 w-fit px-3 text-xs"
+          onClick={() => onOpen(result.versionId!, result.workoutId!)}
         >
-          <Link href={`/periodization_versions/${result.versionId}`}>Abrir</Link>
+          Abrir
         </Button>
       )}
     </div>

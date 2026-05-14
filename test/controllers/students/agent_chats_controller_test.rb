@@ -47,4 +47,78 @@ class Students::AgentChatsControllerTest < ActionDispatch::IntegrationTest
     assert_equal @student.id, inertia.props[:student][:id]
     assert_equal [], inertia.props[:messages]
   end
+
+  test "show exposes open_version as nil when no open_version_id query param is given" do
+    sign_in_as(@user)
+
+    get student_agent_chat_path(@student)
+
+    assert_response :success
+    assert_nil inertia.props[:open_version]
+  end
+
+  test "show exposes open_version when open_version_id targets a version of one of the student's periodizations" do
+    sign_in_as(@user)
+    version = build_completed_version_for(@student)
+
+    get student_agent_chat_path(@student, open_version_id: version.id)
+
+    assert_response :success
+    payload = inertia.props[:open_version]
+    assert_equal version.id, payload[:id]
+    assert_equal "completed", payload[:status]
+    assert_equal "## Plano", payload[:body_md]
+    assert_equal 2, payload[:workouts].size
+  end
+
+  test "show returns open_version as nil when the requested version belongs to another organization" do
+    sign_in_as(@user)
+    other_org = Organization.create!(name: "Outro Gym")
+    foreign_trainer = User.create!(
+      email_address: "outro@example.com", password: "password", organization: other_org
+    )
+    foreign_student = other_org.students.create!(name: "Externo")
+    foreign_version = foreign_student.start_periodization!(trainer: foreign_trainer)
+
+    get student_agent_chat_path(@student, open_version_id: foreign_version.id)
+
+    assert_response :success
+    assert_nil inertia.props[:open_version]
+  end
+
+  test "show returns open_version as nil when the requested version belongs to another student in the same org" do
+    sign_in_as(@user)
+    other_student = @organization.students.create!(name: "Outro Aluno")
+    other_version = other_student.start_periodization!(trainer: @user)
+
+    get student_agent_chat_path(@student, open_version_id: other_version.id)
+
+    assert_response :success
+    assert_nil inertia.props[:open_version]
+  end
+
+  private
+    def build_completed_version_for(student)
+      recording = VoiceRecording.create!(
+        organization: student.organization,
+        student: student,
+        trainer: @user,
+        kind: "periodization_create"
+      )
+      version = student.start_periodization!(trainer: @user, voice_recording: recording)
+      version.fork_with!(
+        scope: :create,
+        patch: {
+          body_md: "## Plano",
+          workouts: [
+            { name: "A", blocks: [ { kind: "exercise", name: "Agachamento", prescription: "4x8" } ], position: 1 },
+            { name: "B", blocks: [ { kind: "exercise", name: "Supino", prescription: "4x8" } ], position: 2 }
+          ]
+        },
+        trainer: @user,
+        voice_recording: recording
+      )
+      version.transition_to!(:completed)
+      version
+    end
 end

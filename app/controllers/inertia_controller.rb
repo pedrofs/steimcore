@@ -49,4 +49,17 @@ class InertiaController < ApplicationController
     def current_organization
       Current.organization
     end
+
+    # Same-origin allowlist for `return_to` query params. The trainer-facing
+    # drawer (and similar surfaces) want a write action to bounce back to the
+    # page that initiated it instead of the controller's default destination.
+    # Accept the value only when it's a relative path so callers cannot smuggle
+    # in cross-origin URLs.
+    def safe_return_to
+      value = params[:return_to].to_s
+      return nil if value.empty?
+      return nil unless value.start_with?("/") && !value.start_with?("//")
+
+      value
+    end
 end

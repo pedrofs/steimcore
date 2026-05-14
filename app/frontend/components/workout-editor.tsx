@@ -43,6 +43,7 @@ type Props = {
   onCancel: () => void
   onSaved: () => void
   onDirtyChange?: (dirty: boolean) => void
+  returnTo?: string
 }
 
 export function WorkoutEditor({
@@ -52,6 +53,7 @@ export function WorkoutEditor({
   onCancel,
   onSaved,
   onDirtyChange,
+  returnTo,
 }: Props) {
   const initialEditable = useMemo(() => blocks.map(toEditable), [blocks])
   const { data, patch, errors, setData, transform, processing } = useForm<{ blocks: EditableBlock[] }>({
@@ -173,7 +175,13 @@ export function WorkoutEditor({
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault()
-    transform((data) => ({ workout: { blocks: data.blocks.map(toBlock) } }))
+    transform((data) => {
+      const payload: Record<string, unknown> = {
+        workout: { blocks: data.blocks.map(toBlock) },
+      }
+      if (returnTo) payload.return_to = returnTo
+      return payload
+    })
     patch(`/periodization_versions/${versionId}/workouts/${workoutId}`, {
       preserveScroll: true,
       onSuccess: onSaved,

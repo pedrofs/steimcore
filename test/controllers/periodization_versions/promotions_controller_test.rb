@@ -43,6 +43,26 @@ class PeriodizationVersions::PromotionsControllerTest < ActionDispatch::Integrat
     assert_nil @version.periodization.reload.current_version_id
   end
 
+  test "create honors a same-origin return_to query param" do
+    @version.transition_to!(:completed)
+    sign_in_as(@user)
+
+    post periodization_version_promotion_path(@version),
+         params: { return_to: student_agent_chat_path(@student, open_version_id: @version.id) }
+
+    assert_redirected_to student_agent_chat_path(@student, open_version_id: @version.id)
+  end
+
+  test "create ignores an absolute-URL return_to and falls back to the periodization page" do
+    @version.transition_to!(:completed)
+    sign_in_as(@user)
+
+    post periodization_version_promotion_path(@version),
+         params: { return_to: "https://evil.example.com/steal" }
+
+    assert_redirected_to student_periodization_path(@student, @version.periodization)
+  end
+
   test "create is scoped to the current organization" do
     other_org = Organization.create!(name: "Outro Gym")
     foreign_student = other_org.students.create!(name: "Externo")
