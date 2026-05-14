@@ -1,9 +1,9 @@
 # frozen_string_literal: true
 
-# Synchronous turn endpoint for the per-student chat. Persists the trainer's
-# message, gates concurrent turns via the chat's `state`, runs the agent
-# in-process (no job, no streaming), and redirects back to the chat page.
-# Streaming and the background job move in via #67.
+# Persists the trainer's message, flips the chat into `running`, and
+# enqueues `Agent::RunTurnJob` to drive the turn out-of-band. Streaming and
+# tool-boundary events reach the client via `Agent::ChatChannel`; on
+# `turn_completed` the frontend partial-reloads to pick up canonical state.
 class Students::AgentChats::MessagesController < InertiaController
   before_action :load_student
   before_action :load_chat
@@ -16,18 +16,9 @@ class Students::AgentChats::MessagesController < InertiaController
       @chat.update!(state: :running)
     end
 
-    begin
-      StudentAgent.new(chat: @chat, student: @student, trainer: Current.user).complete
-    ensure
-      @chat.update!(state: :idle)
-    end
+    Agent::RunTurnJob.perform_later(@chat)
 
     redirect_to student_agent_chat_path(@student)
-  rescue StandardError => e
-    @chat.update!(state: :idle) if @chat&.persisted?
-    Rails.logger.error("Agent turn failed: #{e.class}: #{e.message}\n#{e.backtrace&.first(20)&.join("\n")}")
-    redirect_to student_agent_chat_path(@student),
-                alert: "O assistente falhou ao responder. Tente novamente."
   end
 
   private
@@ -44,7 +35,8 @@ class Students::AgentChats::MessagesController < InertiaController
       return if @chat.idle?
 
       redirect_to student_agent_chat_path(@student),
-                  alert: "O assistente ainda está respondendo. Aguarde a resposta atual."
+                  alert: "O assistente ainda está respondendo. Aguarde a resposta atual.",
+                  status: :see_other
     end
 
     def ensure_content_present

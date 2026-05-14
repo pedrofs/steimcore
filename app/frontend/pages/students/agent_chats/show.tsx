@@ -1,11 +1,13 @@
 import { Link, router } from "@inertiajs/react"
 import {
+  AlertCircle,
   ArrowLeft,
   CalendarRange,
   Dumbbell,
   FileText,
   Loader2,
   Send,
+  X,
 } from "lucide-react"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 
@@ -19,6 +21,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
+import { useChatStream, type LiveMessage, type ToolCallEvent } from "@/hooks/use-chat-stream"
 import { cn } from "@/lib/utils"
 
 type Student = {
@@ -105,12 +108,16 @@ export default function AgentChatShow({
     [messages],
   )
 
+  const { liveMessage, error, clearError } = useChatStream(chat.id, {
+    reloadProps: [ "messages", "open_version" ],
+  })
+
   const scrollRef = useRef<HTMLDivElement | null>(null)
   useEffect(() => {
     const el = scrollRef.current
     if (!el) return
     el.scrollTop = el.scrollHeight
-  }, [visibleMessages.length])
+  }, [visibleMessages.length, liveMessage?.content, liveMessage?.toolCalls.length])
 
   const [drawerState, setDrawerState] = useState<DrawerState>({
     open: false,
@@ -203,18 +210,28 @@ export default function AgentChatShow({
         className="flex-1 overflow-y-auto px-4 py-4 sm:px-6"
         aria-live="polite"
       >
-        {visibleMessages.length === 0 ? (
+        {visibleMessages.length === 0 && liveMessage == null ? (
           <EmptyState studentName={student.name} />
         ) : (
           <ol className="mx-auto flex max-w-3xl flex-col gap-4">
             {visibleMessages.map((message) => (
               <MessageBubble key={message.id} message={message} onOpen={openDrawer} />
             ))}
+            {liveMessage != null && (
+              <LiveMessageBubble live={liveMessage} />
+            )}
+            {chat.state === "running" && liveMessage == null && (
+              <ThinkingBubble />
+            )}
           </ol>
         )}
+        {error != null && <ErrorBubble error={error} onDismiss={clearError} />}
       </div>
 
-      <Composer studentId={student.id} disabled={chat.state === "running"} />
+      <Composer
+        studentId={student.id}
+        disabled={chat.state === "running" || liveMessage != null}
+      />
 
       <ArtifactDrawer
         open={drawerState.open}
@@ -508,6 +525,95 @@ function UpdateWorkoutCard({
           Abrir
         </Button>
       )}
+    </div>
+  )
+}
+
+function LiveMessageBubble({ live }: { live: LiveMessage }) {
+  const hasContent = live.content.trim().length > 0
+  return (
+    <li className="flex flex-col items-start gap-1">
+      {hasContent ? (
+        <div className="max-w-[85%] rounded-2xl rounded-bl-sm bg-muted px-4 py-2.5 text-sm leading-relaxed text-foreground sm:max-w-[75%]">
+          <Markdown content={live.content} className="text-sm" />
+          <span className="ml-1 inline-block size-1.5 animate-pulse rounded-full bg-muted-foreground/60" aria-hidden />
+        </div>
+      ) : (
+        <div className="flex max-w-[85%] items-center gap-2 rounded-2xl rounded-bl-sm bg-muted px-4 py-2.5 text-xs text-muted-foreground sm:max-w-[75%]">
+          <Loader2 className="size-3.5 animate-spin" aria-hidden />
+          Pensando…
+        </div>
+      )}
+      {live.toolCalls.length > 0 && (
+        <div className="flex w-full max-w-[85%] flex-col gap-1.5 sm:max-w-[75%]">
+          {live.toolCalls.map((tc) => (
+            <LiveToolCallCard key={tc.toolCallId} toolCall={tc} />
+          ))}
+        </div>
+      )}
+    </li>
+  )
+}
+
+function LiveToolCallCard({ toolCall }: { toolCall: ToolCallEvent }) {
+  const label = humanToolLabel(toolCall.name, toolCall.status)
+  const Icon =
+    toolCall.name === "update_anamnesis"
+      ? FileText
+      : toolCall.name === "update_workout"
+        ? Dumbbell
+        : CalendarRange
+  return (
+    <div className="flex items-center gap-2 rounded-xl border border-brand/30 bg-brand/5 px-3 py-2 text-xs text-foreground">
+      <Icon className="size-3.5 shrink-0 text-brand" aria-hidden />
+      <span className="flex-1">{label}</span>
+      {toolCall.status === "running" ? (
+        <Loader2 className="size-3.5 animate-spin text-brand" aria-hidden />
+      ) : null}
+    </div>
+  )
+}
+
+function humanToolLabel(name: string, status: ToolCallEvent["status"]): string {
+  const verb = status === "running" ? "…" : " concluído"
+  switch (name) {
+    case "update_anamnesis":
+      return `Atualizando anamnese${verb}`
+    case "create_periodization":
+      return `Criando periodização${verb}`
+    case "update_periodization":
+      return `Atualizando periodização${verb}`
+    case "update_workout":
+      return `Atualizando treino${verb}`
+    default:
+      return `${name}${verb}`
+  }
+}
+
+function ThinkingBubble() {
+  return (
+    <li className="flex flex-col items-start gap-1">
+      <div className="flex max-w-[85%] items-center gap-2 rounded-2xl rounded-bl-sm bg-muted px-4 py-2.5 text-xs text-muted-foreground sm:max-w-[75%]">
+        <Loader2 className="size-3.5 animate-spin" aria-hidden />
+        O assistente está respondendo…
+      </div>
+    </li>
+  )
+}
+
+function ErrorBubble({ error, onDismiss }: { error: string; onDismiss: () => void }) {
+  return (
+    <div className="mx-auto mt-4 flex max-w-3xl items-start gap-2 rounded-xl border border-destructive/40 bg-destructive/5 px-3 py-2 text-xs text-destructive">
+      <AlertCircle className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+      <span className="flex-1">{error}</span>
+      <button
+        type="button"
+        onClick={onDismiss}
+        className="-mr-1 rounded-md p-1 text-destructive/80 hover:bg-destructive/10"
+        aria-label="Fechar erro"
+      >
+        <X className="size-3.5" aria-hidden />
+      </button>
     </div>
   )
 }

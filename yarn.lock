@@ -937,6 +937,11 @@
 "@radix-ui/rect@1.1.1":
   version "1.1.1"
 
+"@rails/actioncable@^8.1.300":
+  version "8.1.300"
+  resolved "https://registry.npmjs.org/@rails/actioncable/-/actioncable-8.1.300.tgz"
+  integrity sha512-zOENQsq3NM2jyBY6Z2qtZa3V/R/6OEqA+LGKixQbBMl7kk/J3FXDRcszPe74LsHNgB01jCl/DXu/xA8sHt4I/g==
+
 "@rolldown/binding-darwin-arm64@1.0.0":
   version "1.0.0"
 

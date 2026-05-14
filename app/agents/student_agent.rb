@@ -16,16 +16,36 @@ class StudentAgent < RubyLLM::Agent
       Agent::Tools::UpdateWorkout.new(student: student, trainer: trainer)
     ]
 
-    # Plumb the LLM's tool_call.id into each tool instance before its
-    # `execute` runs. Tools that produce a `PeriodizationVersion` use this
-    # to look up the corresponding `Agent::ToolCall` AR row (persisted by
-    # the gem at message-save time, before this callback fires) and stamp
-    # it on the version's `agent_tool_call_id` FK.
     by_name = tool_instances.index_by(&:name)
+    ar_chat = chat
     llm_chat = chat.respond_to?(:to_llm) ? chat.to_llm : chat
+    pending_tool_call_id = nil
+
     llm_chat.before_tool_call do |tool_call|
+      # Plumb the LLM's tool_call.id into each tool instance before its
+      # `execute` runs. Tools that produce a `PeriodizationVersion` use this
+      # to look up the corresponding `Agent::ToolCall` AR row (persisted by
+      # the gem at message-save time, before this callback fires) and stamp
+      # it on the version's `agent_tool_call_id` FK.
       tool = by_name[tool_call.name]
       tool.current_tool_call_llm_id = tool_call.id if tool.respond_to?(:current_tool_call_llm_id=)
+
+      # Increment the per-turn iteration counter and raise if we've blown
+      # past the ceiling. `Agent::Chat::Runnable#run_turn!` catches the
+      # raise and converts it into an apology + `turn_failed` broadcast.
+      ar_chat.track_tool_call_iteration! if ar_chat.respond_to?(:track_tool_call_iteration!)
+
+      pending_tool_call_id = tool_call.id
+      if ar_chat.respond_to?(:broadcast_tool_call_started!)
+        ar_chat.broadcast_tool_call_started!(tool_call_id: tool_call.id, name: tool_call.name)
+      end
+    end
+
+    llm_chat.after_tool_result do |result|
+      if ar_chat.respond_to?(:broadcast_tool_call_completed!)
+        ar_chat.broadcast_tool_call_completed!(tool_call_id: pending_tool_call_id, result: result)
+      end
+      pending_tool_call_id = nil
     end
 
     tool_instances

@@ -7,3 +7,4 @@ declare module '@inertiajs/core' {
     errorValueType: string[]
   }
 }
+

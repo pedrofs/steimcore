@@ -12,4 +12,6 @@ class Agent::Chat < ApplicationRecord
   belongs_to :chattable, polymorphic: true
 
   enum :state, { idle: "idle", running: "running" }, validate: true
+
+  include Agent::Chat::Runnable
 end
