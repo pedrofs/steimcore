@@ -97,6 +97,53 @@ class Students::AgentChatsControllerTest < ActionDispatch::IntegrationTest
     assert_nil inertia.props[:open_version]
   end
 
+  test "show exposes has_active_periodization as false and empty suggestion_workouts when the student has no periodization" do
+    sign_in_as(@user)
+
+    get student_agent_chat_path(@student)
+
+    assert_response :success
+    assert_equal false, inertia.props[:has_active_periodization]
+    assert_equal [], inertia.props[:suggestion_workouts]
+  end
+
+  test "show exposes has_active_periodization and the current version's workouts as suggestions" do
+    sign_in_as(@user)
+    version = build_completed_version_for(@student)
+    @student.active_periodization.set_current_version!(version)
+
+    get student_agent_chat_path(@student)
+
+    assert_response :success
+    assert_equal true, inertia.props[:has_active_periodization]
+    workouts = inertia.props[:suggestion_workouts]
+    assert_equal [ "A", "B" ], workouts.map { |w| w[:name] }
+    assert_equal [ 1, 2 ], workouts.map { |w| w[:position] }
+  end
+
+  test "show caps suggestion_workouts at 3" do
+    sign_in_as(@user)
+    version = build_completed_version_with_workouts(@student, %w[A B C D E])
+    @student.active_periodization.set_current_version!(version)
+
+    get student_agent_chat_path(@student)
+
+    assert_response :success
+    assert_equal 3, inertia.props[:suggestion_workouts].size
+    assert_equal [ "A", "B", "C" ], inertia.props[:suggestion_workouts].map { |w| w[:name] }
+  end
+
+  test "show returns empty suggestion_workouts when the periodization has no current_version yet" do
+    sign_in_as(@user)
+    @student.start_periodization!(trainer: @user)
+
+    get student_agent_chat_path(@student)
+
+    assert_response :success
+    assert_equal true, inertia.props[:has_active_periodization]
+    assert_equal [], inertia.props[:suggestion_workouts]
+  end
+
   private
     def build_completed_version_for(student)
       version = student.start_periodization!(trainer: @user)
@@ -111,6 +158,16 @@ class Students::AgentChatsControllerTest < ActionDispatch::IntegrationTest
         },
         trainer: @user
       )
+      version.transition_to!(:completed)
+      version
+    end
+
+    def build_completed_version_with_workouts(student, names)
+      version = student.start_periodization!(trainer: @user)
+      workouts = names.each_with_index.map do |name, idx|
+        { name: name, blocks: [ { kind: "exercise", name: "Agachamento", prescription: "4x8" } ], position: idx + 1 }
+      end
+      version.fork_with!(scope: :create, patch: { body_md: "## Plano", workouts: workouts }, trainer: @user)
       version.transition_to!(:completed)
       version
     end

@@ -17,7 +17,9 @@ class Students::AgentChatsController < InertiaController
       student: student_props(@student),
       chat: chat_props(@chat),
       messages: messages_props(@chat),
-      open_version: open_version_props
+      open_version: open_version_props,
+      has_active_periodization: @student.active_periodization_id.present?,
+      suggestion_workouts: suggestion_workouts_props(@student)
     }
   end
 
@@ -52,6 +54,19 @@ class Students::AgentChatsController < InertiaController
           { id: w.id, name: w.name, position: w.position, blocks: w.blocks }
         }
       }
+    end
+
+    # Up to 3 workouts from the active periodization's current version, used by
+    # the empty-state suggestion chips on the chat page. Returns [] when there
+    # is no active periodization or no current_version yet (e.g. a generating
+    # first version).
+    def suggestion_workouts_props(student)
+      version = student.active_periodization&.current_version
+      return [] if version.nil?
+
+      version.workouts.order(:position).limit(3).map do |workout|
+        { id: workout.id, name: workout.name, position: workout.position }
+      end
     end
 
     def load_or_create_chat

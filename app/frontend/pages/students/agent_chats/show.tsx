@@ -11,6 +11,7 @@ import {
   Paperclip,
   Play,
   Send,
+  Sparkles,
   Square,
   X,
 } from "lucide-react"
@@ -101,11 +102,19 @@ type Message = {
   attachments: Attachment[]
 }
 
+type SuggestionWorkout = {
+  id: string
+  name: string
+  position: number
+}
+
 type Props = {
   student: Student
   chat: Chat
   messages: Message[]
   openVersion: PeriodizationVersionData | null
+  hasActivePeriodization: boolean
+  suggestionWorkouts: SuggestionWorkout[]
 }
 
 type DrawerState = {
@@ -122,6 +131,8 @@ export default function AgentChatShow({
   chat,
   messages,
   openVersion,
+  hasActivePeriodization,
+  suggestionWorkouts,
 }: Props) {
   const visibleMessages = useMemo(
     () => messages.filter((m) => m.role !== "tool" && m.role !== "system"),
@@ -131,6 +142,22 @@ export default function AgentChatShow({
   const { liveMessage, error, clearError } = useChatStream(chat.id, {
     reloadProps: [ "messages", "open_version" ],
   })
+
+  const [composerContent, setComposerContent] = useState("")
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null)
+
+  const handlePrefill = useCallback((text: string) => {
+    setComposerContent(text)
+    requestAnimationFrame(() => {
+      const el = textareaRef.current
+      if (!el) return
+      el.focus()
+      el.setSelectionRange(text.length, text.length)
+    })
+  }, [])
+
+  const isEmptyChat = visibleMessages.length === 0 && liveMessage == null
+  const showSuggestionChips = isEmptyChat && chat.state !== "running"
 
   const scrollRef = useRef<HTMLDivElement | null>(null)
   useEffect(() => {
@@ -249,6 +276,19 @@ export default function AgentChatShow({
       <Composer
         studentId={student.id}
         disabled={chat.state === "running" || liveMessage != null}
+        content={composerContent}
+        onContentChange={setComposerContent}
+        textareaRef={textareaRef}
+        suggestionChips={
+          showSuggestionChips ? (
+            <SuggestionChips
+              studentName={student.name}
+              hasActivePeriodization={hasActivePeriodization}
+              workouts={suggestionWorkouts}
+              onPrefill={handlePrefill}
+            />
+          ) : null
+        }
       />
 
       <ArtifactDrawer
@@ -722,8 +762,73 @@ function EmptyState({ studentName }: { studentName: string }) {
       <div className="max-w-[85%] rounded-2xl rounded-bl-sm bg-muted px-4 py-2.5 text-sm leading-relaxed sm:max-w-[75%]">
         Olá! Posso atualizar a anamnese do(a) {studentName}, criar uma
         periodização nova, revisar a ativa, ou editar um treino específico —
-        é só me contar o que precisa.
+        é só me contar o que precisa. Você pode mandar texto, áudio, fotos ou
+        PDFs.
       </div>
+    </div>
+  )
+}
+
+type Suggestion = {
+  key: string
+  label: string
+  prefill: string
+}
+
+function buildSuggestions(
+  studentName: string,
+  hasActivePeriodization: boolean,
+  workouts: SuggestionWorkout[],
+): Suggestion[] {
+  const suggestions: Suggestion[] = []
+  if (!hasActivePeriodization) {
+    suggestions.push({
+      key: "create-periodization",
+      label: "Criar periodização",
+      prefill: `Crie uma periodização para ${studentName}: `,
+    })
+  }
+  suggestions.push({
+    key: "update-anamnesis",
+    label: "Atualizar anamnese",
+    prefill: "Atualize a anamnese: ",
+  })
+  for (const workout of workouts.slice(0, 3)) {
+    suggestions.push({
+      key: `edit-workout-${workout.id}`,
+      label: `Editar Treino ${workout.name}`,
+      prefill: `No Treino ${workout.name}, `,
+    })
+  }
+  return suggestions
+}
+
+function SuggestionChips({
+  studentName,
+  hasActivePeriodization,
+  workouts,
+  onPrefill,
+}: {
+  studentName: string
+  hasActivePeriodization: boolean
+  workouts: SuggestionWorkout[]
+  onPrefill: (text: string) => void
+}) {
+  const suggestions = buildSuggestions(studentName, hasActivePeriodization, workouts)
+  if (suggestions.length === 0) return null
+  return (
+    <div className="mx-auto flex w-full max-w-3xl flex-wrap gap-1.5">
+      {suggestions.map((s) => (
+        <button
+          key={s.key}
+          type="button"
+          onClick={() => onPrefill(s.prefill)}
+          className="inline-flex items-center gap-1.5 rounded-full border border-brand/30 bg-brand/5 px-3 py-1 text-xs font-medium text-foreground transition hover:bg-brand/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+        >
+          <Sparkles className="size-3 text-brand" aria-hidden />
+          {s.label}
+        </button>
+      ))}
     </div>
   )
 }
@@ -772,17 +877,23 @@ function extensionForMime(mime: string): string {
 function Composer({
   studentId,
   disabled,
+  content,
+  onContentChange,
+  textareaRef,
+  suggestionChips,
 }: {
   studentId: string
   disabled: boolean
+  content: string
+  onContentChange: (value: string) => void
+  textareaRef: React.RefObject<HTMLTextAreaElement | null>
+  suggestionChips: React.ReactNode
 }) {
-  const [content, setContent] = useState("")
   const [submitting, setSubmitting] = useState(false)
   const [pending, setPending] = useState<PendingAttachment[]>([])
   const [micError, setMicError] = useState<string | null>(null)
   const [isRecording, setIsRecording] = useState(false)
   const [recordingMs, setRecordingMs] = useState(0)
-  const textareaRef = useRef<HTMLTextAreaElement | null>(null)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const cameraInputRef = useRef<HTMLInputElement | null>(null)
   const recorderRef = useRef<MediaRecorder | null>(null)
@@ -834,7 +945,7 @@ function Composer({
   function resetComposer() {
     pending.forEach((p) => URL.revokeObjectURL(p.previewUrl))
     setPending([])
-    setContent("")
+    onContentChange("")
   }
 
   async function startRecording() {
@@ -980,6 +1091,8 @@ function Composer({
         }}
       />
 
+      {suggestionChips}
+
       {pending.length > 0 && (
         <div className="mx-auto flex w-full max-w-3xl flex-wrap gap-1.5">
           {pending.map((p) => (
@@ -1062,7 +1175,7 @@ function Composer({
         <Textarea
           ref={textareaRef}
           value={content}
-          onChange={(event) => setContent(event.target.value)}
+          onChange={(event) => onContentChange(event.target.value)}
           onKeyDown={handleKeyDown}
           placeholder={
             busy
