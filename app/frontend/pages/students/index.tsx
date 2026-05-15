@@ -44,6 +44,7 @@ type Filters = {
   q: string
   withoutActive: boolean
   archived: boolean
+  status: "anamnesis_pending" | null
 }
 
 type Props = {
@@ -56,7 +57,7 @@ const SEARCH_DEBOUNCE_MS = 250
 
 export default function Index({ students, pagination, filters }: Props) {
   const hasActiveFilters =
-    filters.q !== "" || filters.withoutActive || filters.archived
+    filters.q !== "" || filters.withoutActive || filters.archived || filters.status !== null
   const orgIsEmpty = students.length === 0 && !hasActiveFilters
 
   return (
@@ -171,6 +172,7 @@ function buildPageHref(page: number, filters: Filters): string {
   if (filters.q) params.set("q", filters.q)
   if (filters.withoutActive) params.set("without_active", "1")
   if (filters.archived) params.set("archived", "1")
+  if (filters.status) params.set("status", filters.status)
   params.set("page", String(page))
   return `/students?${params.toString()}`
 }
@@ -203,6 +205,7 @@ function Toolbar({ filters }: { filters: Filters }) {
         q: merged.q || undefined,
         without_active: merged.withoutActive ? "1" : undefined,
         archived: merged.archived ? "1" : undefined,
+        status: merged.status || undefined,
         page: undefined,
       },
     })

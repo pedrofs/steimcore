@@ -100,6 +100,21 @@ class StudentTest < ActiveSupport::TestCase
     assert_not_includes Student.unarchived, archived
   end
 
+  test "anamnesis_pending matches unarchived students with blank anamnesis_md" do
+    @organization.students.destroy_all
+    empty = @organization.students.create!(name: "Sem anamnese") # default "" anamnesis_md
+    whitespace = @organization.students.create!(name: "Espaços", anamnesis_md: "   \n\t ")
+    filled = @organization.students.create!(name: "Com anamnese", anamnesis_md: "## Histórico\n\nLesão.")
+    archived = @organization.students.create!(name: "Arquivado", archived_at: 1.day.ago)
+
+    pending = Student.anamnesis_pending
+
+    assert_includes pending, empty
+    assert_includes pending, whitespace
+    assert_not_includes pending, filled
+    assert_not_includes pending, archived
+  end
+
   test "is destroyed when forced to nil organization" do
     student = Student.new(name: "Eve")
 

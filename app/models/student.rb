@@ -9,6 +9,8 @@ class Student < ApplicationRecord
 
   validates :name, presence: true
 
+  scope :anamnesis_pending, -> { unarchived.where("anamnesis_md ~ '^\\s*$'") }
+
   def age(today: Date.current)
     return nil if birthday.nil?
     age = today.year - birthday.year

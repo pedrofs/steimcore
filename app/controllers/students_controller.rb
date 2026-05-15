@@ -89,11 +89,14 @@ class StudentsController < InertiaController
       }
     end
 
+    KNOWN_STATUSES = %w[anamnesis_pending].freeze
+
     def index_filters
       {
         q: params[:q].to_s,
         without_active: params[:without_active] == "1",
-        archived: params[:archived] == "1"
+        archived: params[:archived] == "1",
+        status: KNOWN_STATUSES.include?(params[:status]) ? params[:status] : nil
       }
     end
 
@@ -106,6 +109,7 @@ class StudentsController < InertiaController
       end
 
       scope = scope.where(active_periodization_id: nil) if filters[:without_active]
+      scope = scope.merge(Student.public_send(filters[:status])) if filters[:status]
 
       scope.order(:name)
     end

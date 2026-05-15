@@ -75,4 +75,42 @@ class HomeControllerTest < ActionDispatch::IntegrationTest
 
     assert_equal 0, inertia.props[:active_session_count]
   end
+
+  test "passes the dashboard queue payload as a prop" do
+    sign_in_as(@user)
+
+    get root_path
+
+    queue = inertia.props[:queue]
+    assert_kind_of Hash, queue
+    assert_kind_of Hash, queue[:counts]
+    assert_kind_of Array, queue[:rows]
+    assert_kind_of Integer, queue[:counts][:anamnesis_pending]
+  end
+
+  test "queue rows include only the current organization's students" do
+    @user.organization.students.destroy_all
+    @user.organization.students.create!(name: "Mine")
+
+    other_org = Organization.create!(name: "Outro")
+    other_org.students.create!(name: "Theirs")
+
+    sign_in_as(@user)
+    get root_path
+
+    names = inertia.props[:queue][:rows].map { |r| r[:student][:name] }
+    assert_includes names, "Mine"
+    assert_not_includes names, "Theirs"
+  end
+
+  test "passes total_students count for the empty-state branch" do
+    @user.organization.students.destroy_all
+    @user.organization.students.create!(name: "Active")
+    @user.organization.students.create!(name: "Archived", archived_at: 1.day.ago)
+
+    sign_in_as(@user)
+    get root_path
+
+    assert_equal 1, inertia.props[:total_students]
+  end
 end

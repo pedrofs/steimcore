@@ -26,3 +26,20 @@ export type SharedProps = {
   breadcrumbs: Breadcrumb[]
   activeSessionCount: number
 }
+
+export type DashboardTag = "anamnesis_pending"
+
+export type DashboardCounts = {
+  anamnesisPending: number
+}
+
+export type DashboardRow = {
+  student: { id: string; name: string }
+  tags: DashboardTag[]
+  primaryTag: DashboardTag
+}
+
+export type DashboardQueue = {
+  counts: DashboardCounts
+  rows: DashboardRow[]
+}

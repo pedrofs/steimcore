@@ -166,6 +166,40 @@ class StudentsControllerTest < ActionDispatch::IntegrationTest
     assert_not_includes names, with_active.name
   end
 
+  test "index filters to anamnesis_pending students when ?status=anamnesis_pending" do
+    @organization.students.destroy_all
+    pending = @organization.students.create!(name: "Sem anamnese")
+    filled = @organization.students.create!(name: "Com anamnese", anamnesis_md: "# História")
+
+    sign_in_as(@user)
+    get students_path, params: { status: "anamnesis_pending" }
+
+    names = inertia.props[:students].map { |s| s[:name] }
+    assert_includes names, pending.name
+    assert_not_includes names, filled.name
+  end
+
+  test "index echoes back the status filter" do
+    sign_in_as(@user)
+    get students_path, params: { status: "anamnesis_pending" }
+
+    assert_equal "anamnesis_pending", inertia.props[:filters][:status]
+  end
+
+  test "index ignores unknown ?status= values" do
+    @organization.students.destroy_all
+    a = @organization.students.create!(name: "Alice", anamnesis_md: "# A")
+    b = @organization.students.create!(name: "Bob")
+
+    sign_in_as(@user)
+    get students_path, params: { status: "bogus" }
+
+    names = inertia.props[:students].map { |s| s[:name] }
+    assert_includes names, a.name
+    assert_includes names, b.name
+    assert_nil inertia.props[:filters][:status]
+  end
+
   test "index shows archived students when ?archived=1" do
     @organization.students.destroy_all
     @organization.students.create!(name: "Ativo")
@@ -192,7 +226,7 @@ class StudentsControllerTest < ActionDispatch::IntegrationTest
     get students_path, params: { q: "ana", without_active: "1" }
 
     names = inertia.props[:students].map { |s| s[:name] }
-    assert_equal [match.name], names
+    assert_equal [ match.name ], names
   end
 
   test "new renders the empty form" do
