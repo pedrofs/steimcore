@@ -8,6 +8,13 @@ class StudentAgent < RubyLLM::Agent
   model "claude-opus-4-7"
   inputs :student, :trainer, :chat
 
+  # Force plaintext SSE responses. Net::HTTP buffers gzipped bodies fully
+  # before invoking Faraday's `on_data`, which collapses the per-token
+  # stream into a single callback at the end of the request — chunks then
+  # appear to "arrive all at once" in the UI. Disabling Accept-Encoding
+  # restores per-chunk delivery.
+  headers "Accept-Encoding": "identity"
+
   tools do
     tool_instances = [
       Agent::Tools::UpdateAnamnesis.new(student: student, trainer: trainer),

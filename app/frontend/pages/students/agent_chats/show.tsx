@@ -140,7 +140,7 @@ export default function AgentChatShow({
   )
 
   const { liveMessage, error, clearError } = useChatStream(chat.id, {
-    reloadProps: [ "messages", "open_version" ],
+    reloadProps: [ "messages", "open_version", "chat" ],
   })
 
   const [composerContent, setComposerContent] = useState("")
@@ -183,8 +183,6 @@ export default function AgentChatShow({
         data: versionId
           ? { open_version_id: versionId }
           : { open_version_id: undefined },
-        preserveScroll: true,
-        preserveState: true,
         replace: opts.replace ?? false,
       })
     },
@@ -242,7 +240,7 @@ export default function AgentChatShow({
     : chatPath
 
   return (
-    <div className="flex h-[100dvh] flex-col bg-background">
+    <div className="flex h-dvh flex-col bg-background">
       <ChatHeader student={student} />
 
       <div
