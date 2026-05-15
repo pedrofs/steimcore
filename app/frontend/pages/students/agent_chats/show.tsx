@@ -274,7 +274,7 @@ export default function AgentChatShow({
       : chatPath
 
   return (
-    <div className="flex h-dvh flex-col bg-background">
+    <div className="flex h-dvh flex-col overflow-x-hidden bg-background">
       <ChatHeader student={student} />
 
       <div
@@ -440,7 +440,7 @@ function MessageBubble({
       {hasText && (
         <div
           className={cn(
-            "max-w-[85%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed sm:max-w-[75%]",
+            "max-w-[85%] break-words rounded-2xl px-4 py-2.5 text-sm leading-relaxed sm:max-w-[75%]",
             isTrainer
               ? "rounded-br-sm bg-brand text-brand-foreground"
               : "rounded-bl-sm bg-muted text-foreground",
@@ -750,7 +750,7 @@ function LiveMessageBubble({ live }: { live: LiveMessage }) {
   return (
     <li className="flex flex-col items-start gap-1">
       {hasContent ? (
-        <div className="max-w-[85%] rounded-2xl rounded-bl-sm bg-muted px-4 py-2.5 text-sm leading-relaxed text-foreground sm:max-w-[75%]">
+        <div className="max-w-[85%] break-words rounded-2xl rounded-bl-sm bg-muted px-4 py-2.5 text-sm leading-relaxed text-foreground sm:max-w-[75%]">
           <Markdown content={live.content} className="text-sm" />
           <span className="ml-1 inline-block size-1.5 animate-pulse rounded-full bg-muted-foreground/60" aria-hidden />
         </div>
@@ -1211,45 +1211,7 @@ function Composer({
         </div>
       )}
 
-      <div className="mx-auto flex w-full max-w-3xl items-end gap-1.5">
-        <Button
-          type="button"
-          size="icon"
-          variant="ghost"
-          disabled={busy || isRecording || roomLeft <= 0}
-          aria-label="Anexar arquivo"
-          className="size-10 shrink-0"
-          onClick={() => fileInputRef.current?.click()}
-        >
-          <Paperclip className="size-4" aria-hidden />
-        </Button>
-        <Button
-          type="button"
-          size="icon"
-          variant="ghost"
-          disabled={busy || isRecording || roomLeft <= 0}
-          aria-label="Tirar foto"
-          className="size-10 shrink-0"
-          onClick={() => cameraInputRef.current?.click()}
-        >
-          <Camera className="size-4" aria-hidden />
-        </Button>
-        <Button
-          type="button"
-          size="icon"
-          variant={isRecording ? "destructive" : "ghost"}
-          disabled={busy || (!isRecording && roomLeft <= 0)}
-          aria-label={isRecording ? "Parar gravação" : "Gravar áudio"}
-          aria-pressed={isRecording}
-          className="size-10 shrink-0"
-          onClick={toggleRecording}
-        >
-          {isRecording ? (
-            <Square className="size-4" aria-hidden />
-          ) : (
-            <Mic className="size-4" aria-hidden />
-          )}
-        </Button>
+      <div className="mx-auto flex w-full max-w-3xl flex-col gap-2">
         <Textarea
           ref={textareaRef}
           value={content}
@@ -1264,21 +1226,61 @@ function Composer({
           }
           rows={2}
           disabled={busy || isRecording}
-          className="min-h-[44px] resize-none"
+          className="min-h-[44px] w-full min-w-0 resize-none"
         />
-        <Button
-          type="submit"
-          size="icon"
-          disabled={!canSend}
-          aria-label="Enviar mensagem"
-          className="size-11 shrink-0"
-        >
-          {submitting ? (
-            <Loader2 className="size-4 animate-spin" aria-hidden />
-          ) : (
-            <Send className="size-4" aria-hidden />
-          )}
-        </Button>
+        <div className="flex items-center gap-1.5">
+          <Button
+            type="button"
+            size="icon"
+            variant="ghost"
+            disabled={busy || isRecording || roomLeft <= 0}
+            aria-label="Anexar arquivo"
+            className="size-10 shrink-0"
+            onClick={() => fileInputRef.current?.click()}
+          >
+            <Paperclip className="size-4" aria-hidden />
+          </Button>
+          <Button
+            type="button"
+            size="icon"
+            variant="ghost"
+            disabled={busy || isRecording || roomLeft <= 0}
+            aria-label="Tirar foto"
+            className="size-10 shrink-0"
+            onClick={() => cameraInputRef.current?.click()}
+          >
+            <Camera className="size-4" aria-hidden />
+          </Button>
+          <Button
+            type="button"
+            size="icon"
+            variant={isRecording ? "destructive" : "ghost"}
+            disabled={busy || (!isRecording && roomLeft <= 0)}
+            aria-label={isRecording ? "Parar gravação" : "Gravar áudio"}
+            aria-pressed={isRecording}
+            className="size-10 shrink-0"
+            onClick={toggleRecording}
+          >
+            {isRecording ? (
+              <Square className="size-4" aria-hidden />
+            ) : (
+              <Mic className="size-4" aria-hidden />
+            )}
+          </Button>
+          <Button
+            type="submit"
+            size="icon"
+            disabled={!canSend}
+            aria-label="Enviar mensagem"
+            className="ml-auto size-11 shrink-0"
+          >
+            {submitting ? (
+              <Loader2 className="size-4 animate-spin" aria-hidden />
+            ) : (
+              <Send className="size-4" aria-hidden />
+            )}
+          </Button>
+        </div>
       </div>
     </form>
   )
