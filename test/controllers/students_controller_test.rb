@@ -166,6 +166,41 @@ class StudentsControllerTest < ActionDispatch::IntegrationTest
     assert_not_includes names, with_active.name
   end
 
+  test "index treats ?without_active=1 as a silent alias for ?status=no_plan" do
+    @organization.students.destroy_all
+    without_active = @organization.students.create!(name: "Sem ativa")
+    with_active = @organization.students.create!(name: "Com ativa")
+    periodization = with_active.periodizations.create!
+    with_active.update!(active_periodization: periodization)
+
+    sign_in_as(@user)
+
+    get students_path, params: { without_active: "1" }
+    legacy_names = inertia.props[:students].map { |s| s[:name] }.sort
+
+    get students_path, params: { status: "no_plan" }
+    new_names = inertia.props[:students].map { |s| s[:name] }.sort
+
+    assert_equal legacy_names, new_names
+    assert_equal [ without_active.name ], new_names
+  end
+
+  test "index filters to students without an active plan when ?status=no_plan" do
+    @organization.students.destroy_all
+    no_plan = @organization.students.create!(name: "Sem plano")
+    with_plan = @organization.students.create!(name: "Com plano")
+    periodization = with_plan.periodizations.create!
+    with_plan.update!(active_periodization: periodization)
+
+    sign_in_as(@user)
+    get students_path, params: { status: "no_plan" }
+
+    names = inertia.props[:students].map { |s| s[:name] }
+    assert_includes names, no_plan.name
+    assert_not_includes names, with_plan.name
+    assert_equal "no_plan", inertia.props[:filters][:status]
+  end
+
   test "index filters to anamnesis_pending students when ?status=anamnesis_pending" do
     @organization.students.destroy_all
     pending = @organization.students.create!(name: "Sem anamnese")

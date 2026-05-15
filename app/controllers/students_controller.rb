@@ -89,14 +89,26 @@ class StudentsController < InertiaController
       }
     end
 
-    KNOWN_STATUSES = %w[anamnesis_pending].freeze
+    STATUS_SCOPES = {
+      "anamnesis_pending" => :anamnesis_pending,
+      "no_plan"           => :without_active_plan
+    }.freeze
+    KNOWN_STATUSES = STATUS_SCOPES.keys.freeze
 
     def index_filters
+      explicit_status = params[:status] if KNOWN_STATUSES.include?(params[:status])
+      legacy_without_active = params[:without_active] == "1"
+
+      # DEPRECATED: ?without_active=1 is a silent alias for ?status=no_plan,
+      # preserved for one release window so existing bookmarks keep working.
+      # Remove once external consumers have migrated.
+      resolved_status = explicit_status || (legacy_without_active ? "no_plan" : nil)
+
       {
         q: params[:q].to_s,
-        without_active: params[:without_active] == "1",
+        without_active: legacy_without_active,
         archived: params[:archived] == "1",
-        status: KNOWN_STATUSES.include?(params[:status]) ? params[:status] : nil
+        status: resolved_status
       }
     end
 
@@ -108,8 +120,7 @@ class StudentsController < InertiaController
         scope = scope.where("name ILIKE ?", like)
       end
 
-      scope = scope.where(active_periodization_id: nil) if filters[:without_active]
-      scope = scope.merge(Student.public_send(filters[:status])) if filters[:status]
+      scope = scope.merge(Student.public_send(STATUS_SCOPES.fetch(filters[:status]))) if filters[:status]
 
       scope.order(:name)
     end

@@ -27,9 +27,10 @@ export type SharedProps = {
   activeSessionCount: number
 }
 
-export type DashboardTag = "anamnesis_pending"
+export type DashboardTag = "no_plan" | "anamnesis_pending"
 
 export type DashboardCounts = {
+  noPlan: number
   anamnesisPending: number
 }
 

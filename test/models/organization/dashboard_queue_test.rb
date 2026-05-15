@@ -9,16 +9,19 @@ class Organization::DashboardQueueTest < ActiveSupport::TestCase
   test "returns zero counts and empty rows when the organization has no students" do
     payload = Organization::DashboardQueue.new(@organization).to_h
 
-    assert_equal({ anamnesis_pending: 0 }, payload[:counts])
+    assert_equal({ no_plan: 0, anamnesis_pending: 0 }, payload[:counts])
     assert_equal [], payload[:rows]
   end
 
   test "returns zero counts and empty rows when no student matches any tag" do
-    @organization.students.create!(name: "Filled", anamnesis_md: "## Histórico\nLesão antiga.")
+    trainer = users(:one)
+    student = @organization.students.create!(name: "Filled", anamnesis_md: "## Histórico\nLesão antiga.")
+    student.start_periodization!(trainer: trainer)
 
     payload = Organization::DashboardQueue.new(@organization).to_h
 
     assert_equal 0, payload[:counts][:anamnesis_pending]
+    assert_equal 0, payload[:counts][:no_plan]
     assert_equal [], payload[:rows]
   end
 
@@ -38,8 +41,10 @@ class Organization::DashboardQueueTest < ActiveSupport::TestCase
     assert_equal 10, payload[:rows].length
   end
 
-  test "each row carries the student summary and the anamnesis_pending tag" do
+  test "each row carries the student summary and only the tags it matches" do
+    trainer = users(:one)
     student = @organization.students.create!(name: "Solo")
+    student.start_periodization!(trainer: trainer) # has plan now, only anamnesis_pending applies
 
     payload = Organization::DashboardQueue.new(@organization).to_h
 
@@ -51,15 +56,56 @@ class Organization::DashboardQueueTest < ActiveSupport::TestCase
     assert_equal :anamnesis_pending, row[:primary_tag]
   end
 
-  test "deduplicates rows by student id" do
+  test "deduplicates rows by student id when a student matches multiple tags" do
+    # A fresh student has both no anamnesis AND no active plan, so they match
+    # both cohorts and must appear as one row with stacked tags.
     student = @organization.students.create!(name: "Solo")
-    # Slice 1 only has one tag, so dedup is trivially exercised — the same student
-    # is included once even if multiple cohort scopes were to match.
+
     payload = Organization::DashboardQueue.new(@organization).to_h
 
     student_ids = payload[:rows].map { |r| r[:student][:id] }
     assert_equal [ student.id ], student_ids
     assert_equal student_ids.uniq, student_ids
+  end
+
+  test "a student matching both no_plan and anamnesis_pending appears once with stacked tags, ordered by bottleneck-first priority" do
+    student = @organization.students.create!(name: "Stacked")
+
+    payload = Organization::DashboardQueue.new(@organization).to_h
+
+    assert_equal 1, payload[:rows].length
+    row = payload[:rows].first
+    assert_equal student.id, row[:student][:id]
+    assert_equal [ :no_plan, :anamnesis_pending ], row[:tags]
+    assert_equal :no_plan, row[:primary_tag]
+  end
+
+  test "no_plan outranks anamnesis_pending — students matching no_plan sort before students matching only anamnesis_pending" do
+    trainer = users(:one)
+    travel_to Time.zone.local(2026, 5, 1, 9, 0, 0) do
+      # Oldest student, but has a plan — only matches anamnesis_pending.
+      @anamnesis_only = @organization.students.create!(name: "Anamnesis only")
+      @anamnesis_only.start_periodization!(trainer: trainer)
+    end
+    travel_to Time.zone.local(2026, 5, 2, 9, 0, 0) do
+      # Newer student, but matches no_plan (higher priority).
+      @no_plan_with_anamnesis = @organization.students.create!(name: "No plan, has anamnesis", anamnesis_md: "## História\nx")
+    end
+
+    payload = Organization::DashboardQueue.new(@organization).to_h
+
+    assert_equal [ @no_plan_with_anamnesis.id, @anamnesis_only.id ],
+                 payload[:rows].map { |r| r[:student][:id] }
+    assert_equal [ :no_plan, :anamnesis_pending ],
+                 payload[:rows].map { |r| r[:primary_tag] }
+  end
+
+  test "no_plan count reflects every matching student in the org" do
+    8.times { |i| @organization.students.create!(name: "Pending #{i}", anamnesis_md: "x") }
+
+    payload = Organization::DashboardQueue.new(@organization).to_h
+
+    assert_equal 8, payload[:counts][:no_plan]
   end
 
   test "excludes archived students from both counts and rows" do

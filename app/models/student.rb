@@ -10,6 +10,7 @@ class Student < ApplicationRecord
   validates :name, presence: true
 
   scope :anamnesis_pending, -> { unarchived.where("anamnesis_md ~ '^\\s*$'") }
+  scope :without_active_plan, -> { unarchived.where(active_periodization_id: nil) }
 
   def age(today: Date.current)
     return nil if birthday.nil?

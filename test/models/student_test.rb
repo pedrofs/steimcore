@@ -115,6 +115,29 @@ class StudentTest < ActiveSupport::TestCase
     assert_not_includes pending, archived
   end
 
+  test "without_active_plan matches unarchived students with no active periodization regardless of any historical version state" do
+    @organization.students.destroy_all
+    trainer = users(:one)
+    no_plan = @organization.students.create!(name: "Sem plano")
+    generating = @organization.students.create!(name: "Gerando")
+    generating.start_periodization!(trainer: trainer)
+    failed = @organization.students.create!(name: "Falhou")
+    failed_version = failed.start_periodization!(trainer: trainer)
+    failed_version.fail!("oops")
+    completed = @organization.students.create!(name: "Pronto")
+    completed_version = completed.start_periodization!(trainer: trainer)
+    completed_version.complete!
+    archived = @organization.students.create!(name: "Arquivado", archived_at: 1.day.ago)
+
+    scope = Student.without_active_plan
+
+    assert_includes scope, no_plan
+    assert_not_includes scope, generating
+    assert_not_includes scope, failed
+    assert_not_includes scope, completed
+    assert_not_includes scope, archived
+  end
+
   test "is destroyed when forced to nil organization" do
     student = Student.new(name: "Eve")
 
