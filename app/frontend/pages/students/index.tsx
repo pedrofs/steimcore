@@ -44,7 +44,7 @@ type Filters = {
   q: string
   withoutActive: boolean
   archived: boolean
-  status: "anamnesis_pending" | null
+  status: "plan_needs_action" | "no_plan" | "anamnesis_pending" | null
 }
 
 type Props = {

@@ -9,19 +9,22 @@ class Organization::DashboardQueueTest < ActiveSupport::TestCase
   test "returns zero counts and empty rows when the organization has no students" do
     payload = Organization::DashboardQueue.new(@organization).to_h
 
-    assert_equal({ no_plan: 0, anamnesis_pending: 0 }, payload[:counts])
+    assert_equal({ plan_needs_action: 0, no_plan: 0, anamnesis_pending: 0 }, payload[:counts])
     assert_equal [], payload[:rows]
   end
 
   test "returns zero counts and empty rows when no student matches any tag" do
     trainer = users(:one)
     student = @organization.students.create!(name: "Filled", anamnesis_md: "## Histórico\nLesão antiga.")
-    student.start_periodization!(trainer: trainer)
+    version = student.start_periodization!(trainer: trainer)
+    version.complete!
+    student.active_periodization.set_current_version!(version)
 
     payload = Organization::DashboardQueue.new(@organization).to_h
 
     assert_equal 0, payload[:counts][:anamnesis_pending]
     assert_equal 0, payload[:counts][:no_plan]
+    assert_equal 0, payload[:counts][:plan_needs_action]
     assert_equal [], payload[:rows]
   end
 
@@ -137,6 +140,63 @@ class Organization::DashboardQueueTest < ActiveSupport::TestCase
                  payload[:rows].map { |r| r[:student][:id] }
   end
 
+  test "plan_needs_action outranks no_plan and anamnesis_pending — students matching plan_needs_action sort first" do
+    trainer = users(:one)
+    # A student matching plan_needs_action (has a failed version on active plan).
+    plan_action = @organization.students.create!(name: "Plan action", anamnesis_md: "x")
+    version = plan_action.start_periodization!(trainer: trainer)
+    version.fail!("oops")
+    # A student matching only no_plan.
+    no_plan = @organization.students.create!(name: "No plan", anamnesis_md: "x")
+    # A student matching only anamnesis_pending.
+    anamnesis = @organization.students.create!(name: "Anamnesis only")
+    anamnesis_version = anamnesis.start_periodization!(trainer: trainer)
+    anamnesis_version.complete!
+    anamnesis.active_periodization.set_current_version!(anamnesis_version)
+
+    payload = Organization::DashboardQueue.new(@organization).to_h
+
+    assert_equal [ plan_action.id, no_plan.id, anamnesis.id ],
+                 payload[:rows].map { |r| r[:student][:id] }
+    assert_equal [ :plan_needs_action, :no_plan, :anamnesis_pending ],
+                 payload[:rows].map { |r| r[:primary_tag] }
+  end
+
+  test "plan_needs_action count reflects every matching student in the org" do
+    trainer = users(:one)
+    3.times do |i|
+      student = @organization.students.create!(name: "Falhou #{i}", anamnesis_md: "x")
+      version = student.start_periodization!(trainer: trainer)
+      version.fail!("oops")
+    end
+
+    payload = Organization::DashboardQueue.new(@organization).to_h
+
+    assert_equal 3, payload[:counts][:plan_needs_action]
+  end
+
+  test "plan_needs_action tiebreaker sorts by the oldest matching version's created_at ascending" do
+    trainer = users(:one)
+
+    travel_to Time.zone.local(2026, 5, 3, 9, 0, 0) do
+      @newest = @organization.students.create!(name: "Newest action", anamnesis_md: "x")
+      @newest.start_periodization!(trainer: trainer).fail!("oops")
+    end
+    travel_to Time.zone.local(2026, 5, 1, 9, 0, 0) do
+      @oldest = @organization.students.create!(name: "Oldest action", anamnesis_md: "x")
+      @oldest.start_periodization!(trainer: trainer).fail!("oops")
+    end
+    travel_to Time.zone.local(2026, 5, 2, 9, 0, 0) do
+      @middle = @organization.students.create!(name: "Middle action", anamnesis_md: "x")
+      @middle.start_periodization!(trainer: trainer).fail!("oops")
+    end
+
+    payload = Organization::DashboardQueue.new(@organization).to_h
+
+    assert_equal [ @oldest.id, @middle.id, @newest.id ],
+                 payload[:rows].map { |r| r[:student][:id] }
+  end
+
   test "is scoped to the given organization and ignores other orgs' students" do
     other_org = Organization.create!(name: "Outro")
     other_org.students.create!(name: "Externo")
@@ -144,6 +204,7 @@ class Organization::DashboardQueueTest < ActiveSupport::TestCase
     payload = Organization::DashboardQueue.new(@organization).to_h
 
     assert_equal 0, payload[:counts][:anamnesis_pending]
+    assert_equal 0, payload[:counts][:plan_needs_action]
     assert_equal [], payload[:rows]
   end
 end

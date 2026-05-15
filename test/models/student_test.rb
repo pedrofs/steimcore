@@ -115,6 +115,84 @@ class StudentTest < ActiveSupport::TestCase
     assert_not_includes pending, archived
   end
 
+  test "plan_needs_action matches when the active periodization has a failed version" do
+    @organization.students.destroy_all
+    trainer = users(:one)
+    student = @organization.students.create!(name: "Falhou", anamnesis_md: "x")
+    version = student.start_periodization!(trainer: trainer)
+    version.fail!("boom")
+
+    assert_includes Student.plan_needs_action, student
+  end
+
+  test "plan_needs_action matches when the active periodization has a completed unpromoted, non-superseded version" do
+    @organization.students.destroy_all
+    trainer = users(:one)
+    student = @organization.students.create!(name: "Rascunho", anamnesis_md: "x")
+    version = student.start_periodization!(trainer: trainer)
+    version.complete!
+    # Not promoted: periodization.current_version_id is still nil.
+
+    assert_nil student.active_periodization.current_version_id
+    assert_includes Student.plan_needs_action, student
+  end
+
+  test "plan_needs_action does NOT match when the candidate completed version has been superseded by a child fork" do
+    @organization.students.destroy_all
+    trainer = users(:one)
+    student = @organization.students.create!(name: "Histórico", anamnesis_md: "x")
+    version = student.start_periodization!(trainer: trainer)
+    version.complete!
+    # A child fork supersedes the version even before promotion.
+    student.active_periodization.versions.create!(trainer: trainer, parent_version: version)
+
+    assert_not_includes Student.plan_needs_action, student
+  end
+
+  test "plan_needs_action does NOT match when the only completed version is the promoted current_version" do
+    @organization.students.destroy_all
+    trainer = users(:one)
+    student = @organization.students.create!(name: "Promovido", anamnesis_md: "x")
+    version = student.start_periodization!(trainer: trainer)
+    version.complete!
+    student.active_periodization.set_current_version!(version)
+
+    assert_not_includes Student.plan_needs_action, student
+  end
+
+  test "plan_needs_action does NOT match when the only version is still generating" do
+    @organization.students.destroy_all
+    trainer = users(:one)
+    student = @organization.students.create!(name: "Gerando", anamnesis_md: "x")
+    student.start_periodization!(trainer: trainer) # stays :generating
+
+    assert_not_includes Student.plan_needs_action, student
+  end
+
+  test "plan_needs_action does NOT match a student without an active periodization, even if archived periodizations have failed versions" do
+    @organization.students.destroy_all
+    trainer = users(:one)
+    student = @organization.students.create!(name: "Sem plano", anamnesis_md: "x")
+    version = student.start_periodization!(trainer: trainer)
+    version.fail!("oops")
+    # Archive the periodization and clear the active pointer to mimic a reset.
+    student.update!(active_periodization: nil)
+    version.periodization.archive!
+
+    assert_not_includes Student.plan_needs_action, student
+  end
+
+  test "plan_needs_action excludes archived students" do
+    @organization.students.destroy_all
+    trainer = users(:one)
+    student = @organization.students.create!(name: "Arquivado", anamnesis_md: "x")
+    version = student.start_periodization!(trainer: trainer)
+    version.fail!("oops")
+    student.archive!
+
+    assert_not_includes Student.plan_needs_action, student
+  end
+
   test "without_active_plan matches unarchived students with no active periodization regardless of any historical version state" do
     @organization.students.destroy_all
     trainer = users(:one)

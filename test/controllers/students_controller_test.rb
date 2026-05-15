@@ -214,6 +214,27 @@ class StudentsControllerTest < ActionDispatch::IntegrationTest
     assert_not_includes names, filled.name
   end
 
+  test "index filters to plan_needs_action students when ?status=plan_needs_action" do
+    @organization.students.destroy_all
+    trainer = users(:one)
+
+    needs_action = @organization.students.create!(name: "Com rascunho", anamnesis_md: "x")
+    needs_action.start_periodization!(trainer: trainer).fail!("oops")
+
+    promoted = @organization.students.create!(name: "Com plano promovido", anamnesis_md: "x")
+    promoted_version = promoted.start_periodization!(trainer: trainer)
+    promoted_version.complete!
+    promoted.active_periodization.set_current_version!(promoted_version)
+
+    sign_in_as(@user)
+    get students_path, params: { status: "plan_needs_action" }
+
+    names = inertia.props[:students].map { |s| s[:name] }
+    assert_includes names, needs_action.name
+    assert_not_includes names, promoted.name
+    assert_equal "plan_needs_action", inertia.props[:filters][:status]
+  end
+
   test "index echoes back the status filter" do
     sign_in_as(@user)
     get students_path, params: { status: "anamnesis_pending" }

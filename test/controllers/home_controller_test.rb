@@ -87,6 +87,7 @@ class HomeControllerTest < ActionDispatch::IntegrationTest
     assert_kind_of Array, queue[:rows]
     assert_kind_of Integer, queue[:counts][:anamnesis_pending]
     assert_kind_of Integer, queue[:counts][:no_plan]
+    assert_kind_of Integer, queue[:counts][:plan_needs_action]
   end
 
   test "queue rows include only the current organization's students" do
