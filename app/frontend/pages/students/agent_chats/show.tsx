@@ -206,17 +206,19 @@ export default function AgentChatShow({
     [ refreshOpenVersion ],
   )
 
-  const sawOpenVersionRef = useRef(false)
+  const prevOpenVersionIdRef = useRef<string | null>(openVersion?.id ?? null)
   useEffect(() => {
-    if (openVersion != null) {
-      sawOpenVersionRef.current = true
-      return
-    }
-    if (sawOpenVersionRef.current && drawerState.open) {
+    const prevId = prevOpenVersionIdRef.current
+    prevOpenVersionIdRef.current = openVersion?.id ?? null
+    if (
+      prevId != null &&
+      openVersion == null &&
+      drawerState.open &&
+      prevId === drawerState.versionId
+    ) {
       setDrawerState({ open: false, versionId: null, workoutId: null })
-      sawOpenVersionRef.current = false
     }
-  }, [openVersion, drawerState.open])
+  }, [openVersion, drawerState.open, drawerState.versionId])
 
   const handleEscalateToPeriodization = useCallback(() => {
     setDrawerState((prev) =>

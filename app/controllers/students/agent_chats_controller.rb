@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require "strscan"
+
 # Read view of the per-student agent chat. Finds or creates the chat lazily
 # so the first visit is a normal idempotent GET — no separate "open chat"
 # create action.
@@ -160,9 +162,57 @@ class Students::AgentChatsController < InertiaController
       raw = result_message.content.to_s
       return nil if raw.empty?
 
-      JSON.parse(raw)
+      parse_tool_result(raw) || { "raw" => raw }
+    end
+
+    # RubyLLM persists tool results via `Hash#to_s`. In Ruby 3.4+ that emits
+    # the shorthand `{key: value}` syntax (not valid JSON), so we accept both
+    # real JSON and the Ruby-inspect shape our tools actually emit.
+    def parse_tool_result(raw)
+      return JSON.parse(raw) if raw.lstrip.start_with?('{"', "[")
+
+      parse_ruby_inspect_hash(raw)
     rescue JSON::ParserError
-      { "raw" => raw }
+      parse_ruby_inspect_hash(raw)
+    end
+
+    def parse_ruby_inspect_hash(raw)
+      str = raw.strip
+      return nil unless str.start_with?("{") && str.end_with?("}")
+
+      scanner = StringScanner.new(str[1..-2])
+      result = {}
+      loop do
+        scanner.skip(/\s*/)
+        break if scanner.eos?
+        key = scanner.scan(/[A-Za-z_]\w*/)
+        return nil if key.nil?
+        return nil unless scanner.skip(/\s*:\s*/)
+        value = scan_ruby_inspect_value(scanner)
+        return nil if value == :__parse_failed__
+        result[key] = value
+        scanner.skip(/\s*,\s*/) or break
+      end
+      scanner.skip(/\s*/)
+      scanner.eos? ? result : nil
+    end
+
+    def scan_ruby_inspect_value(scanner)
+      if (s = scanner.scan(/"(?:\\.|[^"\\])*"/))
+        JSON.parse(s)
+      elsif (n = scanner.scan(/-?\d+(?:\.\d+)?/))
+        n.include?(".") ? n.to_f : n.to_i
+      elsif scanner.scan(/true\b/)
+        true
+      elsif scanner.scan(/false\b/)
+        false
+      elsif scanner.scan(/nil\b/)
+        nil
+      else
+        :__parse_failed__
+      end
+    rescue JSON::ParserError
+      :__parse_failed__
     end
 
     def trainer_email_prefix(trainer)

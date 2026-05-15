@@ -97,7 +97,7 @@ export function ArtifactDrawer({
           "flex w-full flex-col gap-0 p-0",
           isMobile
             ? "max-h-[90dvh] rounded-t-2xl"
-            : "sm:max-w-xl md:max-w-2xl lg:max-w-3xl",
+            : "data-[side=right]:w-[80vw] data-[side=right]:sm:max-w-[80vw]",
         )}
       >
         <SheetHeader className="border-b border-border/60 px-4 pt-4 pb-3 sm:px-6">

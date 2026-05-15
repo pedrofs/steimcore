@@ -114,15 +114,6 @@ export default function Show({ student, frequency }: Props) {
           </motion.div>
         )}
 
-        {!student.archived && (
-          <Button asChild size="lg" className="h-12 w-full sm:w-auto sm:self-start">
-            <Link href={`/students/${student.id}/agent_chat`}>
-              <MessageSquare className="size-5" aria-hidden />
-              Conversar
-            </Link>
-          </Button>
-        )}
-
         {!student.archived && frequency && (
           <FrequencySection frequency={frequency} studentId={student.id} />
         )}
@@ -171,6 +162,20 @@ export default function Show({ student, frequency }: Props) {
           />
         </motion.section>
       </div>
+
+      {!student.archived && (
+        <Button
+          asChild
+          size="icon"
+          aria-label="Conversar"
+          title="Conversar"
+          className="fixed bottom-24 right-4 z-40 size-14 rounded-full shadow-lg sm:bottom-8 sm:right-8"
+        >
+          <Link href={`/students/${student.id}/agent_chat`}>
+            <MessageSquare className="size-6" aria-hidden />
+          </Link>
+        </Button>
+      )}
 
       <div aria-hidden className="h-20 sm:h-0" />
     </>
