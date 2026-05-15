@@ -4,10 +4,6 @@ class Organization
   # by the cap. Rows are bottleneck-first by tag priority and dedup'd by student
   # so a student matching multiple cohorts appears once with stacked tags.
   #
-  # Slices 1–3 wire the +anamnesis_pending+, +no_plan+, and +plan_needs_action+
-  # tags. The full priority, deduplication, capping, and tiebreaker architecture
-  # is in place — adding the remaining tag (inactive) is a matter of registering
-  # it in TAGS.
   class DashboardQueue
     ROW_CAP = 10
 
@@ -16,6 +12,7 @@ class Organization
     # returns the within-tag sort value (lower sorts earlier).
     TAGS = [
       { name: :plan_needs_action, scope: :plan_needs_action,   sort_by: ->(student) { student.plan_needs_action_sort_value } },
+      { name: :inactive,          scope: :inactive,            sort_by: ->(student) { student.inactive_sort_value } },
       { name: :no_plan,           scope: :without_active_plan, sort_by: ->(student) { student.created_at } },
       { name: :anamnesis_pending, scope: :anamnesis_pending,   sort_by: ->(student) { student.created_at } }
     ].freeze

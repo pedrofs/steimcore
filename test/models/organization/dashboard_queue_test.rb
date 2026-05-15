@@ -9,23 +9,26 @@ class Organization::DashboardQueueTest < ActiveSupport::TestCase
   test "returns zero counts and empty rows when the organization has no students" do
     payload = Organization::DashboardQueue.new(@organization).to_h
 
-    assert_equal({ plan_needs_action: 0, no_plan: 0, anamnesis_pending: 0 }, payload[:counts])
+    assert_equal({ plan_needs_action: 0, inactive: 0, no_plan: 0, anamnesis_pending: 0 }, payload[:counts])
     assert_equal [], payload[:rows]
   end
 
   test "returns zero counts and empty rows when no student matches any tag" do
     trainer = users(:one)
-    student = @organization.students.create!(name: "Filled", anamnesis_md: "## Histórico\nLesão antiga.")
-    version = student.start_periodization!(trainer: trainer)
-    version.complete!
-    student.active_periodization.set_current_version!(version)
+    travel_to Time.zone.local(2026, 5, 15, 10, 0, 0) do
+      student = @organization.students.create!(name: "Filled", anamnesis_md: "## Histórico\nLesão antiga.")
+      version = student.start_periodization!(trainer: trainer)
+      version.complete!
+      student.active_periodization.set_current_version!(version)
+      # Freshly-promoted student with no sessions is not inactive yet.
+      payload = Organization::DashboardQueue.new(@organization).to_h
 
-    payload = Organization::DashboardQueue.new(@organization).to_h
-
-    assert_equal 0, payload[:counts][:anamnesis_pending]
-    assert_equal 0, payload[:counts][:no_plan]
-    assert_equal 0, payload[:counts][:plan_needs_action]
-    assert_equal [], payload[:rows]
+      assert_equal 0, payload[:counts][:anamnesis_pending]
+      assert_equal 0, payload[:counts][:no_plan]
+      assert_equal 0, payload[:counts][:plan_needs_action]
+      assert_equal 0, payload[:counts][:inactive]
+      assert_equal [], payload[:rows]
+    end
   end
 
   test "anamnesis_pending count reflects every matching student in the org, not the row cap" do
@@ -205,6 +208,90 @@ class Organization::DashboardQueueTest < ActiveSupport::TestCase
 
     assert_equal 0, payload[:counts][:anamnesis_pending]
     assert_equal 0, payload[:counts][:plan_needs_action]
+    assert_equal 0, payload[:counts][:inactive]
     assert_equal [], payload[:rows]
+  end
+
+  test "inactive outranks no_plan and anamnesis_pending but sits below plan_needs_action" do
+    trainer = users(:one)
+    travel_to Time.zone.local(2026, 5, 15, 10, 0, 0) do
+      # plan_needs_action only: completed unpromoted draft.
+      plan_action = @organization.students.create!(name: "Plan action", anamnesis_md: "x")
+      version = plan_action.start_periodization!(trainer: trainer)
+      version.fail!("oops")
+
+      # inactive only: promoted plan, last session well past cutoff.
+      inactive = @organization.students.create!(name: "Inativo", anamnesis_md: "x", weekly_frequency: 3)
+      inactive_version = inactive.start_periodization!(trainer: trainer)
+      inactive_version.complete!
+      inactive.active_periodization.set_current_version!(inactive_version)
+      inactive_version.update_columns(created_at: 30.days.ago, updated_at: 30.days.ago)
+      old_session = TrainingSession.create!(
+        student: inactive, trainer: trainer, periodization_version: inactive_version,
+        workout_name_snapshot: "Treino A", workout_position_snapshot: 1,
+        blocks_snapshot: [], progress: []
+      )
+      old_session.update_columns(created_at: 20.days.ago, finished_at: 20.days.ago)
+
+      # no_plan only: has anamnesis but no active periodization.
+      no_plan = @organization.students.create!(name: "Sem plano", anamnesis_md: "x")
+
+      # anamnesis_pending only: has promoted plan but blank anamnesis.
+      anamnesis = @organization.students.create!(name: "Sem anamnese")
+      anamnesis_version = anamnesis.start_periodization!(trainer: trainer)
+      anamnesis_version.complete!
+      anamnesis.active_periodization.set_current_version!(anamnesis_version)
+
+      payload = Organization::DashboardQueue.new(@organization).to_h
+
+      assert_equal [ plan_action.id, inactive.id, no_plan.id, anamnesis.id ],
+                   payload[:rows].map { |r| r[:student][:id] }
+      assert_equal [ :plan_needs_action, :inactive, :no_plan, :anamnesis_pending ],
+                   payload[:rows].map { |r| r[:primary_tag] }
+    end
+  end
+
+  test "inactive count reflects every matching student in the org" do
+    trainer = users(:one)
+    travel_to Time.zone.local(2026, 5, 15, 10, 0, 0) do
+      3.times do |i|
+        s = @organization.students.create!(name: "Inativo #{i}", anamnesis_md: "x", weekly_frequency: 3)
+        v = s.start_periodization!(trainer: trainer)
+        v.complete!
+        s.active_periodization.set_current_version!(v)
+        v.update_columns(created_at: 30.days.ago, updated_at: 30.days.ago)
+      end
+
+      payload = Organization::DashboardQueue.new(@organization).to_h
+
+      assert_equal 3, payload[:counts][:inactive]
+    end
+  end
+
+  test "inactive tiebreaker sorts longest-gap (oldest last activity) first" do
+    trainer = users(:one)
+    travel_to Time.zone.local(2026, 5, 15, 10, 0, 0) do
+      students_with_gaps = []
+      [ 20, 30, 25 ].each_with_index do |days_ago, i|
+        s = @organization.students.create!(name: "Inativo #{i}", anamnesis_md: "x", weekly_frequency: 3)
+        v = s.start_periodization!(trainer: trainer)
+        v.complete!
+        s.active_periodization.set_current_version!(v)
+        v.update_columns(created_at: (days_ago + 5).days.ago, updated_at: (days_ago + 5).days.ago)
+        session = TrainingSession.create!(
+          student: s, trainer: trainer, periodization_version: v,
+          workout_name_snapshot: "Treino A", workout_position_snapshot: 1,
+          blocks_snapshot: [], progress: []
+        )
+        session.update_columns(created_at: days_ago.days.ago, finished_at: days_ago.days.ago)
+        students_with_gaps << [ days_ago, s ]
+      end
+
+      payload = Organization::DashboardQueue.new(@organization).to_h
+      ordered_ids = payload[:rows].map { |r| r[:student][:id] }
+      expected_ids = students_with_gaps.sort_by { |gap, _| -gap }.map { |_, s| s.id }
+
+      assert_equal expected_ids, ordered_ids
+    end
   end
 end

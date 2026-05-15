@@ -13,12 +13,14 @@ type Props = {
 
 const TAG_LABEL: Record<DashboardTag, string> = {
   plan_needs_action: "Plano precisa ação",
+  inactive: "Inativo",
   no_plan: "Sem plano",
   anamnesis_pending: "Anamnese pendente",
 }
 
 const TAG_HREF: Record<DashboardTag, string> = {
   plan_needs_action: "/students?status=plan_needs_action",
+  inactive: "/students?status=inactive",
   no_plan: "/students?status=no_plan",
   anamnesis_pending: "/students?status=anamnesis_pending",
 }
@@ -58,6 +60,7 @@ function ZeroStudentsCta() {
 function CountsStrip({ counts }: { counts: DashboardQueue["counts"] }) {
   const entries: Array<{ tag: DashboardTag; count: number }> = [
     { tag: "plan_needs_action", count: counts.planNeedsAction },
+    { tag: "inactive", count: counts.inactive },
     { tag: "no_plan", count: counts.noPlan },
     { tag: "anamnesis_pending", count: counts.anamnesisPending },
   ]

@@ -35,6 +35,32 @@ class Student < ApplicationRecord
       .distinct
   }
 
+  # Students whose promoted plan has gone stale relative to their target
+  # weekly frequency. The clock starts at the student's most-recent finished
+  # session, or — if they've never trained — at the promoted version's
+  # creation. The cutoff is adaptive: students who train more often are
+  # flagged sooner. A null/zero weekly_frequency falls back to a 10-day cutoff
+  # so partially-onboarded students still flow through the queue.
+  scope :inactive, -> {
+    unarchived
+      .joins("INNER JOIN periodizations ON periodizations.id = students.active_periodization_id")
+      .joins("INNER JOIN periodization_versions current_version ON current_version.id = periodizations.current_version_id")
+      .where("current_version.status = 'completed'")
+      .where(
+        <<~SQL.squish,
+          ? - COALESCE(
+            (SELECT MAX(ts.finished_at) FROM training_sessions ts WHERE ts.student_id = students.id AND ts.finished_at IS NOT NULL),
+            current_version.created_at
+          ) > CASE
+            WHEN students.weekly_frequency IS NULL OR students.weekly_frequency = 0
+              THEN INTERVAL '10 days'
+            ELSE (CEIL(7.0 / students.weekly_frequency * 2.0)::int) * INTERVAL '1 day'
+          END
+        SQL
+        Time.current
+      )
+  }
+
   # The created_at of the oldest PeriodizationVersion on this student's active
   # periodization that satisfies the plan_needs_action predicate (failed, or
   # completed-unpromoted-non-superseded). Used as the within-tag tiebreaker on
@@ -58,6 +84,20 @@ class Student < ApplicationRecord
         )
       SQL
       .minimum(:created_at)
+  end
+
+  # Timestamp the student's inactivity clock started ticking: the most-recent
+  # finished session, falling back to the promoted version's created_at when
+  # the student has never trained. Used as the within-tag tiebreaker on the
+  # dashboard — older value = longer gap = sorts earlier. Returns nil when no
+  # active periodization exists.
+  def inactive_sort_value
+    return nil if active_periodization_id.nil?
+
+    last_finished_at = training_sessions.where.not(finished_at: nil).maximum(:finished_at)
+    return last_finished_at if last_finished_at
+
+    active_periodization.current_version&.created_at
   end
 
   def age(today: Date.current)

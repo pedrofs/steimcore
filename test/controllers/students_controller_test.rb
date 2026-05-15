@@ -235,6 +235,44 @@ class StudentsControllerTest < ActionDispatch::IntegrationTest
     assert_equal "plan_needs_action", inertia.props[:filters][:status]
   end
 
+  test "index filters to inactive students when ?status=inactive" do
+    @organization.students.destroy_all
+    trainer = users(:one)
+
+    travel_to Time.zone.local(2026, 5, 15, 10, 0, 0) do
+      inactive = @organization.students.create!(name: "Inativo", anamnesis_md: "x", weekly_frequency: 3)
+      v = inactive.start_periodization!(trainer: trainer)
+      v.complete!
+      inactive.active_periodization.set_current_version!(v)
+      v.update_columns(created_at: 30.days.ago, updated_at: 30.days.ago)
+      old = TrainingSession.create!(
+        student: inactive, trainer: trainer, periodization_version: v,
+        workout_name_snapshot: "Treino A", workout_position_snapshot: 1,
+        blocks_snapshot: [], progress: []
+      )
+      old.update_columns(created_at: 20.days.ago, finished_at: 20.days.ago)
+
+      active = @organization.students.create!(name: "Em dia", anamnesis_md: "x", weekly_frequency: 3)
+      av = active.start_periodization!(trainer: trainer)
+      av.complete!
+      active.active_periodization.set_current_version!(av)
+      fresh = TrainingSession.create!(
+        student: active, trainer: trainer, periodization_version: av,
+        workout_name_snapshot: "Treino A", workout_position_snapshot: 1,
+        blocks_snapshot: [], progress: []
+      )
+      fresh.update_columns(created_at: 1.day.ago, finished_at: 1.day.ago)
+
+      sign_in_as(@user)
+      get students_path, params: { status: "inactive" }
+
+      names = inertia.props[:students].map { |s| s[:name] }
+      assert_includes names, inactive.name
+      assert_not_includes names, active.name
+      assert_equal "inactive", inertia.props[:filters][:status]
+    end
+  end
+
   test "index echoes back the status filter" do
     sign_in_as(@user)
     get students_path, params: { status: "anamnesis_pending" }

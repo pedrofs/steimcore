@@ -193,6 +193,119 @@ class StudentTest < ActiveSupport::TestCase
     assert_not_includes Student.plan_needs_action, student
   end
 
+  # The inactive scope uses today's wall clock against periodization/session
+  # timestamps, so a fixed "now" is needed for the cutoff matrix to be
+  # reproducible across runs.
+  INACTIVE_NOW = Time.zone.local(2026, 5, 15, 10, 0, 0)
+
+  test "inactive matches a student with weekly_frequency=1 and last session 15 days ago (cutoff 14d)" do
+    travel_to INACTIVE_NOW do
+      student = build_student_with_completed_plan!(weekly_frequency: 1, plan_created_at: 30.days.ago)
+      finish_session_for!(student, at: 15.days.ago)
+
+      assert_includes Student.inactive, student
+    end
+  end
+
+  test "inactive does NOT match a student with weekly_frequency=1 and last session 10 days ago (cutoff 14d)" do
+    travel_to INACTIVE_NOW do
+      student = build_student_with_completed_plan!(weekly_frequency: 1, plan_created_at: 30.days.ago)
+      finish_session_for!(student, at: 10.days.ago)
+
+      assert_not_includes Student.inactive, student
+    end
+  end
+
+  test "inactive matches a student with weekly_frequency=3 and last session 6 days ago (cutoff 5d)" do
+    travel_to INACTIVE_NOW do
+      student = build_student_with_completed_plan!(weekly_frequency: 3, plan_created_at: 30.days.ago)
+      finish_session_for!(student, at: 6.days.ago)
+
+      assert_includes Student.inactive, student
+    end
+  end
+
+  test "inactive does NOT match a student with weekly_frequency=3 and last session 4 days ago (cutoff 5d)" do
+    travel_to INACTIVE_NOW do
+      student = build_student_with_completed_plan!(weekly_frequency: 3, plan_created_at: 30.days.ago)
+      finish_session_for!(student, at: 4.days.ago)
+
+      assert_not_includes Student.inactive, student
+    end
+  end
+
+  test "inactive matches a student with weekly_frequency=5 and last session 4 days ago (cutoff 3d)" do
+    travel_to INACTIVE_NOW do
+      student = build_student_with_completed_plan!(weekly_frequency: 5, plan_created_at: 30.days.ago)
+      finish_session_for!(student, at: 4.days.ago)
+
+      assert_includes Student.inactive, student
+    end
+  end
+
+  test "inactive matches a student with weekly_frequency=null and last session 11 days ago (10-day fallback)" do
+    travel_to INACTIVE_NOW do
+      student = build_student_with_completed_plan!(weekly_frequency: nil, plan_created_at: 30.days.ago)
+      finish_session_for!(student, at: 11.days.ago)
+
+      assert_includes Student.inactive, student
+    end
+  end
+
+  test "inactive does NOT match a student with weekly_frequency=null and last session 9 days ago (10-day fallback)" do
+    travel_to INACTIVE_NOW do
+      student = build_student_with_completed_plan!(weekly_frequency: nil, plan_created_at: 30.days.ago)
+      finish_session_for!(student, at: 9.days.ago)
+
+      assert_not_includes Student.inactive, student
+    end
+  end
+
+  test "inactive matches a student who has never trained when their current version was promoted longer ago than the cutoff" do
+    travel_to INACTIVE_NOW do
+      student = build_student_with_completed_plan!(weekly_frequency: nil, plan_created_at: 11.days.ago)
+
+      assert_includes Student.inactive, student
+    end
+  end
+
+  test "inactive does NOT match a freshly-promoted student with no sessions" do
+    travel_to INACTIVE_NOW do
+      student = build_student_with_completed_plan!(weekly_frequency: nil, plan_created_at: Time.current)
+
+      assert_not_includes Student.inactive, student
+    end
+  end
+
+  test "inactive does NOT match a student whose current version is still generating" do
+    @organization.students.destroy_all
+    trainer = users(:one)
+    travel_to INACTIVE_NOW do
+      student = @organization.students.create!(name: "Gerando", anamnesis_md: "x")
+      student.start_periodization!(trainer: trainer) # stays :generating, never promoted
+
+      assert_not_includes Student.inactive, student
+    end
+  end
+
+  test "inactive does NOT match a student without an active periodization" do
+    @organization.students.destroy_all
+    travel_to INACTIVE_NOW do
+      student = @organization.students.create!(name: "Sem plano", anamnesis_md: "x")
+
+      assert_not_includes Student.inactive, student
+    end
+  end
+
+  test "inactive excludes archived students even when the cutoff would otherwise match" do
+    travel_to INACTIVE_NOW do
+      student = build_student_with_completed_plan!(weekly_frequency: nil, plan_created_at: 30.days.ago)
+      student.archive!
+
+      assert_not_includes Student.inactive, student
+    end
+  end
+
   test "without_active_plan matches unarchived students with no active periodization regardless of any historical version state" do
     @organization.students.destroy_all
     trainer = users(:one)
@@ -215,6 +328,43 @@ class StudentTest < ActiveSupport::TestCase
     assert_not_includes scope, completed
     assert_not_includes scope, archived
   end
+
+  private
+    # Build an unarchived student in @organization with an active periodization
+    # whose current_version is :completed and pinned. plan_created_at sets both
+    # the periodization and the version created_at so the inactive cutoff's
+    # "clock starts at promotion" branch is exercisable.
+    def build_student_with_completed_plan!(weekly_frequency:, plan_created_at:)
+      trainer = users(:one)
+      student = @organization.students.create!(
+        name: "Aluno #{SecureRandom.hex(3)}",
+        anamnesis_md: "x",
+        weekly_frequency: weekly_frequency
+      )
+      version = student.start_periodization!(trainer: trainer)
+      version.complete!
+      student.active_periodization.set_current_version!(version)
+      version.update_columns(created_at: plan_created_at, updated_at: plan_created_at)
+      student
+    end
+
+    def finish_session_for!(student, at:)
+      trainer = users(:one)
+      version = student.active_periodization.current_version
+      session = TrainingSession.create!(
+        student: student,
+        trainer: trainer,
+        periodization_version: version,
+        workout_name_snapshot: "Treino A",
+        workout_position_snapshot: 1,
+        blocks_snapshot: [],
+        progress: []
+      )
+      session.update_columns(created_at: at, finished_at: at)
+      session
+    end
+
+  public
 
   test "is destroyed when forced to nil organization" do
     student = Student.new(name: "Eve")

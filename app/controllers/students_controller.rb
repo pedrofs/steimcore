@@ -91,6 +91,7 @@ class StudentsController < InertiaController
 
     STATUS_SCOPES = {
       "plan_needs_action" => :plan_needs_action,
+      "inactive"          => :inactive,
       "anamnesis_pending" => :anamnesis_pending,
       "no_plan"           => :without_active_plan
     }.freeze
