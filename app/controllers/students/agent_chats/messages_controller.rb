@@ -18,7 +18,9 @@ class Students::AgentChats::MessagesController < InertiaController
   def create
     @chat.transaction do
       message = @chat.messages.create!(role: :user, content: content_param, trainer: Current.user)
-      message.attachments.attach(attachment_files) if attachment_files.any?
+      audio, other = attachment_files.partition { |f| audio_upload?(f) }
+      message.voice_clips.attach(audio) if audio.any?
+      message.attachments.attach(other) if other.any?
       @chat.update!(state: :running)
     end
 
@@ -73,5 +75,9 @@ class Students::AgentChats::MessagesController < InertiaController
 
     def attachment_files
       @attachment_files ||= Array(params.dig(:message, :attachments)).reject(&:blank?)
+    end
+
+    def audio_upload?(file)
+      file.respond_to?(:content_type) && file.content_type.to_s.start_with?("audio/")
     end
 end

@@ -15,8 +15,10 @@ module Agent::Chat::Runnable
   # leave a chat stuck in `running` forever.
   def run_turn!
     @_turn_iteration_count = 0
-    trainer = messages.where(role: :user).order(:created_at).last&.trainer
-    StudentAgent.new(chat: self, student: chattable, trainer: trainer)
+    latest_user = messages.where(role: :user).order(:created_at).last
+    latest_user&.transcribe_voice_clips!
+
+    StudentAgent.new(chat: self, student: chattable, trainer: latest_user&.trainer)
                 .complete { |chunk| broadcast_chunk!(chunk) }
 
     broadcast_turn_completed!(message_id: latest_assistant_message_id)
@@ -28,7 +30,7 @@ module Agent::Chat::Runnable
     broadcast_turn_failed!(error: "Limite de iterações excedido.")
     apology
   rescue StandardError => e
-    broadcast_turn_failed!(error: e.message)
+    broadcast_turn_failed!(error: friendly_error_for(e))
     raise
   ensure
     update!(state: :idle) if persisted?
@@ -85,6 +87,15 @@ module Agent::Chat::Runnable
   private
     def broadcast!(payload)
       ActionCable.server.broadcast(stream_name, payload)
+    end
+
+    def friendly_error_for(e)
+      case e
+      when RubyLLM::UnsupportedAttachmentError
+        "Tipo de anexo não suportado pelo assistente."
+      else
+        e.message
+      end
     end
 
     # The gem's persistence callbacks set `@message` on this AR record at the

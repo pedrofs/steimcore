@@ -6,4 +6,7 @@ class Agent::Message < ApplicationRecord
   belongs_to :trainer, class_name: "User", optional: true
 
   has_many_attached :attachments
+  has_many_attached :voice_clips
+
+  include Agent::Message::Transcribable
 end

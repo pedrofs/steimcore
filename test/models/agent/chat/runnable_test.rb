@@ -67,6 +67,49 @@ class Agent::Chat::RunnableTest < ActiveSupport::TestCase
     assert_equal "Limite de iterações excedido.", failed["error"]
   end
 
+  test "run_turn! transcribes the latest user message's voice clips before invoking the agent" do
+    @user_message.voice_clips.attach(
+      io: StringIO.new("fake-audio-bytes"),
+      filename: "clip.webm",
+      content_type: "audio/webm"
+    )
+
+    transcribe_called_before_complete = false
+    complete_called = false
+
+    behavior = ->(chat, &_block) {
+      complete_called = true
+      assert transcribe_called_before_complete, "expected transcribe_voice_clips! to run before complete"
+      chat.messages.create!(role: :assistant, content: "ok")
+    }
+
+    fake = ->(_path, **_kwargs) {
+      transcribe_called_before_complete = true
+      Struct.new(:text).new("transcrição")
+    }
+
+    RubyLLM.stub(:transcribe, fake) do
+      stub_agent_new(behavior) { @chat.run_turn! }
+    end
+
+    assert complete_called
+    assert_includes @user_message.reload.content, "transcrição"
+  end
+
+  test "run_turn! maps UnsupportedAttachmentError to a Portuguese friendly message" do
+    behavior = ->(_chat, &_block) { raise RubyLLM::UnsupportedAttachmentError, "audio/webm" }
+
+    payloads = capture_broadcasts(@chat.stream_name) do
+      stub_agent_new(behavior) do
+        assert_raises(RubyLLM::UnsupportedAttachmentError) { @chat.run_turn! }
+      end
+    end
+
+    failed = payloads.find { |p| p["type"] == "turn_failed" }
+    refute_nil failed
+    assert_equal "Tipo de anexo não suportado pelo assistente.", failed["error"]
+  end
+
   test "broadcast helpers emit tool_call_started and tool_call_completed with the documented payload shape" do
     payloads = capture_broadcasts(@chat.stream_name) do
       @chat.broadcast_tool_call_started!(tool_call_id: "toolu_123", name: "update_anamnesis", message_id: @user_message.id)

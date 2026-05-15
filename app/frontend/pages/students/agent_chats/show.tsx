@@ -119,9 +119,14 @@ type Props = {
 
 type DrawerState = {
   open: boolean
+  kind: "periodization" | "anamnesis"
   versionId: string | null
   workoutId: string | null
 }
+
+type ArtifactRef =
+  | { kind: "periodization"; versionId: string; workoutId: string | null }
+  | { kind: "anamnesis" }
 
 const MAX_ATTACHMENT_COUNT = 5
 const MAX_ATTACHMENT_BYTES = 20 * 1024 * 1024
@@ -168,6 +173,7 @@ export default function AgentChatShow({
 
   const [drawerState, setDrawerState] = useState<DrawerState>({
     open: false,
+    kind: "periodization",
     versionId: null,
     workoutId: null,
   })
@@ -190,9 +196,23 @@ export default function AgentChatShow({
   )
 
   const openDrawer = useCallback(
-    (versionId: string, workoutId: string | null) => {
-      setDrawerState({ open: true, versionId, workoutId })
-      refreshOpenVersion(versionId, { replace: false })
+    (artifact: ArtifactRef) => {
+      if (artifact.kind === "anamnesis") {
+        setDrawerState({
+          open: true,
+          kind: "anamnesis",
+          versionId: null,
+          workoutId: null,
+        })
+        return
+      }
+      setDrawerState({
+        open: true,
+        kind: "periodization",
+        versionId: artifact.versionId,
+        workoutId: artifact.workoutId,
+      })
+      refreshOpenVersion(artifact.versionId, { replace: false })
     },
     [ refreshOpenVersion ],
   )
@@ -200,10 +220,13 @@ export default function AgentChatShow({
   const handleOpenChange = useCallback(
     (open: boolean) => {
       if (open) return
+      const wasPeriodization = drawerState.kind === "periodization"
       setDrawerState((prev) => ({ ...prev, open: false }))
-      refreshOpenVersion(null, { replace: true })
+      if (wasPeriodization) {
+        refreshOpenVersion(null, { replace: true })
+      }
     },
-    [ refreshOpenVersion ],
+    [ refreshOpenVersion, drawerState.kind ],
   )
 
   const prevOpenVersionIdRef = useRef<string | null>(openVersion?.id ?? null)
@@ -214,22 +237,30 @@ export default function AgentChatShow({
       prevId != null &&
       openVersion == null &&
       drawerState.open &&
+      drawerState.kind === "periodization" &&
       prevId === drawerState.versionId
     ) {
-      setDrawerState({ open: false, versionId: null, workoutId: null })
+      setDrawerState({
+        open: false,
+        kind: "periodization",
+        versionId: null,
+        workoutId: null,
+      })
     }
-  }, [openVersion, drawerState.open, drawerState.versionId])
+  }, [openVersion, drawerState.open, drawerState.kind, drawerState.versionId])
 
   const handleEscalateToPeriodization = useCallback(() => {
     setDrawerState((prev) =>
-      prev.versionId
-        ? { open: true, versionId: prev.versionId, workoutId: null }
+      prev.kind === "periodization" && prev.versionId
+        ? { ...prev, open: true, workoutId: null }
         : prev,
     )
   }, [])
 
   const drawerVersion =
-    drawerState.versionId && openVersion?.id === drawerState.versionId
+    drawerState.kind === "periodization" &&
+    drawerState.versionId &&
+    openVersion?.id === drawerState.versionId
       ? openVersion
       : null
 
@@ -237,9 +268,10 @@ export default function AgentChatShow({
     ? { kind: "workout", workoutId: drawerState.workoutId }
     : { kind: "periodization" }
 
-  const drawerReturnTo = drawerState.versionId
-    ? buildReturnTo(chatPath, drawerState.versionId, drawerState.workoutId)
-    : chatPath
+  const drawerReturnTo =
+    drawerState.kind === "periodization" && drawerState.versionId
+      ? buildReturnTo(chatPath, drawerState.versionId, drawerState.workoutId)
+      : chatPath
 
   return (
     <div className="flex h-dvh flex-col bg-background">
@@ -291,16 +323,27 @@ export default function AgentChatShow({
         }
       />
 
-      <ArtifactDrawer
-        open={drawerState.open}
-        onOpenChange={handleOpenChange}
-        version={drawerVersion}
-        scope={drawerScope}
-        onEscalateToPeriodization={
-          drawerState.workoutId ? handleEscalateToPeriodization : undefined
-        }
-        returnTo={drawerReturnTo}
-      />
+      {drawerState.kind === "anamnesis" ? (
+        <ArtifactDrawer
+          open={drawerState.open}
+          onOpenChange={handleOpenChange}
+          kind="anamnesis"
+          studentName={student.name}
+          anamnesisMd={student.anamnesisMd}
+        />
+      ) : (
+        <ArtifactDrawer
+          open={drawerState.open}
+          onOpenChange={handleOpenChange}
+          kind="periodization"
+          version={drawerVersion}
+          scope={drawerScope}
+          onEscalateToPeriodization={
+            drawerState.workoutId ? handleEscalateToPeriodization : undefined
+          }
+          returnTo={drawerReturnTo}
+        />
+      )}
 
       {lightboxUrl != null && (
         <Lightbox url={lightboxUrl} onClose={() => setLightboxUrl(null)} />
@@ -366,7 +409,7 @@ function ChatHeader({ student }: { student: Student }) {
   )
 }
 
-type OpenDrawer = (versionId: string, workoutId: string | null) => void
+type OpenDrawer = (artifact: ArtifactRef) => void
 type OpenLightbox = (url: string) => void
 
 function MessageBubble({
@@ -403,7 +446,13 @@ function MessageBubble({
               : "rounded-bl-sm bg-muted text-foreground",
           )}
         >
-          <Markdown content={message.content!} className="text-sm" />
+          <Markdown
+            content={message.content!}
+            className={cn(
+              "text-sm",
+              isTrainer && "prose-invert [&_*]:text-brand-foreground",
+            )}
+          />
         </div>
       )}
       {message.toolCalls.length > 0 && (
@@ -495,7 +544,7 @@ function ToolCallCard({
   onOpen: OpenDrawer
 }) {
   if (toolCall.name === "update_anamnesis") {
-    return <UpdateAnamnesisCard toolCall={toolCall} />
+    return <UpdateAnamnesisCard toolCall={toolCall} onOpen={onOpen} />
   }
   if (
     toolCall.name === "create_periodization" ||
@@ -513,7 +562,13 @@ function ToolCallCard({
   )
 }
 
-function UpdateAnamnesisCard({ toolCall }: { toolCall: ToolCall }) {
+function UpdateAnamnesisCard({
+  toolCall,
+  onOpen,
+}: {
+  toolCall: ToolCall
+  onOpen: OpenDrawer
+}) {
   const result = (toolCall.result ?? {}) as UpdateAnamnesisResult
   const args = (toolCall.arguments ?? {}) as { summaryMd?: string }
   const summary =
@@ -529,11 +584,22 @@ function UpdateAnamnesisCard({ toolCall }: { toolCall: ToolCall }) {
     )
   }
   return (
-    <div className="flex items-start gap-2 rounded-xl border border-brand/30 bg-brand/5 px-3 py-2 text-xs text-foreground">
-      <FileText className="mt-0.5 size-3.5 shrink-0 text-brand" aria-hidden />
-      <span>
-        <span className="font-medium">Anamnese atualizada</span> · {summary}
-      </span>
+    <div className="flex flex-col gap-2 rounded-xl border border-brand/30 bg-brand/5 px-3 py-2.5 text-xs text-foreground">
+      <div className="flex items-start gap-2">
+        <FileText className="mt-0.5 size-3.5 shrink-0 text-brand" aria-hidden />
+        <span className="flex-1">
+          <span className="font-medium">Anamnese atualizada</span> · {summary}
+        </span>
+      </div>
+      <Button
+        type="button"
+        size="sm"
+        variant="outline"
+        className="h-7 w-fit px-3 text-xs"
+        onClick={() => onOpen({ kind: "anamnesis" })}
+      >
+        Abrir
+      </Button>
     </div>
   )
 }
@@ -603,7 +669,13 @@ function PeriodizationCard({
           size="sm"
           variant="outline"
           className="h-7 w-fit px-3 text-xs"
-          onClick={() => onOpen(result.versionId!, null)}
+          onClick={() =>
+            onOpen({
+              kind: "periodization",
+              versionId: result.versionId!,
+              workoutId: null,
+            })
+          }
         >
           Abrir
         </Button>
@@ -658,7 +730,13 @@ function UpdateWorkoutCard({
           size="sm"
           variant="outline"
           className="h-7 w-fit px-3 text-xs"
-          onClick={() => onOpen(result.versionId!, result.workoutId!)}
+          onClick={() =>
+            onOpen({
+              kind: "periodization",
+              versionId: result.versionId!,
+              workoutId: result.workoutId!,
+            })
+          }
         >
           Abrir
         </Button>

@@ -28,7 +28,7 @@ class Students::AgentChats::MessagesControllerTest < ActionDispatch::Integration
     assert_equal "atualize a anamnese", message.content
   end
 
-  test "create accepts attachments and persists them on the user message" do
+  test "create routes audio attachments into voice_clips, leaving :attachments empty" do
     sign_in_as(@user)
 
     assert_difference -> { @chat.messages.count }, 1 do
@@ -38,9 +38,23 @@ class Students::AgentChats::MessagesControllerTest < ActionDispatch::Integration
 
     assert_redirected_to student_agent_chat_path(@student)
     message = @chat.messages.order(:created_at).last
-    assert message.attachments.attached?
+    assert_not message.attachments.attached?
+    assert message.voice_clips.attached?
+    assert_equal 1, message.voice_clips.count
+    assert_equal "anamnesis.webm", message.voice_clips.first.filename.to_s
+  end
+
+  test "create routes non-audio attachments into :attachments and audio into voice_clips" do
+    sign_in_as(@user)
+
+    post student_agent_chat_messages_path(@student),
+         params: { message: { content: "misturado", attachments: [ fixture_audio_upload, fixture_image_upload ] } }
+
+    message = @chat.messages.order(:created_at).last
+    assert_equal 1, message.voice_clips.count
+    assert_equal "anamnesis.webm", message.voice_clips.first.filename.to_s
     assert_equal 1, message.attachments.count
-    assert_equal "anamnesis.webm", message.attachments.first.filename.to_s
+    assert_equal "photo.png", message.attachments.first.filename.to_s
   end
 
   test "create allows attachments-only messages with no text content" do
@@ -53,7 +67,7 @@ class Students::AgentChats::MessagesControllerTest < ActionDispatch::Integration
 
     assert_redirected_to student_agent_chat_path(@student)
     message = @chat.messages.order(:created_at).last
-    assert message.attachments.attached?
+    assert message.voice_clips.attached?
   end
 
   test "create with neither content nor attachments redirects without persisting" do
@@ -106,10 +120,15 @@ class Students::AgentChats::MessagesControllerTest < ActionDispatch::Integration
     assert_match(/assistente ainda está respondendo/, flash[:alert])
   end
 
-  test "show exposes attachment metadata in message props" do
+  test "show merges :attachments and :voice_clips into a single attachments props array" do
     sign_in_as(@user)
     message = @chat.messages.create!(role: :user, content: "veja isto", trainer: @user)
     message.attachments.attach(
+      io: StringIO.new("fake-image-bytes"),
+      filename: "photo.png",
+      content_type: "image/png"
+    )
+    message.voice_clips.attach(
       io: StringIO.new("fake-audio-bytes"),
       filename: "anamnesis.webm",
       content_type: "audio/webm"
@@ -118,12 +137,11 @@ class Students::AgentChats::MessagesControllerTest < ActionDispatch::Integration
     get student_agent_chat_path(@student)
 
     payload = inertia.props[:messages].first
-    assert_equal 1, payload[:attachments].size
-    attachment = payload[:attachments].first
-    assert_equal "anamnesis.webm", attachment[:filename]
-    assert_equal "audio/webm", attachment[:content_type]
-    assert_equal "audio", attachment[:kind]
-    assert attachment[:url].start_with?("/rails/")
+    assert_equal 2, payload[:attachments].size
+    kinds = payload[:attachments].map { |a| a[:kind] }
+    assert_includes kinds, "image"
+    assert_includes kinds, "audio"
+    payload[:attachments].each { |a| assert a[:url].start_with?("/rails/") }
   end
 
   private
@@ -132,6 +150,14 @@ class Students::AgentChats::MessagesControllerTest < ActionDispatch::Integration
         StringIO.new("fake-audio-bytes"),
         "audio/webm",
         original_filename: "anamnesis.webm"
+      )
+    end
+
+    def fixture_image_upload
+      Rack::Test::UploadedFile.new(
+        StringIO.new("fake-image-bytes"),
+        "image/png",
+        original_filename: "photo.png"
       )
     end
 end

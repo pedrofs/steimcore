@@ -1,7 +1,8 @@
 import { router } from "@inertiajs/react"
-import { CalendarRangeIcon, Loader2Icon } from "lucide-react"
+import { CalendarRangeIcon, FileTextIcon, Loader2Icon } from "lucide-react"
 import { useState } from "react"
 
+import { Markdown } from "@/components/markdown"
 import {
   PeriodizationVersionView,
   type PeriodizationVersionData,
@@ -18,9 +19,13 @@ import {
 import { useIsMobile } from "@/hooks/use-mobile"
 import { cn } from "@/lib/utils"
 
-type Props = {
+type CommonProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
+}
+
+type PeriodizationProps = {
+  kind: "periodization"
   version: PeriodizationVersionData | null
   scope: PeriodizationViewScope
   /**
@@ -37,15 +42,72 @@ type Props = {
   returnTo: string
 }
 
-export function ArtifactDrawer({
-  open,
-  onOpenChange,
+type AnamnesisProps = {
+  kind: "anamnesis"
+  studentName: string
+  anamnesisMd: string
+}
+
+type Props = CommonProps & (PeriodizationProps | AnamnesisProps)
+
+export function ArtifactDrawer(props: Props) {
+  const isMobile = useIsMobile()
+
+  return (
+    <Sheet open={props.open} onOpenChange={props.onOpenChange}>
+      <SheetContent
+        side={isMobile ? "bottom" : "right"}
+        className={cn(
+          "flex w-full flex-col gap-0 p-0",
+          isMobile
+            ? "max-h-[90dvh] rounded-t-2xl"
+            : "data-[side=right]:w-[80vw] data-[side=right]:sm:max-w-[80vw]",
+        )}
+      >
+        {props.kind === "anamnesis" ? (
+          <AnamnesisContent {...props} />
+        ) : (
+          <PeriodizationContent {...props} />
+        )}
+      </SheetContent>
+    </Sheet>
+  )
+}
+
+function AnamnesisContent({ studentName, anamnesisMd }: AnamnesisProps) {
+  return (
+    <>
+      <SheetHeader className="border-b border-border/60 px-4 pt-4 pb-3 sm:px-6">
+        <div className="flex items-start gap-3 pr-10">
+          <FileTextIcon
+            className="mt-0.5 size-5 shrink-0 text-brand"
+            aria-hidden
+          />
+          <div className="flex-1">
+            <SheetTitle className="text-base">Anamnese</SheetTitle>
+            <SheetDescription className="text-xs">
+              {studentName}
+            </SheetDescription>
+          </div>
+        </div>
+      </SheetHeader>
+
+      <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-6">
+        <Markdown
+          content={anamnesisMd}
+          placeholder="Esta anamnese ainda está em branco."
+        />
+      </div>
+    </>
+  )
+}
+
+function PeriodizationContent({
   version,
   scope,
   onEscalateToPeriodization,
   returnTo,
-}: Props) {
-  const isMobile = useIsMobile()
+}: PeriodizationProps) {
   const [dirtyWorkoutName, setDirtyWorkoutName] = useState<string | null>(null)
 
   const workoutScope =
@@ -90,71 +152,61 @@ export function ArtifactDrawer({
   }
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent
-        side={isMobile ? "bottom" : "right"}
-        className={cn(
-          "flex w-full flex-col gap-0 p-0",
-          isMobile
-            ? "max-h-[90dvh] rounded-t-2xl"
-            : "data-[side=right]:w-[80vw] data-[side=right]:sm:max-w-[80vw]",
-        )}
-      >
-        <SheetHeader className="border-b border-border/60 px-4 pt-4 pb-3 sm:px-6">
-          <div className="flex items-start gap-3 pr-10">
-            <CalendarRangeIcon
-              className="mt-0.5 size-5 shrink-0 text-brand"
-              aria-hidden
-            />
-            <div className="flex-1">
-              <SheetTitle className="text-base">{title}</SheetTitle>
-              {description && (
-                <SheetDescription className="text-xs">
-                  {description}
-                </SheetDescription>
-              )}
-            </div>
+    <>
+      <SheetHeader className="border-b border-border/60 px-4 pt-4 pb-3 sm:px-6">
+        <div className="flex items-start gap-3 pr-10">
+          <CalendarRangeIcon
+            className="mt-0.5 size-5 shrink-0 text-brand"
+            aria-hidden
+          />
+          <div className="flex-1">
+            <SheetTitle className="text-base">{title}</SheetTitle>
+            {description && (
+              <SheetDescription className="text-xs">
+                {description}
+              </SheetDescription>
+            )}
           </div>
-          {scope.kind === "workout" && onEscalateToPeriodization && version && (
-            <Button
-              type="button"
-              variant="link"
-              size="sm"
-              className="-mx-1 h-7 w-fit px-1 text-xs"
-              onClick={onEscalateToPeriodization}
-            >
-              Ver periodização completa
-            </Button>
-          )}
-        </SheetHeader>
-
-        <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-6">
-          {version == null ? (
-            <DrawerLoading />
-          ) : (
-            <PeriodizationVersionView
-              version={version}
-              scope={scope}
-              presentation="drawer"
-              returnTo={returnTo}
-              onDirtyWorkoutChange={setDirtyWorkoutName}
-            />
-          )}
         </div>
-
-        {promotable && (
-          <div className="border-t border-border/60 bg-background px-4 py-3 sm:px-6">
-            <Button
-              type="button"
-              className="h-11 w-full sm:h-10"
-              onClick={handlePromote}
-            >
-              Promover esta versão
-            </Button>
-          </div>
+        {scope.kind === "workout" && onEscalateToPeriodization && version && (
+          <Button
+            type="button"
+            variant="link"
+            size="sm"
+            className="-mx-1 h-7 w-fit px-1 text-xs"
+            onClick={onEscalateToPeriodization}
+          >
+            Ver periodização completa
+          </Button>
         )}
-      </SheetContent>
-    </Sheet>
+      </SheetHeader>
+
+      <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-6">
+        {version == null ? (
+          <DrawerLoading />
+        ) : (
+          <PeriodizationVersionView
+            version={version}
+            scope={scope}
+            presentation="drawer"
+            returnTo={returnTo}
+            onDirtyWorkoutChange={setDirtyWorkoutName}
+          />
+        )}
+      </div>
+
+      {promotable && (
+        <div className="border-t border-border/60 bg-background px-4 py-3 sm:px-6">
+          <Button
+            type="button"
+            className="h-11 w-full sm:h-10"
+            onClick={handlePromote}
+          >
+            Promover esta versão
+          </Button>
+        </div>
+      )}
+    </>
   )
 }
 

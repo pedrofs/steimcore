@@ -114,9 +114,12 @@ class Students::AgentChatsController < InertiaController
     end
 
     def attachments_props(message)
-      return [] unless message.attachments.attached?
+      blobs = []
+      blobs.concat(message.attachments.attachments) if message.attachments.attached?
+      blobs.concat(message.voice_clips.attachments) if message.voice_clips.attached?
+      return [] if blobs.empty?
 
-      message.attachments.map do |att|
+      blobs.map do |att|
         {
           id: att.id,
           filename: att.filename.to_s,
