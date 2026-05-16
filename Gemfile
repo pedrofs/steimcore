@@ -74,6 +74,6 @@ group :test do
   gem "selenium-webdriver"
 end
 
-gem "vite_rails", "~> 3.10"
+gem "vite_rails", "~> 3.11"
 
 gem "pagy", "~> 9.4"
