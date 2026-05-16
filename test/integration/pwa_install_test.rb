@@ -7,8 +7,8 @@ class PwaInstallTest < ActionDispatch::IntegrationTest
 
     manifest = JSON.parse(response.body)
 
-    assert_equal "SteimCore", manifest["name"]
-    assert_equal "SteimCore", manifest["short_name"]
+    assert_equal Brand::NAME, manifest["name"]
+    assert_equal Brand::NAME, manifest["short_name"]
     assert_equal "/", manifest["start_url"]
     assert_equal "standalone", manifest["display"]
     assert manifest["background_color"].present?, "background_color must be set"
