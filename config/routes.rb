@@ -8,7 +8,11 @@ Rails.application.routes.draw do
   resources :invitation_acceptances, param: :token, only: [ :edit, :update ]
   resource :organization, only: [ :show, :edit, :update ]
   resources :students, only: [ :index, :new, :create, :show, :edit, :update ] do
-    resources :periodizations, only: [ :new, :show ], module: :students
+    resources :periodizations, only: [ :new, :show ], module: :students do
+      resources :versions, only: [], module: :periodizations do
+        resource :print_confirmation, only: :create, module: :versions
+      end
+    end
     resource :periodization, only: [], module: :students do
       resource :printable, only: :show, module: :periodizations
     end

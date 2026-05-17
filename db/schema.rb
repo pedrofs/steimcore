@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.2].define(version: 2026_05_14_160000) do
+ActiveRecord::Schema[8.2].define(version: 2026_05_17_220623) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -141,6 +141,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_05_14_160000) do
     t.text "error_message"
     t.uuid "parent_version_id"
     t.uuid "periodization_id", null: false
+    t.datetime "printed_at"
     t.string "status", null: false
     t.bigint "trainer_id", null: false
     t.datetime "updated_at", null: false

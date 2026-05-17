@@ -58,6 +58,10 @@ class Students::Periodizations::PrintablesController < InertiaController
         id: @periodization.id,
         started_on: @periodization.created_at.to_date.iso8601,
         body_md: @version.body_md,
+        version: {
+          id: @version.id,
+          printed_at: @version.printed_at&.iso8601
+        },
         workouts: @version.workouts.order(:position).map { |w|
           { id: w.id, name: w.name, position: w.position, blocks: w.blocks }
         }

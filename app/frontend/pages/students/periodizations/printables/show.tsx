@@ -1,8 +1,9 @@
-import { Head } from "@inertiajs/react"
+import { Head, router } from "@inertiajs/react"
 import { useEffect } from "react"
 
 import { BlocksRenderer, type Block } from "@/components/blocks-renderer"
 import { Markdown } from "@/components/markdown"
+import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 
 type Student = {
@@ -26,6 +27,10 @@ type Periodization = {
   id: string
   startedOn: string
   bodyMd: string
+  version: {
+    id: string
+    printedAt: string | null
+  }
   workouts: Workout[]
 }
 
@@ -51,9 +56,25 @@ export default function PrintablePeriodization({
     ready.then(() => window.print()).catch(() => window.print())
   }, [])
 
+  const isPrinted = periodization.version.printedAt !== null
+
   return (
     <>
       <Head title={`Imprimir — ${student.name}`} />
+      {!isPrinted && (
+        <div className="print:hidden mx-auto flex w-[210mm] items-center justify-end gap-2 px-[8mm] py-3">
+          <Button
+            type="button"
+            onClick={() =>
+              router.post(
+                `/students/${student.id}/periodizations/${periodization.id}/versions/${periodization.version.id}/print_confirmation`,
+              )
+            }
+          >
+            Marcar como impresso
+          </Button>
+        </div>
+      )}
       <article className="print-page mx-auto flex w-[210mm] flex-col bg-white text-black">
         <PeriodizationHalf
           student={student}
