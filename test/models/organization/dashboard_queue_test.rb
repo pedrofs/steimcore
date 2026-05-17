@@ -268,6 +268,48 @@ class Organization::DashboardQueueTest < ActiveSupport::TestCase
     end
   end
 
+  test ".tagged_student_ids returns an empty array when no student matches any tag" do
+    assert_equal [], Organization::DashboardQueue.tagged_student_ids(@organization)
+  end
+
+  test ".tagged_student_ids returns the union of student ids across tags with no duplicates" do
+    trainer = users(:one)
+    travel_to Time.zone.local(2026, 5, 15, 10, 0, 0) do
+      anamnesis_only = @organization.students.create!(name: "Anamnesis only")
+      # plan_needs_action: completed unpromoted draft.
+      plan_action = @organization.students.create!(name: "Plan action", anamnesis_md: "x")
+      plan_action.start_periodization!(trainer: trainer).fail!("oops")
+      # no_plan: anamnesis but no active plan.
+      no_plan = @organization.students.create!(name: "No plan", anamnesis_md: "x")
+
+      ids = Organization::DashboardQueue.tagged_student_ids(@organization)
+
+      assert_equal [ anamnesis_only.id, plan_action.id, no_plan.id ].sort, ids.sort
+      assert_equal ids.uniq, ids
+    end
+  end
+
+  test ".tagged_student_ids deduplicates students matching multiple tags" do
+    multi_tag = @organization.students.create!(name: "Multi") # no anamnesis + no plan
+
+    ids = Organization::DashboardQueue.tagged_student_ids(@organization)
+
+    assert_equal [ multi_tag.id ], ids
+  end
+
+  test ".tagged_student_ids excludes archived students" do
+    @organization.students.create!(name: "Archived", archived_at: 1.day.ago)
+
+    assert_equal [], Organization::DashboardQueue.tagged_student_ids(@organization)
+  end
+
+  test ".tagged_student_ids is scoped to the given organization" do
+    other_org = Organization.create!(name: "Outro")
+    other_org.students.create!(name: "Externo") # would match anamnesis_pending
+
+    assert_equal [], Organization::DashboardQueue.tagged_student_ids(@organization)
+  end
+
   test "inactive tiebreaker sorts longest-gap (oldest last activity) first" do
     trainer = users(:one)
     travel_to Time.zone.local(2026, 5, 15, 10, 0, 0) do

@@ -105,6 +105,17 @@ class HomeControllerTest < ActionDispatch::IntegrationTest
     assert_not_includes names, "Theirs"
   end
 
+  test "passes the print queue payload as a prop" do
+    sign_in_as(@user)
+
+    get root_path
+
+    print_queue = inertia.props[:print_queue]
+    assert_kind_of Hash, print_queue
+    assert_kind_of Integer, print_queue[:count]
+    assert_kind_of Array, print_queue[:rows]
+  end
+
   test "passes total_students count for the empty-state branch" do
     @user.organization.students.destroy_all
     @user.organization.students.create!(name: "Active")

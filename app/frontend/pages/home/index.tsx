@@ -1,13 +1,14 @@
-import { Link } from "@inertiajs/react"
+import { Link, router } from "@inertiajs/react"
 
 import { PageHeader } from "@/components/page-header"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { ChevronRightIcon } from "lucide-react"
-import type { DashboardQueue, DashboardTag } from "@/types"
+import type { DashboardQueue, DashboardTag, PrintQueue, PrintQueueRow } from "@/types"
 
 type Props = {
   queue: DashboardQueue
+  printQueue: PrintQueue
   totalStudents: number
 }
 
@@ -25,7 +26,7 @@ const TAG_HREF: Record<DashboardTag, string> = {
   anamnesis_pending: "/students?status=anamnesis_pending",
 }
 
-export default function Home({ queue, totalStudents }: Props) {
+export default function Home({ queue, printQueue, totalStudents }: Props) {
   if (totalStudents === 0) {
     return (
       <>
@@ -39,7 +40,10 @@ export default function Home({ queue, totalStudents }: Props) {
     <>
       <PageHeader />
       <CountsStrip counts={queue.counts} />
-      {queue.rows.length === 0 ? <CaughtUpEmptyState /> : <QueueList rows={queue.rows} />}
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <PrintCard printQueue={printQueue} />
+        {queue.rows.length === 0 ? <CaughtUpEmptyState /> : <QueueList rows={queue.rows} />}
+      </div>
     </>
   )
 }
@@ -114,4 +118,64 @@ function QueueList({ rows }: { rows: DashboardQueue["rows"] }) {
       ))}
     </ul>
   )
+}
+
+function PrintCard({ printQueue }: { printQueue: PrintQueue }) {
+  const isEmpty = printQueue.rows.length === 0
+  return (
+    <section className="flex flex-col gap-3 rounded-xl border bg-card p-4">
+      <header className="text-base font-semibold">
+        {isEmpty ? "Imprimir" : `Imprimir (${printQueue.count})`}
+      </header>
+      {isEmpty ? (
+        <p className="text-sm text-muted-foreground">
+          Nenhuma periodização pendente de impressão.
+        </p>
+      ) : (
+        <ul className="flex flex-col gap-2">
+          {printQueue.rows.map((row) => (
+            <PrintRow key={row.version.id} row={row} />
+          ))}
+        </ul>
+      )}
+    </section>
+  )
+}
+
+function PrintRow({ row }: { row: PrintQueueRow }) {
+  const printablePath = `/students/${row.student.id}/periodization/printable`
+  const markPrintedPath = `/students/${row.student.id}/periodizations/${row.periodization.id}/versions/${row.version.id}/print_confirmation`
+
+  return (
+    <li className="flex flex-col gap-2 rounded-lg border bg-background p-3">
+      <div className="flex min-w-0 flex-col gap-0.5">
+        <span className="truncate text-sm font-medium">{row.student.name}</span>
+        <span className="text-xs text-muted-foreground">
+          {createdAgoLabel(row.version.createdAt)}
+        </span>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        <Button asChild size="sm">
+          <Link href={printablePath}>Imprimir</Link>
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => router.post(markPrintedPath)}
+        >
+          Marcar como impresso
+        </Button>
+      </div>
+    </li>
+  )
+}
+
+function createdAgoLabel(createdAtIso: string): string {
+  const createdAt = new Date(createdAtIso)
+  if (Number.isNaN(createdAt.getTime())) return ""
+  const diffDays = Math.max(0, Math.floor((Date.now() - createdAt.getTime()) / 86_400_000))
+  if (diffDays === 0) return "Criado hoje"
+  if (diffDays === 1) return "Criado há 1 dia"
+  return `Criado há ${diffDays} dias`
 }

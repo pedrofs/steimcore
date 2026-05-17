@@ -17,6 +17,15 @@ class Organization
       { name: :anamnesis_pending, scope: :anamnesis_pending,   sort_by: ->(student) { student.created_at } }
     ].freeze
 
+    # Union of student ids that match any of the four dashboard tags. Used by
+    # Organization::PrintQueue to enforce the suppression rule from
+    # docs/adr/0001-print-queue-suppressed-by-dashboard-queue.md without
+    # leaking the tag list itself.
+    def self.tagged_student_ids(organization)
+      queue = new(organization)
+      TAGS.flat_map { |tag| queue.send(:scope_for, tag).pluck(:id) }.uniq
+    end
+
     def initialize(organization)
       @organization = organization
     end

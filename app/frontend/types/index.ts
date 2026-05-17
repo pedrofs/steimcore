@@ -46,3 +46,14 @@ export type DashboardQueue = {
   counts: DashboardCounts
   rows: DashboardRow[]
 }
+
+export type PrintQueueRow = {
+  student: { id: string; name: string }
+  periodization: { id: string }
+  version: { id: string; createdAt: string }
+}
+
+export type PrintQueue = {
+  count: number
+  rows: PrintQueueRow[]
+}
