@@ -15,6 +15,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import {
   Sheet,
   SheetContent,
@@ -24,6 +25,13 @@ import {
 import { cn } from "@/lib/utils"
 
 import { initials, paletteColorFor } from "./avatar"
+
+function normalizeForSearch(value: string): string {
+  return value
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .toLowerCase()
+}
 
 type ExerciseBlock = {
   kind: "exercise"
@@ -724,19 +732,46 @@ function PickerSheet({
   candidates: PickerCandidate[]
   onPick: (id: string) => void
 }) {
+  const [query, setQuery] = useState("")
+
+  useEffect(() => {
+    if (!open) setQuery("")
+  }, [open])
+
+  const filteredCandidates = useMemo(() => {
+    const needle = normalizeForSearch(query.trim())
+    if (!needle) return candidates
+    return candidates.filter((candidate) =>
+      normalizeForSearch(candidate.name).includes(needle),
+    )
+  }, [candidates, query])
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="bottom" className="max-h-[80vh] overflow-y-auto">
         <SheetHeader>
           <SheetTitle>Adicionar aluno</SheetTitle>
         </SheetHeader>
-        <div className="flex flex-col gap-1 p-4 pt-0">
+        <div className="flex flex-col gap-2 p-4 pt-0">
+          {candidates.length > 0 && (
+            <Input
+              type="search"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Buscar aluno..."
+              aria-label="Buscar aluno"
+            />
+          )}
           {candidates.length === 0 ? (
             <p className="rounded-xl border border-dashed bg-muted/20 p-6 text-center text-sm text-muted-foreground">
               Nenhum aluno disponível.
             </p>
+          ) : filteredCandidates.length === 0 ? (
+            <p className="rounded-xl border border-dashed bg-muted/20 p-6 text-center text-sm text-muted-foreground">
+              Nenhum aluno encontrado.
+            </p>
           ) : (
-            candidates.map((candidate) =>
+            filteredCandidates.map((candidate) =>
               candidate.eligible ? (
                 <button
                   key={candidate.id}
