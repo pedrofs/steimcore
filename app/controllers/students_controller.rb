@@ -85,7 +85,9 @@ class StudentsController < InertiaController
         name: student.name,
         primary_goal: student.primary_goal,
         weekly_frequency: student.weekly_frequency,
-        active_periodization_id: student.active_periodization_id
+        active_periodization_id: student.active_periodization_id,
+        archived: student.archived?,
+        archive_reason: student.archive_reason
       }
     end
 
@@ -160,6 +162,7 @@ class StudentsController < InertiaController
         notes_md: student.notes_md,
         archived: student.archived?,
         archived_at: student.archived_at&.iso8601,
+        archive_reason: student.archive_reason,
         active_periodization_id: student.active_periodization_id,
         active_plan: active_plan_props(student)
       }

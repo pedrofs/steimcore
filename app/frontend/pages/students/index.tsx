@@ -2,8 +2,15 @@ import { Link, router } from "@inertiajs/react"
 import { useEffect, useRef, useState } from "react"
 
 import { PageHeader } from "@/components/page-header"
+import { ArchiveStudentDialog } from "@/components/students/archive-student-dialog"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
 import {
   Pagination,
@@ -19,7 +26,13 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react"
+import {
+  Archive,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  MoreVertical,
+  RotateCcw,
+} from "lucide-react"
 
 type StudentSummary = {
   id: string
@@ -27,6 +40,8 @@ type StudentSummary = {
   primaryGoal: string | null
   weeklyFrequency: number | null
   activePeriodizationId: string | null
+  archived: boolean
+  archiveReason: string | null
 }
 
 type PaginationProps = {
@@ -59,6 +74,8 @@ export default function Index({ students, pagination, filters }: Props) {
   const hasActiveFilters =
     filters.q !== "" || filters.withoutActive || filters.archived || filters.status !== null
   const orgIsEmpty = students.length === 0 && !hasActiveFilters
+
+  const [archiveTarget, setArchiveTarget] = useState<StudentSummary | null>(null)
 
   return (
     <>
@@ -93,10 +110,10 @@ export default function Index({ students, pagination, filters }: Props) {
             <>
               <ul className="flex flex-col gap-2 md:hidden">
                 {students.map((student) => (
-                  <li key={student.id}>
+                  <li key={student.id} className="relative">
                     <Link
                       href={`/students/${student.id}`}
-                      className="flex flex-col gap-1 rounded-xl border bg-card p-4 transition-colors hover:bg-muted/40"
+                      className="flex flex-col gap-1 rounded-xl border bg-card p-4 pr-12 transition-colors hover:bg-muted/40"
                     >
                       <div className="flex items-start justify-between gap-2">
                         <span className="text-base font-medium">
@@ -110,6 +127,12 @@ export default function Index({ students, pagination, filters }: Props) {
                         {summaryLine(student)}
                       </span>
                     </Link>
+                    <div className="absolute right-2 top-2">
+                      <StudentRowMenu
+                        student={student}
+                        onArchive={() => setArchiveTarget(student)}
+                      />
+                    </div>
                   </li>
                 ))}
               </ul>
@@ -122,6 +145,7 @@ export default function Index({ students, pagination, filters }: Props) {
                       <TableHead>Objetivo</TableHead>
                       <TableHead>Frequência semanal</TableHead>
                       <TableHead>Periodização</TableHead>
+                      <TableHead className="w-12" />
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -150,11 +174,25 @@ export default function Index({ students, pagination, filters }: Props) {
                             }
                           />
                         </TableCell>
+                        <TableCell className="text-right">
+                          <StudentRowMenu
+                            student={student}
+                            onArchive={() => setArchiveTarget(student)}
+                          />
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
                 </Table>
               </div>
+
+              <ArchiveStudentDialog
+                student={archiveTarget}
+                open={archiveTarget !== null}
+                onOpenChange={(open) => {
+                  if (!open) setArchiveTarget(null)
+                }}
+              />
 
               {pagination.pages > 1 && (
                 <PaginationBar pagination={pagination} filters={filters} />
@@ -280,6 +318,55 @@ function PeriodizationBadge({
     return <Badge variant="default">Ativa</Badge>
   }
   return <Badge variant="outline">Sem periodização</Badge>
+}
+
+function StudentRowMenu({
+  student,
+  onArchive,
+}: {
+  student: StudentSummary
+  onArchive: () => void
+}) {
+  const restore = () => {
+    router.post(
+      `/students/${student.id}/restoration`,
+      {},
+      { preserveScroll: true },
+    )
+  }
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          aria-label={`Ações para ${student.name}`}
+          className="size-9"
+          onClick={(e) => {
+            e.stopPropagation()
+            e.preventDefault()
+          }}
+        >
+          <MoreVertical className="size-4" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        {student.archived ? (
+          <DropdownMenuItem onSelect={restore}>
+            <RotateCcw className="size-4" />
+            Restaurar
+          </DropdownMenuItem>
+        ) : (
+          <DropdownMenuItem variant="destructive" onSelect={onArchive}>
+            <Archive className="size-4" />
+            Arquivar
+          </DropdownMenuItem>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
 }
 
 function PaginationBar({

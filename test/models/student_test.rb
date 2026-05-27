@@ -92,6 +92,43 @@ class StudentTest < ActiveSupport::TestCase
     assert_not_includes Student.unarchived, student
   end
 
+  test "archive! persists the reason when given" do
+    student = Student.create!(name: "Dave", organization: @organization)
+
+    student.archive!(reason: "Só faz crossfit (sem musculação)")
+
+    assert student.archived?
+    assert_equal "Só faz crossfit (sem musculação)", student.archive_reason
+  end
+
+  test "archive! leaves archive_reason nil when no reason is given" do
+    student = Student.create!(name: "Dave", organization: @organization)
+
+    student.archive!
+
+    assert student.archived?
+    assert_nil student.archive_reason
+  end
+
+  test "archive! treats blank reason as no reason" do
+    student = Student.create!(name: "Dave", organization: @organization)
+
+    student.archive!(reason: "   ")
+
+    assert_nil student.archive_reason
+  end
+
+  test "restore! clears archived_at and archive_reason" do
+    student = Student.create!(name: "Dave", organization: @organization)
+    student.archive!(reason: "Mudou de academia")
+
+    student.restore!
+
+    assert_not student.archived?
+    assert_nil student.archived_at
+    assert_nil student.archive_reason
+  end
+
   test "unarchived scope is the default expectation for the index" do
     active = students(:alice)
     archived = students(:archived_carol)

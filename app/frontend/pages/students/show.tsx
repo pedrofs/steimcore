@@ -1,3 +1,4 @@
+import { useState } from "react"
 import { Link, router } from "@inertiajs/react"
 import {
   AlertTriangle,
@@ -14,6 +15,7 @@ import {
 import { motion } from "motion/react"
 
 import { Markdown } from "@/components/markdown"
+import { ArchiveStudentDialog } from "@/components/students/archive-student-dialog"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -49,6 +51,7 @@ type Student = {
   notesMd: string
   archived: boolean
   archivedAt: string | null
+  archiveReason: string | null
   activePeriodizationId: string | null
   activePlan: ActivePlan | null
 }
@@ -163,6 +166,8 @@ export default function Show({ student, frequency }: Props) {
         </motion.section>
       </div>
 
+      {!student.archived && <DangerZone student={student} />}
+
       {!student.archived && (
         <Button
           asChild
@@ -184,6 +189,7 @@ export default function Show({ student, frequency }: Props) {
 
 function ArchivedBanner({ student }: { student: Student }) {
   const archivedDate = formatArchivedDate(student.archivedAt)
+  const reason = student.archiveReason?.trim()
 
   return (
     <aside
@@ -200,6 +206,11 @@ function ArchivedBanner({ student }: { student: Student }) {
           {archivedDate && (
             <span className="text-xs text-muted-foreground">
               Arquivado em {archivedDate}
+            </span>
+          )}
+          {reason && (
+            <span className="text-xs text-muted-foreground">
+              Motivo: {reason}
             </span>
           )}
         </div>
@@ -219,6 +230,38 @@ function ArchivedBanner({ student }: { student: Student }) {
         Restaurar
       </Button>
     </aside>
+  )
+}
+
+function DangerZone({ student }: { student: Student }) {
+  const [open, setOpen] = useState(false)
+
+  return (
+    <section className="mt-2 flex flex-col gap-3 rounded-xl border border-dashed border-destructive/40 bg-destructive/5 p-4">
+      <div className="flex flex-col gap-1">
+        <h2 className="text-sm font-medium text-destructive">
+          Arquivar aluno
+        </h2>
+        <p className="text-xs text-muted-foreground">
+          Oculta o aluno da lista ativa sem remover seus dados. Use quando o
+          aluno deixar de treinar com você ou passar a fazer só crossfit.
+        </p>
+      </div>
+      <Button
+        type="button"
+        variant="outline"
+        className="self-start border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive"
+        onClick={() => setOpen(true)}
+      >
+        <Archive className="size-4" />
+        Arquivar
+      </Button>
+      <ArchiveStudentDialog
+        student={student}
+        open={open}
+        onOpenChange={setOpen}
+      />
+    </section>
   )
 }
 
