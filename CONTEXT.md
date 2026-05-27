@@ -30,6 +30,20 @@ _Note_: There is no `promoted_at` column today. When a "when did this go live" s
 A version that another version was forked from (via `start_edit!` setting `parent_version`). Becomes locked history rather than an in-review draft.
 _Avoid_: old version, deprecated version.
 
+### Periodization progress
+
+**Periodization length**:
+The number of weeks the **Current version** is planned to cover, e.g. 8 weeks. Lives on the version (`periodization_versions.periodization_length_weeks :integer`, nullable) because an edit can extend or shrink it (a trainer can ask the LLM "extend to 12 weeks", which produces a new version with a new length). Set by the LLM as a structured value returned alongside the generated body; required once the version transitions to `:completed`. Read from `current_version.periodization_length_weeks`; null on versions that aren't yet completed.
+_Avoid_: mesocycle length (jargon), plan length, duration.
+
+**Periodization target**:
+The session count this Periodization is supposed to deliver in its current shape. Computed: `active_periodization.current_version.periodization_length_weeks × student.weekly_frequency`. Undefined (the **Student** is excluded from the **Dashboard queue**'s periodization tags) when `weekly_frequency IS NULL`, when there is no **Active periodization**, or when the **Current version** has no `periodization_length_weeks`.
+_Avoid_: session goal, total sessions.
+
+**Sessions remaining**:
+`periodization_target − count(finished training sessions across all versions of the active periodization)`. Counts every finished `TrainingSession` whose `periodization_version_id` belongs to the **Active periodization**, including sessions on **Superseded versions** — the clock is per-Periodization and carries across versions. Can be negative (overshoot). Displayed as a badge on the **Dashboard queue** row. Recomputed live; never stored.
+_Avoid_: sessions left (use **Sessions remaining**), training sessions left.
+
 ### Printing
 
 **Printed**:
@@ -46,7 +60,13 @@ _Avoid_: needs printing list, awaiting print.
 ### Trainer attention model
 
 **Dashboard queue**:
-The bottleneck-first list of **Students** that need trainer attention on the home page. Tags (in priority order): `plan_needs_action`, `inactive`, `no_plan`, `anamnesis_pending`. Students stack tags; rows are capped at 10. Distinct from the **Print queue**, which is shown as a separate card on home and excludes any student already in the **Dashboard queue**.
+The bottleneck-first list of **Students** that need trainer attention on the home page. Tags (in priority order): `plan_needs_action`, `periodization_overdue`, `periodization_due`, `inactive`, `no_plan`, `anamnesis_pending`. Students stack tags; rows are capped at 10. Distinct from the **Print queue**, which is shown as a separate card on home and excludes any student already in the **Dashboard queue**.
+
+**`periodization_overdue`** *(Dashboard tag)*:
+The **Student**'s **Sessions remaining** is `< 0` — they trained past the **Periodization target** without the trainer planning a new Periodization. Within-tag sort: most-overshot first (smallest `sessions_remaining` first; e.g. `−5` before `−1`).
+
+**`periodization_due`** *(Dashboard tag)*:
+The **Student**'s **Sessions remaining** is in `[0, 5)` — the planning runway window. Heads-up signal so the trainer can prepare the next Periodization before the current one ends. Within-tag sort: fewest-remaining first (`0` before `4`). The `5` is a flat session count, not a calendar window — it gives the trainer a fixed planning runway regardless of `weekly_frequency`.
 
 **Dashboard tag**:
 A named attention signal applied to a **Student** by the **Dashboard queue**. Each tag has a scope on `Student` and a within-tag sort. Tags are not mutually exclusive among themselves, but they ARE mutually exclusive with **Print queue** membership.
