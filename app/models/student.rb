@@ -100,14 +100,6 @@ class Student < ApplicationRecord
     active_periodization.current_version&.created_at
   end
 
-  def archive!(reason: nil)
-    update!(archived_at: Time.current, archive_reason: reason.presence)
-  end
-
-  def restore!
-    update!(archived_at: nil, archive_reason: nil)
-  end
-
   def age(today: Date.current)
     return nil if birthday.nil?
     age = today.year - birthday.year

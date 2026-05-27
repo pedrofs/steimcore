@@ -6,12 +6,16 @@ module Archivable
     scope :unarchived, -> { where(archived_at: nil) }
   end
 
-  def archive!
-    update!(archived_at: Time.current)
+  def archive!(reason: nil)
+    attributes = { archived_at: Time.current }
+    attributes[:archive_reason] = reason.presence if has_attribute?(:archive_reason)
+    update!(attributes)
   end
 
   def restore!
-    update!(archived_at: nil)
+    attributes = { archived_at: nil }
+    attributes[:archive_reason] = nil if has_attribute?(:archive_reason)
+    update!(attributes)
   end
 
   def archived?
