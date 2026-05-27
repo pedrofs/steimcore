@@ -19,6 +19,7 @@ Rails.application.routes.draw do
     resource :agent_chat, only: :show, module: :students do
       resources :messages, only: :create, module: :agent_chats
     end
+    resource :archive,     only: :create, module: :students
     resource :restoration, only: :create, module: :students
   end
 

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.2].define(version: 2026_05_17_220623) do
+ActiveRecord::Schema[8.2].define(version: 2026_05_26_120000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -141,10 +141,10 @@ ActiveRecord::Schema[8.2].define(version: 2026_05_17_220623) do
     t.text "error_message"
     t.uuid "parent_version_id"
     t.uuid "periodization_id", null: false
-    t.datetime "printed_at"
     t.string "status", null: false
     t.bigint "trainer_id", null: false
     t.datetime "updated_at", null: false
+    t.datetime "printed_at"
     t.index ["agent_tool_call_id"], name: "index_periodization_versions_on_agent_tool_call_id"
     t.index ["parent_version_id"], name: "index_periodization_versions_on_parent_version_id"
     t.index ["periodization_id", "created_at"], name: "idx_on_periodization_id_created_at_2ccdf56ebe"
@@ -187,6 +187,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_05_17_220623) do
     t.string "sex"
     t.datetime "updated_at", null: false
     t.integer "weekly_frequency"
+    t.string "archive_reason"
     t.index ["archived_at"], name: "index_students_on_archived_at"
     t.index ["email"], name: "index_students_on_email", where: "(email IS NOT NULL)"
     t.index ["organization_id"], name: "index_students_on_organization_id"
