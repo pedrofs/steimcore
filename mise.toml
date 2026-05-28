@@ -1,0 +1,6 @@
+[env]
+# macOS aborts Objective-C calls (libvips → Foundation/NSNumber) in a process
+# forked after another thread touched Obj-C. Rails parallel tests fork workers,
+# so `bin/rails test` crashes mid-run. This disables that fork-safety check.
+# No-op on Linux, so CI is unaffected.
+OBJC_DISABLE_INITIALIZE_FORK_SAFETY = "YES"
