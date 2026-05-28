@@ -30,6 +30,7 @@ class Students::PeriodizationsController < InertiaController
       periodization: {
         id: periodization.id,
         archived: periodization.archived?,
+        progress: progress_props(periodization),
         current_version: version && {
           id: version.id,
           body_md: version.body_md,
@@ -43,6 +44,23 @@ class Students::PeriodizationsController < InertiaController
   private
     def load_student
       @student = current_organization.students.find(params[:student_id])
+    end
+
+    # Sessions-remaining progress, computed per-Periodization (live for the
+    # Active one, historical for archived ones). The frontend uses
+    # `archived` to neutralize the due/overdue coloring on archived bars,
+    # since those signals are forward-looking.
+    def progress_props(periodization)
+      progress = Student::PeriodizationProgress.new(@student, periodization: periodization)
+      return nil unless progress.applicable?
+
+      {
+        target: progress.target,
+        sessions_done: progress.sessions_done,
+        sessions_remaining: progress.sessions_remaining,
+        overdue: progress.overdue?,
+        due: progress.due?
+      }
     end
 
     def workout_props(workout)

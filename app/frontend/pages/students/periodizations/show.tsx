@@ -12,6 +12,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible"
+import { Progress } from "@/components/ui/progress"
 import {
   Sheet,
   SheetContent,
@@ -50,9 +51,18 @@ type VersionSummary = {
   path: string
 }
 
+type PeriodizationProgress = {
+  target: number
+  sessionsDone: number
+  sessionsRemaining: number
+  overdue: boolean
+  due: boolean
+}
+
 type Periodization = {
   id: string
   archived: boolean
+  progress: PeriodizationProgress | null
   currentVersion: CurrentVersion | null
   versions: VersionSummary[]
 }
@@ -72,6 +82,12 @@ export default function ShowPeriodization({ student, periodization }: Props) {
           <span className="inline-flex w-fit items-center rounded-full border border-dashed bg-muted/40 px-2 py-0.5 text-xs text-muted-foreground">
             Arquivada
           </span>
+        )}
+        {periodization.progress && (
+          <SessionsProgress
+            progress={periodization.progress}
+            archived={periodization.archived}
+          />
         )}
       </PageHeader>
 
@@ -137,6 +153,49 @@ export default function ShowPeriodization({ student, periodization }: Props) {
         </Button>
       </div>
     </>
+  )
+}
+
+function SessionsProgress({
+  progress,
+  archived,
+}: {
+  progress: PeriodizationProgress
+  archived: boolean
+}) {
+  const { target, sessionsDone, sessionsRemaining, overdue, due } = progress
+  const pct = target === 0 ? 0 : Math.min(100, Math.round((sessionsDone / target) * 100))
+  const tooltip = overdue
+    ? `${sessionsDone} de ${target} sessões — ${Math.abs(sessionsRemaining)} acima do alvo`
+    : `${sessionsDone} de ${target} sessões — ${sessionsRemaining} restantes`
+  // due/overdue are forward-looking — neutralize the coloring on archived bars.
+  const indicatorClass = archived
+    ? ""
+    : overdue
+    ? "[&_[data-slot=progress-indicator]]:bg-destructive"
+    : due
+    ? "[&_[data-slot=progress-indicator]]:bg-amber-500"
+    : ""
+
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <div
+          className="flex w-full max-w-xs cursor-default flex-col gap-1"
+          tabIndex={0}
+          aria-label={tooltip}
+        >
+          <div className="flex items-center justify-between text-xs text-muted-foreground">
+            <span>Sessões</span>
+            <span className="tabular-nums">
+              {sessionsDone}/{target}
+            </span>
+          </div>
+          <Progress value={pct} className={indicatorClass} />
+        </div>
+      </TooltipTrigger>
+      <TooltipContent>{tooltip}</TooltipContent>
+    </Tooltip>
   )
 }
 

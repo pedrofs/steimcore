@@ -37,11 +37,13 @@ The number of weeks the **Current version** is planned to cover, e.g. 8 weeks. L
 _Avoid_: mesocycle length (jargon), plan length, duration.
 
 **Periodization target**:
-The session count this Periodization is supposed to deliver in its current shape. Computed: `active_periodization.current_version.periodization_length_weeks × student.weekly_frequency`. Undefined (the **Student** is excluded from the **Dashboard queue**'s periodization tags) when `weekly_frequency IS NULL`, when there is no **Active periodization**, or when the **Current version** has no `periodization_length_weeks`.
+The session count a Periodization is supposed to deliver in its current shape. Computed: `periodization.current_version.periodization_length_weeks × student.weekly_frequency`, with a fallback of `5 sessions/week` (`Student::PeriodizationProgress::DAYS_PER_WEEK`) when `weekly_frequency` is null or zero — so the periodization show page can still draw a sessions-remaining bar for students whose weekly cadence hasn't been set. Undefined when there is no Periodization, or when the **Current version** has no `periodization_length_weeks`.
+
+The **Dashboard queue**'s `periodization_overdue` / `periodization_due` tags are intentionally **stricter**: they require an explicit `weekly_frequency > 0` and do not apply the fallback. The show page can show a best-effort progress bar on a guess; the dashboard refuses to flag a Student as overdue or due without a cadence the trainer has actually set.
 _Avoid_: session goal, total sessions.
 
 **Sessions remaining**:
-`periodization_target − count(finished training sessions across all versions of the active periodization)`. Counts every finished `TrainingSession` whose `periodization_version_id` belongs to the **Active periodization**, including sessions on **Superseded versions** — the clock is per-Periodization and carries across versions. Can be negative (overshoot). Displayed as a badge on the **Dashboard queue** row. Recomputed live; never stored.
+`periodization_target − count(finished training sessions across all versions of that periodization)`. Counts every finished `TrainingSession` whose `periodization_version_id` belongs to the same Periodization, including sessions on **Superseded versions** — the clock is per-Periodization and carries across versions. Can be negative (overshoot). Displayed as a badge on the **Dashboard queue** row, and as a tooltip + progress bar on the **Periodization show page** (where it's also computed for archived Periodizations to surface historical completion). Recomputed live; never stored.
 _Avoid_: sessions left (use **Sessions remaining**), training sessions left.
 
 ### Printing

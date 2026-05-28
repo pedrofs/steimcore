@@ -101,11 +101,15 @@ class Student < ApplicationRecord
   end
 
   # Students who have trained past their Periodization target without a new
-  # Periodization being designed: the Current version is completed, the target
-  # is defined (weekly_frequency > 0 and the version carries a
-  # periodization_length_weeks), and the finished session count across every
-  # version of the Active periodization exceeds that target. Mirrors the rules
-  # in Student::PeriodizationProgress in SQL so the dashboard avoids N+1.
+  # Periodization being designed: the Current version is completed, the
+  # student has an explicit weekly_frequency, the version carries a
+  # periodization_length_weeks, and the finished session count across every
+  # version of the Active periodization exceeds the resulting target.
+  # Intentionally stricter than Student::PeriodizationProgress (which falls
+  # back to DAYS_PER_WEEK when weekly_frequency is null/zero): the value
+  # object lets the show page draw a progress bar with a default, but the
+  # dashboard refuses to flag a student as overdue without an explicit
+  # cadence — that would be a noisy tag built on a guess.
   scope :periodization_overdue, -> {
     unarchived
       .joins("INNER JOIN periodizations ON periodizations.id = students.active_periodization_id")
@@ -134,12 +138,15 @@ class Student < ApplicationRecord
   end
 
   # Students within 5 sessions of finishing their Periodization target: the
-  # Current version is completed, the target is defined (weekly_frequency > 0
-  # and the version carries a periodization_length_weeks), and the finished
-  # session count across every version of the Active periodization leaves
-  # sessions_remaining in [0, 5) — i.e. the count sits in (target − 5, target].
-  # Mirrors Student::PeriodizationProgress#due? in SQL so the dashboard avoids
-  # N+1. Mutually exclusive with periodization_overdue by construction.
+  # Current version is completed, the student has an explicit
+  # weekly_frequency, the version carries a periodization_length_weeks, and
+  # the finished session count across every version of the Active
+  # periodization leaves sessions_remaining in [0, 5) — i.e. the count sits
+  # in (target − 5, target]. Same strict-cadence guard as
+  # periodization_overdue: Student::PeriodizationProgress#due? falls back to
+  # DAYS_PER_WEEK on the show page, but the dashboard requires an explicit
+  # weekly_frequency before nudging the trainer to replan. Mutually
+  # exclusive with periodization_overdue by construction.
   scope :periodization_due, -> {
     unarchived
       .joins("INNER JOIN periodizations ON periodizations.id = students.active_periodization_id")
