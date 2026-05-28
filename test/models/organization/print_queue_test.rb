@@ -43,6 +43,7 @@ class Organization::PrintQueueTest < ActiveSupport::TestCase
   test "excludes periodizations whose current version is not completed" do
     student = @organization.students.create!(name: "Failed", anamnesis_md: "ok")
     version = student.start_periodization!(trainer: @trainer)
+    version.periodization_length_weeks = 8
     version.complete!
     student.active_periodization.set_current_version!(version)
     # Force a non-completed status on the current_version to assert PrintQueue's
@@ -93,6 +94,7 @@ class Organization::PrintQueueTest < ActiveSupport::TestCase
     travel_to Time.zone.local(2026, 5, 15, 10, 0, 0) do
       student = @organization.students.create!(name: "Inativo", anamnesis_md: "ok", weekly_frequency: 3)
       version = student.start_periodization!(trainer: @trainer)
+      version.periodization_length_weeks = 8
       version.complete!
       student.active_periodization.set_current_version!(version)
       version.update_columns(created_at: 30.days.ago, updated_at: 30.days.ago)
@@ -121,6 +123,7 @@ class Organization::PrintQueueTest < ActiveSupport::TestCase
     # would otherwise be eligible for the print queue.
     student = @organization.students.create!(name: "Sem anamnese")
     version = student.start_periodization!(trainer: @trainer)
+    version.periodization_length_weeks = 8
     version.complete!
     student.active_periodization.set_current_version!(version)
 
@@ -170,6 +173,7 @@ class Organization::PrintQueueTest < ActiveSupport::TestCase
     other_org = Organization.create!(name: "Outro")
     other_student = other_org.students.create!(name: "Externo", anamnesis_md: "ok")
     v = other_student.start_periodization!(trainer: @trainer)
+    v.periodization_length_weeks = 8
     v.complete!
     other_student.active_periodization.set_current_version!(v)
 
@@ -186,6 +190,7 @@ class Organization::PrintQueueTest < ActiveSupport::TestCase
     def ready_to_print_student!(name, anamnesis:)
       student = @organization.students.create!(name: name, anamnesis_md: anamnesis)
       version = student.start_periodization!(trainer: @trainer)
+      version.periodization_length_weeks = 8
       version.complete!
       student.active_periodization.set_current_version!(version)
       student.reload

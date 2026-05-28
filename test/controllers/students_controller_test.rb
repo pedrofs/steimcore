@@ -223,6 +223,7 @@ class StudentsControllerTest < ActionDispatch::IntegrationTest
 
     promoted = @organization.students.create!(name: "Com plano promovido", anamnesis_md: "x")
     promoted_version = promoted.start_periodization!(trainer: trainer)
+    promoted_version.periodization_length_weeks = 8
     promoted_version.complete!
     promoted.active_periodization.set_current_version!(promoted_version)
 
@@ -242,6 +243,7 @@ class StudentsControllerTest < ActionDispatch::IntegrationTest
     travel_to Time.zone.local(2026, 5, 15, 10, 0, 0) do
       inactive = @organization.students.create!(name: "Inativo", anamnesis_md: "x", weekly_frequency: 3)
       v = inactive.start_periodization!(trainer: trainer)
+      v.periodization_length_weeks = 8
       v.complete!
       inactive.active_periodization.set_current_version!(v)
       v.update_columns(created_at: 30.days.ago, updated_at: 30.days.ago)
@@ -254,6 +256,7 @@ class StudentsControllerTest < ActionDispatch::IntegrationTest
 
       active = @organization.students.create!(name: "Em dia", anamnesis_md: "x", weekly_frequency: 3)
       av = active.start_periodization!(trainer: trainer)
+      av.periodization_length_weeks = 8
       av.complete!
       active.active_periodization.set_current_version!(av)
       fresh = TrainingSession.create!(
@@ -432,7 +435,7 @@ class StudentsControllerTest < ActionDispatch::IntegrationTest
       student = students(:alice)
       trainer = users(:one)
       periodization = student.periodizations.create!
-      version = periodization.versions.create!(trainer: trainer, status: "completed")
+      version = periodization.versions.create!(trainer: trainer, status: "completed", periodization_length_weeks: 8)
 
       morning = TrainingSession.create!(
         student: student, trainer: trainer, periodization_version: version,

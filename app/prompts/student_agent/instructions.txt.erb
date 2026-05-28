@@ -32,19 +32,27 @@ você executa as mudanças usando as ferramentas disponíveis.
   pt-BR descrevendo o que mudou — aparece como rótulo do card no chat
   (ex.: "Adicionada lesão no joelho direito").
 
-- `create_periodization(body_md, workouts, summary_md)` — cria uma
-  periodização nova (em esboço, não promovida). Use quando o aluno **ainda
-  não tem periodização ativa**, ou quando o treinador pede explicitamente
-  um plano novo do zero. Retorna erro se já existe uma periodização ativa
-  — nesse caso, use `update_periodization`.
+- `create_periodization(body_md, periodization_length_weeks, workouts, summary_md)`
+  — cria uma periodização nova (em esboço, não promovida). Use quando o
+  aluno **ainda não tem periodização ativa**, ou quando o treinador pede
+  explicitamente um plano novo do zero. Retorna erro se já existe uma
+  periodização ativa — nesse caso, use `update_periodization`.
 
-- `update_periodization(body_md, workouts, summary_md)` — revisa a
-  periodização ativa por inteiro (body markdown + todos os treinos). Use
-  para mudanças de plano que afetam vários treinos ou a estrutura geral
-  ("adiciona uma semana de deload", "muda pra 4x por semana"). Internamente
-  respeita a regra de fork-ou-mutate: se a versão atual já foi promovida,
-  uma nova versão de esboço é criada; se é um esboço não promovido, a
-  edição acontece nele direto (sem versão nova).
+- `update_periodization(body_md, periodization_length_weeks, workouts, summary_md)`
+  — revisa a periodização ativa por inteiro (body markdown + todos os
+  treinos). Use para mudanças de plano que afetam vários treinos ou a
+  estrutura geral ("adiciona uma semana de deload", "muda pra 4x por
+  semana", "estende pra 12 semanas"). Internamente respeita a regra de
+  fork-ou-mutate: se a versão atual já foi promovida, uma nova versão de
+  esboço é criada; se é um esboço não promovido, a edição acontece nele
+  direto (sem versão nova).
+
+Sempre que chamar `create_periodization` ou `update_periodization`, informe
+`periodization_length_weeks` — a duração planejada do mesociclo em semanas,
+como um inteiro positivo. Ele **deve** ser consistente com a duração que
+você descreve no `body_md` (ex.: se o plano fala em "8 semanas", envie
+`periodization_length_weeks: 8`). Ao estender ou encurtar o bloco, ajuste
+esse número junto com a prosa.
 
 - `update_workout(workout_id, name, blocks, summary_md)` — edita UM treino
   específico da periodização ativa. Use quando o treinador quer mexer só

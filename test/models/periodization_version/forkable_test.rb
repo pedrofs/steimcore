@@ -33,6 +33,20 @@ class PeriodizationVersion::ForkableTest < ActiveSupport::TestCase
     assert_equal "Agachamento", @version.workouts.find_by(name: "A").blocks.first["name"]
   end
 
+  test "create scope persists periodization_length_weeks from the patch" do
+    @version.fork_with!(
+      scope: :create,
+      patch: {
+        body_md: "## Plano",
+        periodization_length_weeks: 10,
+        workouts: [ { name: "A", blocks: [ exercise("Supino", "3x8") ], position: 1 } ]
+      },
+      trainer: @trainer
+    )
+
+    assert_equal 10, @version.reload.periodization_length_weeks
+  end
+
   test "rejects unknown scopes" do
     assert_raises(ArgumentError) do
       @version.fork_with!(scope: :bogus, patch: {}, trainer: @trainer)
@@ -371,6 +385,47 @@ class PeriodizationVersion::ForkableTest < ActiveSupport::TestCase
     assert_equal "X", new_version.workouts.first.name
   end
 
+  test "workout scope carries forward the parent's periodization_length_weeks unchanged" do
+    setup_parent_with_three_workouts!
+    target = @parent_version.workouts.find_by(position: 2)
+    new_version = build_child_version
+
+    new_version.fork_with!(
+      scope: :workout,
+      patch: { workout: { name: "B'", blocks: [ exercise("Supino inclinado", "4x10") ] } },
+      trainer: @trainer,
+      target_workout: target
+    )
+
+    assert_equal 8, new_version.reload.periodization_length_weeks, "single-workout edit must not change the mesocycle length"
+  end
+
+  test "periodization scope persists periodization_length_weeks from the patch" do
+    setup_parent_with_three_workouts!
+    new_version = build_child_version
+
+    new_version.fork_with!(
+      scope: :periodization,
+      patch: {
+        body_md: "## Plano de 12 semanas",
+        periodization_length_weeks: 12,
+        workouts: [ { name: "A", blocks: [ exercise("Supino", "3x8") ], position: 1 } ]
+      },
+      trainer: @trainer
+    )
+
+    assert_equal 12, new_version.reload.periodization_length_weeks
+  end
+
+  test "clone scope carries forward the parent's periodization_length_weeks" do
+    setup_parent_with_three_workouts!
+    new_version = build_child_version
+
+    new_version.fork_with!(scope: :clone, patch: nil, trainer: @trainer)
+
+    assert_equal 8, new_version.reload.periodization_length_weeks
+  end
+
   # --- apply_patch!(:workout) ---
 
   test "apply_patch! :workout mutates the receiver: target workout replaced; other workouts byte-identical" do
@@ -460,6 +515,22 @@ class PeriodizationVersion::ForkableTest < ActiveSupport::TestCase
     assert_equal [ 1, 2 ], @draft.workouts.order(:position).pluck(:position)
   end
 
+  test "apply_patch! :periodization persists periodization_length_weeks from the patch" do
+    setup_editable_draft_with_three_workouts!
+
+    @draft.apply_patch!(
+      scope: :periodization,
+      patch: {
+        body_md: "## Plano de 6 semanas",
+        periodization_length_weeks: 6,
+        workouts: [ { name: "A", blocks: [ exercise("Supino", "3x8") ], position: 1 } ]
+      },
+      trainer: @trainer
+    )
+
+    assert_equal 6, @draft.reload.periodization_length_weeks
+  end
+
   test "apply_patch! :periodization accepts string-keyed patches" do
     setup_editable_draft_with_three_workouts!
 
@@ -515,6 +586,7 @@ class PeriodizationVersion::ForkableTest < ActiveSupport::TestCase
         scope: :create,
         patch: {
           body_md: "## Plano\n\nMesociclo base.",
+          periodization_length_weeks: 8,
           workouts: [
             { name: "A", blocks: [ exercise("Agachamento", "4x8") ], position: 1 },
             { name: "B", blocks: [ exercise("Supino", "4x8") ], position: 2 },

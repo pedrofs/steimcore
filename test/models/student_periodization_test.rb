@@ -27,6 +27,7 @@ class StudentPeriodizationTest < ActiveSupport::TestCase
       scope: :create,
       patch: {
         body_md: "x",
+        periodization_length_weeks: 8,
         workouts: [ { name: "A", blocks: [ { kind: "exercise", name: "X", prescription: "3x5" } ], position: 1 } ]
       },
       trainer: @trainer
@@ -52,7 +53,7 @@ class StudentPeriodizationTest < ActiveSupport::TestCase
     parent_version = @student.start_periodization!(trainer: @trainer)
     parent_version.fork_with!(
       scope: :create,
-      patch: { body_md: "x", workouts: [ { name: "A", blocks: [ { kind: "exercise", name: "X", prescription: "3x5" } ], position: 1 } ] },
+      patch: { body_md: "x", periodization_length_weeks: 8, workouts: [ { name: "A", blocks: [ { kind: "exercise", name: "X", prescription: "3x5" } ], position: 1 } ] },
       trainer: @trainer
     )
     parent_version.transition_to!(:completed)
@@ -71,7 +72,7 @@ class StudentPeriodizationTest < ActiveSupport::TestCase
     parent_version = @student.start_periodization!(trainer: @trainer)
     parent_version.fork_with!(
       scope: :create,
-      patch: { body_md: "x", workouts: [ { name: "A", blocks: [ { kind: "exercise", name: "X", prescription: "3x5" } ], position: 1 } ] },
+      patch: { body_md: "x", periodization_length_weeks: 8, workouts: [ { name: "A", blocks: [ { kind: "exercise", name: "X", prescription: "3x5" } ], position: 1 } ] },
       trainer: @trainer
     )
     parent_version.transition_to!(:completed)

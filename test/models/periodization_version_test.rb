@@ -46,7 +46,7 @@ class PeriodizationVersionTest < ActiveSupport::TestCase
   end
 
   test "complete! transitions the version to :completed" do
-    version = build_version
+    version = build_version(periodization_length_weeks: 8)
     version.transition_to!(:generating)
 
     version.complete!
@@ -54,11 +54,41 @@ class PeriodizationVersionTest < ActiveSupport::TestCase
     assert_equal "completed", version.reload.status
   end
 
+  test "cannot transition to :completed while periodization_length_weeks is null" do
+    version = build_version
+    version.transition_to!(:generating)
+
+    assert_raises(ActiveRecord::RecordInvalid) { version.complete! }
+    assert_not version.valid?
+    assert_includes version.errors[:periodization_length_weeks].join, "can't be blank"
+    assert_equal "generating", version.reload.status
+  end
+
+  test "can move through pending → generating → failed without a length" do
+    version = build_version
+    assert_nil version.periodization_length_weeks
+
+    version.transition_to!(:generating)
+    version.fail!("Anthropic indisponível")
+
+    assert_equal "failed", version.reload.status
+  end
+
+  test "a completed version with a periodization_length_weeks is valid" do
+    version = build_version(periodization_length_weeks: 12)
+    version.transition_to!(:generating)
+    version.complete!
+
+    assert version.reload.valid?
+    assert_equal 12, version.periodization_length_weeks
+  end
+
   private
-    def build_version
+    def build_version(periodization_length_weeks: nil)
       @periodization.versions.create!(
         trainer: @trainer,
-        parent_version: nil
+        parent_version: nil,
+        periodization_length_weeks: periodization_length_weeks
       )
     end
 end

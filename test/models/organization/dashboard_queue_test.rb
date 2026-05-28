@@ -18,6 +18,7 @@ class Organization::DashboardQueueTest < ActiveSupport::TestCase
     travel_to Time.zone.local(2026, 5, 15, 10, 0, 0) do
       student = @organization.students.create!(name: "Filled", anamnesis_md: "## Histórico\nLesão antiga.")
       version = student.start_periodization!(trainer: trainer)
+      version.periodization_length_weeks = 8
       version.complete!
       student.active_periodization.set_current_version!(version)
       # Freshly-promoted student with no sessions is not inactive yet.
@@ -154,6 +155,7 @@ class Organization::DashboardQueueTest < ActiveSupport::TestCase
     # A student matching only anamnesis_pending.
     anamnesis = @organization.students.create!(name: "Anamnesis only")
     anamnesis_version = anamnesis.start_periodization!(trainer: trainer)
+    anamnesis_version.periodization_length_weeks = 8
     anamnesis_version.complete!
     anamnesis.active_periodization.set_current_version!(anamnesis_version)
 
@@ -223,6 +225,7 @@ class Organization::DashboardQueueTest < ActiveSupport::TestCase
       # inactive only: promoted plan, last session well past cutoff.
       inactive = @organization.students.create!(name: "Inativo", anamnesis_md: "x", weekly_frequency: 3)
       inactive_version = inactive.start_periodization!(trainer: trainer)
+      inactive_version.periodization_length_weeks = 8
       inactive_version.complete!
       inactive.active_periodization.set_current_version!(inactive_version)
       inactive_version.update_columns(created_at: 30.days.ago, updated_at: 30.days.ago)
@@ -239,6 +242,7 @@ class Organization::DashboardQueueTest < ActiveSupport::TestCase
       # anamnesis_pending only: has promoted plan but blank anamnesis.
       anamnesis = @organization.students.create!(name: "Sem anamnese")
       anamnesis_version = anamnesis.start_periodization!(trainer: trainer)
+      anamnesis_version.periodization_length_weeks = 8
       anamnesis_version.complete!
       anamnesis.active_periodization.set_current_version!(anamnesis_version)
 
@@ -257,6 +261,7 @@ class Organization::DashboardQueueTest < ActiveSupport::TestCase
       3.times do |i|
         s = @organization.students.create!(name: "Inativo #{i}", anamnesis_md: "x", weekly_frequency: 3)
         v = s.start_periodization!(trainer: trainer)
+        v.periodization_length_weeks = 8
         v.complete!
         s.active_periodization.set_current_version!(v)
         v.update_columns(created_at: 30.days.ago, updated_at: 30.days.ago)
@@ -317,6 +322,7 @@ class Organization::DashboardQueueTest < ActiveSupport::TestCase
       [ 20, 30, 25 ].each_with_index do |days_ago, i|
         s = @organization.students.create!(name: "Inativo #{i}", anamnesis_md: "x", weekly_frequency: 3)
         v = s.start_periodization!(trainer: trainer)
+        v.periodization_length_weeks = 8
         v.complete!
         s.active_periodization.set_current_version!(v)
         v.update_columns(created_at: (days_ago + 5).days.ago, updated_at: (days_ago + 5).days.ago)

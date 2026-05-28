@@ -151,6 +151,7 @@ class Students::AgentChatsControllerTest < ActionDispatch::IntegrationTest
         scope: :create,
         patch: {
           body_md: "## Plano",
+          periodization_length_weeks: 8,
           workouts: [
             { name: "A", blocks: [ { kind: "exercise", name: "Agachamento", prescription: "4x8" } ], position: 1 },
             { name: "B", blocks: [ { kind: "exercise", name: "Supino", prescription: "4x8" } ], position: 2 }
@@ -167,7 +168,7 @@ class Students::AgentChatsControllerTest < ActionDispatch::IntegrationTest
       workouts = names.each_with_index.map do |name, idx|
         { name: name, blocks: [ { kind: "exercise", name: "Agachamento", prescription: "4x8" } ], position: idx + 1 }
       end
-      version.fork_with!(scope: :create, patch: { body_md: "## Plano", workouts: workouts }, trainer: @user)
+      version.fork_with!(scope: :create, patch: { body_md: "## Plano", periodization_length_weeks: 8, workouts: workouts }, trainer: @user)
       version.transition_to!(:completed)
       version
     end

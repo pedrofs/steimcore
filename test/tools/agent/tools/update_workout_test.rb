@@ -104,6 +104,7 @@ class Agent::Tools::UpdateWorkoutTest < ActiveSupport::TestCase
         scope: :create,
         patch: {
           body_md: "## Plano base",
+          periodization_length_weeks: 8,
           workouts: [
             { name: "A", position: 1, blocks: [ { kind: "exercise", name: "Agachamento", prescription: "4x8" } ] },
             { name: "B", position: 2, blocks: [ { kind: "exercise", name: "Supino", prescription: "4x8" } ] },

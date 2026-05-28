@@ -129,7 +129,7 @@ class Students::Periodizations::PrintablesControllerTest < ActionDispatch::Integ
       version = @student.start_periodization!(trainer: @user)
       version.fork_with!(
         scope: :create,
-        patch: { body_md: "## Plano", workouts: workouts },
+        patch: { body_md: "## Plano", periodization_length_weeks: 8, workouts: workouts },
         trainer: @user
       )
       version.transition_to!(:completed)

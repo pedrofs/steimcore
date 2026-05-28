@@ -37,9 +37,12 @@ module Agent
         @trainer = trainer
       end
 
-      def execute(body_md:, workouts:, summary_md:)
+      def execute(body_md:, workouts:, summary_md:, periodization_length_weeks:)
         summary_md = summary_md.to_s.strip
         return { error: "Faltou um resumo curto (`summary_md`) descrevendo a alteração." } if summary_md.empty?
+
+        length = periodization_length_weeks.to_i
+        return { error: "`periodization_length_weeks` deve ser um inteiro positivo (duração do mesociclo em semanas)." } if length <= 0
 
         @student.reload
         periodization = @student.active_periodization
@@ -52,7 +55,7 @@ module Agent
           return { error: errors.join("; ") }
         end
 
-        patch = { body_md: body_md.to_s, workouts: workouts }
+        patch = { body_md: body_md.to_s, periodization_length_weeks: length, workouts: workouts }
         target_version = nil
 
         ActiveRecord::Base.transaction do

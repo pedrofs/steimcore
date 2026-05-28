@@ -272,6 +272,6 @@ class Student::FrequencyViewTest < ActiveSupport::TestCase
 
     def build_periodization_version
       periodization = @student.periodizations.create!
-      periodization.versions.create!(trainer: @trainer, status: "completed")
+      periodization.versions.create!(trainer: @trainer, status: "completed", periodization_length_weeks: 8)
     end
 end

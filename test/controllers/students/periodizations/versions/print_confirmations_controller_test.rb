@@ -71,7 +71,7 @@ class Students::Periodizations::Versions::PrintConfirmationsControllerTest < Act
       version = student.start_periodization!(trainer: trainer)
       version.fork_with!(
         scope: :create,
-        patch: { body_md: "## Plano", workouts: [
+        patch: { body_md: "## Plano", periodization_length_weeks: 8, workouts: [
           { name: "A", blocks: [], position: 1 }
         ] },
         trainer: trainer

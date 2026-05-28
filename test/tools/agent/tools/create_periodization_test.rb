@@ -21,6 +21,7 @@ class Agent::Tools::CreatePeriodizationTest < ActiveSupport::TestCase
 
     result = @tool.execute(
       body_md: "## Plano\n\nMesociclo base.",
+      periodization_length_weeks: 8,
       workouts: [
         { "name" => "A", "position" => 1, "blocks" => [ { "kind" => "exercise", "name" => "Agachamento", "prescription" => "4x8" } ] },
         { "name" => "B", "position" => 2, "blocks" => [ { "kind" => "exercise", "name" => "Supino", "prescription" => "4x8" } ] }
@@ -35,6 +36,7 @@ class Agent::Tools::CreatePeriodizationTest < ActiveSupport::TestCase
 
     version = @student.active_periodization.versions.first
     assert_equal "completed", version.status
+    assert_equal 8, version.periodization_length_weeks
     assert_equal "## Plano\n\nMesociclo base.", version.body_md
     assert_equal %w[A B], version.workouts.order(:position).pluck(:name)
     assert_equal persisted_tool_call.id, version.agent_tool_call_id
@@ -52,6 +54,7 @@ class Agent::Tools::CreatePeriodizationTest < ActiveSupport::TestCase
 
     result = @tool.execute(
       body_md: "ignored",
+      periodization_length_weeks: 8,
       workouts: [ { "name" => "A", "position" => 1, "blocks" => [ { "kind" => "exercise", "name" => "X", "prescription" => "3x5" } ] } ],
       summary_md: "qualquer"
     )
@@ -60,11 +63,24 @@ class Agent::Tools::CreatePeriodizationTest < ActiveSupport::TestCase
     assert_equal 1, @student.periodizations.count
   end
 
+  test "soft-errors when periodization_length_weeks is not a positive integer" do
+    result = @tool.execute(
+      body_md: "## Plano",
+      periodization_length_weeks: 0,
+      workouts: [ { "name" => "A", "position" => 1, "blocks" => [ { "kind" => "exercise", "name" => "X", "prescription" => "3x5" } ] } ],
+      summary_md: "x"
+    )
+
+    assert_match(/periodization_length_weeks/i, result[:error])
+    assert_nil @student.reload.active_periodization
+  end
+
   test "soft-errors when blocks fail Workout::Blocks validation, without persisting anything" do
     before_count = Periodization.count
 
     result = @tool.execute(
       body_md: "## Plano",
+      periodization_length_weeks: 8,
       workouts: [
         { "name" => "A", "position" => 1, "blocks" => [ { "kind" => "exercise", "name" => "Agachamento" } ] }
       ],
@@ -78,6 +94,7 @@ class Agent::Tools::CreatePeriodizationTest < ActiveSupport::TestCase
   test "soft-errors when summary_md is blank" do
     result = @tool.execute(
       body_md: "## Plano",
+      periodization_length_weeks: 8,
       workouts: [ { "name" => "A", "position" => 1, "blocks" => [ { "kind" => "exercise", "name" => "X", "prescription" => "3x5" } ] } ],
       summary_md: "   "
     )
@@ -93,6 +110,8 @@ class Agent::Tools::CreatePeriodizationTest < ActiveSupport::TestCase
     assert_includes schema["required"], "body_md"
     assert_includes schema["required"], "workouts"
     assert_includes schema["required"], "summary_md"
+    assert_includes schema["required"], "periodization_length_weeks"
+    assert_equal "integer", schema.dig("properties", "periodization_length_weeks", "type")
 
     workout_schema = schema.dig("properties", "workouts", "items")
     assert_equal "object", workout_schema["type"], "workouts is an array of structured workout objects, not strings"

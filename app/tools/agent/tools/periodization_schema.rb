@@ -53,11 +53,12 @@ module Agent
         {
           type: "object",
           additionalProperties: false,
-          required: %w[body_md workouts summary_md],
+          required: %w[body_md periodization_length_weeks workouts summary_md],
           properties: {
-            body_md:    { type: "string", description: "Markdown do plano (visão geral do mesociclo, princípios, progressão). Não comece com título H1." },
-            workouts:   { type: "array", items: WORKOUT_OBJECT, description: "Lista de treinos, cada um com name, position (>= 1) e blocks." },
-            summary_md: { type: "string", description: "Frase curta em pt-BR resumindo o que mudou. Aparece no card do chat." }
+            body_md:                    { type: "string", description: "Markdown do plano (visão geral do mesociclo, princípios, progressão). Não comece com título H1." },
+            periodization_length_weeks: { type: "integer", description: "Duração planejada do mesociclo em semanas (inteiro positivo). Deve ser consistente com a duração descrita no body_md." },
+            workouts:                   { type: "array", items: WORKOUT_OBJECT, description: "Lista de treinos, cada um com name, position (>= 1) e blocks." },
+            summary_md:                 { type: "string", description: "Frase curta em pt-BR resumindo o que mudou. Aparece no card do chat." }
           }
         }
       end

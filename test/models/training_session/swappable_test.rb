@@ -104,6 +104,7 @@ class TrainingSession::SwappableTest < ActiveSupport::TestCase
           blocks: [ { "kind" => "exercise", "name" => "Ex #{i + 1}", "prescription" => "3x10" } ]
         )
       end
+      version.periodization_length_weeks = 8
       version.complete!
       student.active_periodization.set_current_version!(version)
       workouts

@@ -267,6 +267,7 @@ class TrainingSessionsControllerTest < ActionDispatch::IntegrationTest
       workouts = Array.new(workout_count) do |i|
         version.workouts.create!(name: "Treino #{i + 1}", position: i + 1, blocks: blocks)
       end
+      version.periodization_length_weeks = 8
       version.complete!
       student.active_periodization.set_current_version!(version)
       workouts

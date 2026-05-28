@@ -19,6 +19,12 @@ class PeriodizationVersion < ApplicationRecord
 
   after_initialize :set_default_status, if: :new_record?
 
+  # A completed version must commit to a mesocycle length — the dashboard
+  # computes "sessions remaining" from it. Pending / generating / failed
+  # versions may have a null length while generation is in flight or after
+  # a failure (see ADR 0002).
+  validates :periodization_length_weeks, presence: true, if: -> { status == "completed" }
+
   def complete!
     transition_to!(:completed)
   end

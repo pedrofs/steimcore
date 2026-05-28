@@ -167,6 +167,7 @@ class StudentTest < ActiveSupport::TestCase
     trainer = users(:one)
     student = @organization.students.create!(name: "Rascunho", anamnesis_md: "x")
     version = student.start_periodization!(trainer: trainer)
+    version.periodization_length_weeks = 8
     version.complete!
     # Not promoted: periodization.current_version_id is still nil.
 
@@ -179,6 +180,7 @@ class StudentTest < ActiveSupport::TestCase
     trainer = users(:one)
     student = @organization.students.create!(name: "Histórico", anamnesis_md: "x")
     version = student.start_periodization!(trainer: trainer)
+    version.periodization_length_weeks = 8
     version.complete!
     # A child fork supersedes the version even before promotion.
     student.active_periodization.versions.create!(trainer: trainer, parent_version: version)
@@ -191,6 +193,7 @@ class StudentTest < ActiveSupport::TestCase
     trainer = users(:one)
     student = @organization.students.create!(name: "Promovido", anamnesis_md: "x")
     version = student.start_periodization!(trainer: trainer)
+    version.periodization_length_weeks = 8
     version.complete!
     student.active_periodization.set_current_version!(version)
 
@@ -354,6 +357,7 @@ class StudentTest < ActiveSupport::TestCase
     failed_version.fail!("oops")
     completed = @organization.students.create!(name: "Pronto")
     completed_version = completed.start_periodization!(trainer: trainer)
+    completed_version.periodization_length_weeks = 8
     completed_version.complete!
     archived = @organization.students.create!(name: "Arquivado", archived_at: 1.day.ago)
 
@@ -379,6 +383,7 @@ class StudentTest < ActiveSupport::TestCase
         weekly_frequency: weekly_frequency
       )
       version = student.start_periodization!(trainer: trainer)
+      version.periodization_length_weeks = 8
       version.complete!
       student.active_periodization.set_current_version!(version)
       version.update_columns(created_at: plan_created_at, updated_at: plan_created_at)

@@ -10,6 +10,7 @@ class PeriodizationVersions::PromotionsControllerTest < ActionDispatch::Integrat
       scope: :create,
       patch: {
         body_md: "## Plano",
+        periodization_length_weeks: 8,
         workouts: [ { name: "A", blocks: [ { kind: "exercise", name: "Agachamento", prescription: "4x8" } ], position: 1 } ]
       },
       trainer: @user

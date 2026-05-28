@@ -31,6 +31,7 @@ class Students::PeriodizationsControllerTest < ActionDispatch::IntegrationTest
       scope: :create,
       patch: {
         body_md: "## Plano",
+        periodization_length_weeks: 8,
         workouts: [
           { name: "A", blocks: [ exercise_block("Agachamento", "4x8") ], position: 1 },
           { name: "B", blocks: [ exercise_block("Supino", "4x8") ], position: 2 }
@@ -69,7 +70,7 @@ class Students::PeriodizationsControllerTest < ActionDispatch::IntegrationTest
     other_trainer = User.create!(email_address: "outro@example.com", password: "password", organization: @organization)
 
     v1 = @student.start_periodization!(trainer: @user)
-    v1.fork_with!(scope: :create, patch: { body_md: "## v1", workouts: [
+    v1.fork_with!(scope: :create, patch: { body_md: "## v1", periodization_length_weeks: 8, workouts: [
       { name: "A", blocks: [ exercise_block("Agachamento", "4x8") ], position: 1 }
     ] }, trainer: @user)
     v1.transition_to!(:completed)
@@ -77,7 +78,7 @@ class Students::PeriodizationsControllerTest < ActionDispatch::IntegrationTest
     periodization.set_current_version!(v1)
 
     v2 = periodization.start_edit!(scope: :periodization, trainer: other_trainer)
-    v2.fork_with!(scope: :periodization, patch: { body_md: "## v2", workouts: [
+    v2.fork_with!(scope: :periodization, patch: { body_md: "## v2", periodization_length_weeks: 8, workouts: [
       { name: "A", blocks: [ exercise_block("Agachamento", "4x8") ], position: 1 },
       { name: "C", blocks: [ exercise_block("Leg press", "4x10") ], position: 2 }
     ] }, trainer: other_trainer)
@@ -102,7 +103,7 @@ class Students::PeriodizationsControllerTest < ActionDispatch::IntegrationTest
 
   test "show flags non-promoted, non-superseded completed versions as drafts" do
     v1 = @student.start_periodization!(trainer: @user)
-    v1.fork_with!(scope: :create, patch: { body_md: "## v1", workouts: [
+    v1.fork_with!(scope: :create, patch: { body_md: "## v1", periodization_length_weeks: 8, workouts: [
       { name: "A", blocks: [ exercise_block("Agachamento", "4x8") ], position: 1 }
     ] }, trainer: @user)
     v1.transition_to!(:completed)
@@ -110,14 +111,14 @@ class Students::PeriodizationsControllerTest < ActionDispatch::IntegrationTest
     periodization.set_current_version!(v1)
 
     v2 = periodization.start_edit!(scope: :periodization, trainer: @user)
-    v2.fork_with!(scope: :periodization, patch: { body_md: "## v2", workouts: [
+    v2.fork_with!(scope: :periodization, patch: { body_md: "## v2", periodization_length_weeks: 8, workouts: [
       { name: "A", blocks: [ exercise_block("Agachamento", "4x8") ], position: 1 }
     ] }, trainer: @user)
     v2.transition_to!(:completed)
     periodization.set_current_version!(v2)
 
     v3 = periodization.start_edit!(scope: :periodization, trainer: @user)
-    v3.fork_with!(scope: :periodization, patch: { body_md: "## v3", workouts: [
+    v3.fork_with!(scope: :periodization, patch: { body_md: "## v3", periodization_length_weeks: 8, workouts: [
       { name: "A", blocks: [ exercise_block("Agachamento", "4x8") ], position: 1 }
     ] }, trainer: @user)
     v3.transition_to!(:completed)

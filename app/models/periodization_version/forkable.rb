@@ -76,6 +76,7 @@ module PeriodizationVersion::Forkable
 
       transaction do
         assign_attributes(body_md: body_md, trainer: trainer)
+        assign_length_from(patch)
 
         workouts.destroy_all if workouts.loaded? || persisted?
         workouts_attrs.each { |attrs| workouts.build(attrs) }
@@ -89,7 +90,11 @@ module PeriodizationVersion::Forkable
       target_position = target_workout.position
 
       transaction do
-        assign_attributes(body_md: parent_version.body_md.to_s, trainer: trainer)
+        assign_attributes(
+          body_md: parent_version.body_md.to_s,
+          periodization_length_weeks: parent_version.periodization_length_weeks,
+          trainer: trainer
+        )
 
         workouts.destroy_all if workouts.loaded? || persisted?
 
@@ -126,7 +131,11 @@ module PeriodizationVersion::Forkable
 
     def apply_clone!(trainer:)
       transaction do
-        assign_attributes(body_md: parent_version.body_md.to_s, trainer: trainer)
+        assign_attributes(
+          body_md: parent_version.body_md.to_s,
+          periodization_length_weeks: parent_version.periodization_length_weeks,
+          trainer: trainer
+        )
 
         workouts.destroy_all if workouts.loaded? || persisted?
 
@@ -142,6 +151,15 @@ module PeriodizationVersion::Forkable
         transition_to!(:generating)
         complete!
       end
+    end
+
+    # Whole-plan patches carry the mesocycle length as a structured field.
+    # Only assign when the patch actually supplies it, so an omitted key
+    # preserves the existing value rather than nulling it.
+    def assign_length_from(patch)
+      return unless patch.key?(:periodization_length_weeks) || patch.key?("periodization_length_weeks")
+
+      self.periodization_length_weeks = patch[:periodization_length_weeks] || patch["periodization_length_weeks"]
     end
 
     def extract_workouts_attrs(patch)

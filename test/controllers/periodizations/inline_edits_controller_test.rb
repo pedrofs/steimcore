@@ -10,6 +10,7 @@ class Periodizations::InlineEditsControllerTest < ActionDispatch::IntegrationTes
       scope: :create,
       patch: {
         body_md: "## Plano",
+        periodization_length_weeks: 8,
         workouts: [
           { name: "A", blocks: [ exercise_block("Agachamento", "4x8") ], position: 1 },
           { name: "B", blocks: [ exercise_block("Supino", "4x8") ], position: 2 }

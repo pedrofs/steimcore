@@ -13,6 +13,7 @@ class Agent::Tools::UpdatePeriodizationTest < ActiveSupport::TestCase
 
     result = @tool.execute(
       body_md: "## Plano revisado",
+      periodization_length_weeks: 12,
       workouts: [
         { "name" => "A", "position" => 1, "blocks" => [ { "kind" => "exercise", "name" => "Agachamento livre", "prescription" => "5x5" } ] }
       ],
@@ -21,6 +22,7 @@ class Agent::Tools::UpdatePeriodizationTest < ActiveSupport::TestCase
 
     version.reload
     assert_equal "## Plano revisado", version.body_md
+    assert_equal 12, version.periodization_length_weeks, "whole-plan edit recomputes the mesocycle length"
     assert_equal "Agachamento livre", version.workouts.first.blocks.first["name"]
     assert_equal version.id, result[:version_id]
     assert_equal "periodization", result[:scope]
@@ -40,6 +42,7 @@ class Agent::Tools::UpdatePeriodizationTest < ActiveSupport::TestCase
 
     result = @tool.execute(
       body_md: "## Plano v2",
+      periodization_length_weeks: 10,
       workouts: [
         { "name" => "Push", "position" => 1, "blocks" => [ { "kind" => "exercise", "name" => "Supino", "prescription" => "5x5" } ] },
         { "name" => "Pull", "position" => 2, "blocks" => [ { "kind" => "exercise", "name" => "Remada", "prescription" => "5x5" } ] }
@@ -63,6 +66,7 @@ class Agent::Tools::UpdatePeriodizationTest < ActiveSupport::TestCase
 
     result = @tool.execute(
       body_md: "x",
+      periodization_length_weeks: 8,
       workouts: [ { "name" => "A", "position" => 1, "blocks" => [ { "kind" => "exercise", "name" => "Supino", "prescription" => "3x5" } ] } ],
       summary_md: "x"
     )
@@ -77,6 +81,7 @@ class Agent::Tools::UpdatePeriodizationTest < ActiveSupport::TestCase
 
     result = @tool.execute(
       body_md: "## Plano destrutivo",
+      periodization_length_weeks: 8,
       workouts: [
         { "name" => "A", "position" => 1, "blocks" => [ { "kind" => "exercise", "name" => "Agachamento" } ] }
       ],
@@ -95,6 +100,7 @@ class Agent::Tools::UpdatePeriodizationTest < ActiveSupport::TestCase
         scope: :create,
         patch: {
           body_md: "## Plano base",
+          periodization_length_weeks: 8,
           workouts: [
             { name: "A", position: 1, blocks: [ { kind: "exercise", name: "Agachamento", prescription: "4x8" } ] }
           ]

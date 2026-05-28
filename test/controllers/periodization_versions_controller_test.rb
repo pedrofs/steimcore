@@ -30,7 +30,7 @@ class PeriodizationVersionsControllerTest < ActionDispatch::IntegrationTest
     @version.periodization.update!(current_version: @version)
 
     v2 = @version.periodization.start_edit!(scope: :periodization, trainer: @user)
-    v2.fork_with!(scope: :periodization, patch: { body_md: "## v2", workouts: [
+    v2.fork_with!(scope: :periodization, patch: { body_md: "## v2", periodization_length_weeks: 8, workouts: [
       { name: "A", blocks: [ exercise_block("Agachamento", "4x8") ], position: 1 }
     ] }, trainer: @user)
     v2.transition_to!(:completed)
@@ -102,6 +102,7 @@ class PeriodizationVersionsControllerTest < ActionDispatch::IntegrationTest
         scope: :create,
         patch: {
           body_md: "## Plano",
+          periodization_length_weeks: 8,
           workouts: [
             { name: "A", blocks: [ exercise_block("Agachamento", "4x8") ], position: 1 },
             { name: "B", blocks: [ exercise_block("Supino", "4x8") ], position: 2 }
