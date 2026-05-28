@@ -370,6 +370,85 @@ class StudentTest < ActiveSupport::TestCase
     assert_not_includes scope, archived
   end
 
+  test "periodization_overdue matches when finished sessions exceed the target" do
+    @organization.students.destroy_all
+    student = overdue_student!(remaining: -1)
+
+    assert_includes Student.periodization_overdue, student
+  end
+
+  test "periodization_overdue does NOT match at the target boundary (sessions_remaining 0)" do
+    @organization.students.destroy_all
+    student = overdue_student!(remaining: 0)
+
+    assert_not_includes Student.periodization_overdue, student
+  end
+
+  test "periodization_overdue counts finished sessions across superseded versions of the active periodization" do
+    @organization.students.destroy_all
+    trainer = users(:one)
+    student = @organization.students.create!(name: "Vencida histórica", anamnesis_md: "x", weekly_frequency: 1)
+    v1 = student.start_periodization!(trainer: trainer)
+    v1.periodization_length_weeks = 1 # target 1
+    v1.complete!
+    student.active_periodization.set_current_version!(v1)
+    finish_session_for!(student.reload, at: Time.current) # 1 session on v1
+    # Fork + promote v2; v1 becomes superseded but its session still counts.
+    v2 = student.active_periodization.start_edit!(scope: :periodization, trainer: trainer)
+    v2.periodization_length_weeks = 1
+    v2.complete!
+    student.active_periodization.set_current_version!(v2)
+    finish_session_for!(student.reload, at: Time.current) # 1 session on v2 → 2 > target 1
+
+    assert_includes Student.periodization_overdue, student
+  end
+
+  test "periodization_overdue excludes students with no active periodization" do
+    @organization.students.destroy_all
+    @organization.students.create!(name: "Sem plano", anamnesis_md: "x", weekly_frequency: 3)
+
+    assert_empty Student.periodization_overdue
+  end
+
+  test "periodization_overdue excludes students with null weekly_frequency" do
+    @organization.students.destroy_all
+    student = overdue_student!(remaining: -2)
+    student.update_columns(weekly_frequency: nil)
+
+    assert_not_includes Student.periodization_overdue, student
+  end
+
+  test "periodization_overdue excludes students with zero weekly_frequency" do
+    @organization.students.destroy_all
+    student = overdue_student!(remaining: -2)
+    student.update_columns(weekly_frequency: 0)
+
+    assert_not_includes Student.periodization_overdue, student
+  end
+
+  test "periodization_overdue excludes students whose current version has null periodization_length_weeks" do
+    @organization.students.destroy_all
+    student = overdue_student!(remaining: -2)
+    student.active_periodization.current_version.update_columns(periodization_length_weeks: nil)
+
+    assert_not_includes Student.periodization_overdue, student.reload
+  end
+
+  test "periodization_overdue excludes archived students" do
+    @organization.students.destroy_all
+    student = overdue_student!(remaining: -2)
+    student.archive!
+
+    assert_not_includes Student.periodization_overdue, student
+  end
+
+  test "periodization_overdue_sort_value returns sessions_remaining" do
+    @organization.students.destroy_all
+    student = overdue_student!(remaining: -3)
+
+    assert_equal(-3, student.periodization_overdue_sort_value)
+  end
+
   private
     # Build an unarchived student in @organization with an active periodization
     # whose current_version is :completed and pinned. plan_created_at sets both
@@ -388,6 +467,25 @@ class StudentTest < ActiveSupport::TestCase
       student.active_periodization.set_current_version!(version)
       version.update_columns(created_at: plan_created_at, updated_at: plan_created_at)
       student
+    end
+
+    # Builds an unarchived student whose active periodization is completed and
+    # promoted, with enough finished sessions to land on the requested
+    # sessions_remaining (target = length_weeks × weekly_frequency).
+    def overdue_student!(remaining:, weekly_frequency: 1, length_weeks: 2)
+      trainer = users(:one)
+      student = @organization.students.create!(
+        name: "Vencida #{SecureRandom.hex(3)}",
+        anamnesis_md: "x",
+        weekly_frequency: weekly_frequency
+      )
+      version = student.start_periodization!(trainer: trainer)
+      version.periodization_length_weeks = length_weeks
+      version.complete!
+      student.active_periodization.set_current_version!(version)
+      target = length_weeks * weekly_frequency
+      (target - remaining).times { finish_session_for!(student.reload, at: Time.current) }
+      student.reload
     end
 
     def finish_session_for!(student, at:)

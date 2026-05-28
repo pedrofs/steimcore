@@ -27,10 +27,16 @@ export type SharedProps = {
   activeSessionCount: number
 }
 
-export type DashboardTag = "plan_needs_action" | "inactive" | "no_plan" | "anamnesis_pending"
+export type DashboardTag =
+  | "plan_needs_action"
+  | "periodization_overdue"
+  | "inactive"
+  | "no_plan"
+  | "anamnesis_pending"
 
 export type DashboardCounts = {
   planNeedsAction: number
+  periodizationOverdue: number
   inactive: number
   noPlan: number
   anamnesisPending: number
@@ -40,6 +46,7 @@ export type DashboardRow = {
   student: { id: string; name: string }
   tags: DashboardTag[]
   primaryTag: DashboardTag
+  sessionsRemaining?: number
 }
 
 export type DashboardQueue = {

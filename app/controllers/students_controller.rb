@@ -92,10 +92,11 @@ class StudentsController < InertiaController
     end
 
     STATUS_SCOPES = {
-      "plan_needs_action" => :plan_needs_action,
-      "inactive"          => :inactive,
-      "anamnesis_pending" => :anamnesis_pending,
-      "no_plan"           => :without_active_plan
+      "plan_needs_action"     => :plan_needs_action,
+      "periodization_overdue" => :periodization_overdue,
+      "inactive"              => :inactive,
+      "anamnesis_pending"     => :anamnesis_pending,
+      "no_plan"               => :without_active_plan
     }.freeze
     KNOWN_STATUSES = STATUS_SCOPES.keys.freeze
 

@@ -14,6 +14,7 @@ type Props = {
 
 const TAG_LABEL: Record<DashboardTag, string> = {
   plan_needs_action: "Plano precisa ação",
+  periodization_overdue: "Periodização vencida",
   inactive: "Inativo",
   no_plan: "Sem plano",
   anamnesis_pending: "Anamnese pendente",
@@ -21,6 +22,7 @@ const TAG_LABEL: Record<DashboardTag, string> = {
 
 const TAG_HREF: Record<DashboardTag, string> = {
   plan_needs_action: "/students?status=plan_needs_action",
+  periodization_overdue: "/students?status=periodization_overdue",
   inactive: "/students?status=inactive",
   no_plan: "/students?status=no_plan",
   anamnesis_pending: "/students?status=anamnesis_pending",
@@ -64,6 +66,7 @@ function ZeroStudentsCta() {
 function CountsStrip({ counts }: { counts: DashboardQueue["counts"] }) {
   const entries: Array<{ tag: DashboardTag; count: number }> = [
     { tag: "plan_needs_action", count: counts.planNeedsAction },
+    { tag: "periodization_overdue", count: counts.periodizationOverdue },
     { tag: "inactive", count: counts.inactive },
     { tag: "no_plan", count: counts.noPlan },
     { tag: "anamnesis_pending", count: counts.anamnesisPending },
@@ -110,6 +113,11 @@ function QueueList({ rows }: { rows: DashboardQueue["rows"] }) {
                     {TAG_LABEL[tag]}
                   </Badge>
                 ))}
+                {row.sessionsRemaining !== undefined && (
+                  <Badge variant="destructive" className="tabular-nums">
+                    {row.sessionsRemaining} sessões
+                  </Badge>
+                )}
               </div>
             </div>
             <ChevronRightIcon className="size-4 shrink-0 text-muted-foreground" aria-hidden />

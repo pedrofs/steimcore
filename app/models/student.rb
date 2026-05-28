@@ -100,6 +100,39 @@ class Student < ApplicationRecord
     active_periodization.current_version&.created_at
   end
 
+  # Students who have trained past their Periodization target without a new
+  # Periodization being designed: the Current version is completed, the target
+  # is defined (weekly_frequency > 0 and the version carries a
+  # periodization_length_weeks), and the finished session count across every
+  # version of the Active periodization exceeds that target. Mirrors the rules
+  # in Student::PeriodizationProgress in SQL so the dashboard avoids N+1.
+  scope :periodization_overdue, -> {
+    unarchived
+      .joins("INNER JOIN periodizations ON periodizations.id = students.active_periodization_id")
+      .joins("INNER JOIN periodization_versions current_version ON current_version.id = periodizations.current_version_id")
+      .where("current_version.status = 'completed'")
+      .where("students.weekly_frequency > 0")
+      .where("current_version.periodization_length_weeks IS NOT NULL")
+      .where(<<~SQL.squish)
+        (
+          SELECT COUNT(*)
+          FROM training_sessions ts
+          JOIN periodization_versions pv ON pv.id = ts.periodization_version_id
+          WHERE ts.student_id = students.id
+            AND ts.finished_at IS NOT NULL
+            AND pv.periodization_id = periodizations.id
+        ) > current_version.periodization_length_weeks * students.weekly_frequency
+      SQL
+  }
+
+  # Within-tag tiebreaker for the periodization_overdue dashboard cohort:
+  # sessions_remaining, smaller-is-earlier so the most-overshot student (e.g.
+  # -5) surfaces before a barely-overshot one (-1). Delegates to
+  # Student::PeriodizationProgress so the SQL scope and Ruby value stay aligned.
+  def periodization_overdue_sort_value
+    PeriodizationProgress.new(self).sessions_remaining
+  end
+
   def age(today: Date.current)
     return nil if birthday.nil?
     age = today.year - birthday.year

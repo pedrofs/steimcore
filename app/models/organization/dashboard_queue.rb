@@ -11,10 +11,11 @@ class Organization
     # Each entry: tag name, scope method on Student, and a callable that
     # returns the within-tag sort value (lower sorts earlier).
     TAGS = [
-      { name: :plan_needs_action, scope: :plan_needs_action,   sort_by: ->(student) { student.plan_needs_action_sort_value } },
-      { name: :inactive,          scope: :inactive,            sort_by: ->(student) { student.inactive_sort_value } },
-      { name: :no_plan,           scope: :without_active_plan, sort_by: ->(student) { student.created_at } },
-      { name: :anamnesis_pending, scope: :anamnesis_pending,   sort_by: ->(student) { student.created_at } }
+      { name: :plan_needs_action,     scope: :plan_needs_action,     sort_by: ->(student) { student.plan_needs_action_sort_value } },
+      { name: :periodization_overdue, scope: :periodization_overdue, sort_by: ->(student) { student.periodization_overdue_sort_value } },
+      { name: :inactive,              scope: :inactive,              sort_by: ->(student) { student.inactive_sort_value } },
+      { name: :no_plan,               scope: :without_active_plan,   sort_by: ->(student) { student.created_at } },
+      { name: :anamnesis_pending,     scope: :anamnesis_pending,     sort_by: ->(student) { student.created_at } }
     ].freeze
 
     # Union of student ids that match any of the four dashboard tags. Used by
@@ -65,12 +66,17 @@ class Organization
       end
 
       def serialize_row(row)
-        {
+        payload = {
           student: { id: row[:student].id, name: row[:student].name },
           tags: row[:tags],
           primary_tag: row[:primary_tag],
           sort_value: row[:sort_value]
         }
+        # The overdue sort value IS sessions_remaining (see Student), so reuse it
+        # rather than recompute. Only surfaced when overdue is the primary tag —
+        # other rows don't pay the lookup.
+        payload[:sessions_remaining] = row[:sort_value] if row[:primary_tag] == :periodization_overdue
+        payload
       end
 
       def scope_for(tag)

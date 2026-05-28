@@ -276,6 +276,38 @@ class StudentsControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "index filters to periodization_overdue students when ?status=periodization_overdue" do
+    @organization.students.destroy_all
+    trainer = users(:one)
+
+    overdue = @organization.students.create!(name: "Vencida", anamnesis_md: "x", weekly_frequency: 1)
+    ov = overdue.start_periodization!(trainer: trainer)
+    ov.periodization_length_weeks = 1 # target 1
+    ov.complete!
+    overdue.active_periodization.set_current_version!(ov)
+    2.times do
+      TrainingSession.create!(
+        student: overdue, trainer: trainer, periodization_version: ov,
+        workout_name_snapshot: "Treino A", workout_position_snapshot: 1,
+        blocks_snapshot: [], progress: []
+      ).update_columns(finished_at: Time.current)
+    end
+
+    on_track = @organization.students.create!(name: "Em dia", anamnesis_md: "x", weekly_frequency: 1)
+    ot = on_track.start_periodization!(trainer: trainer)
+    ot.periodization_length_weeks = 8 # target 8, no sessions → not overdue
+    ot.complete!
+    on_track.active_periodization.set_current_version!(ot)
+
+    sign_in_as(@user)
+    get students_path, params: { status: "periodization_overdue" }
+
+    names = inertia.props[:students].map { |s| s[:name] }
+    assert_includes names, overdue.name
+    assert_not_includes names, on_track.name
+    assert_equal "periodization_overdue", inertia.props[:filters][:status]
+  end
+
   test "index echoes back the status filter" do
     sign_in_as(@user)
     get students_path, params: { status: "anamnesis_pending" }

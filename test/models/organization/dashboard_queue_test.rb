@@ -9,7 +9,7 @@ class Organization::DashboardQueueTest < ActiveSupport::TestCase
   test "returns zero counts and empty rows when the organization has no students" do
     payload = Organization::DashboardQueue.new(@organization).to_h
 
-    assert_equal({ plan_needs_action: 0, inactive: 0, no_plan: 0, anamnesis_pending: 0 }, payload[:counts])
+    assert_equal({ plan_needs_action: 0, periodization_overdue: 0, inactive: 0, no_plan: 0, anamnesis_pending: 0 }, payload[:counts])
     assert_equal [], payload[:rows]
   end
 
@@ -342,4 +342,138 @@ class Organization::DashboardQueueTest < ActiveSupport::TestCase
       assert_equal expected_ids, ordered_ids
     end
   end
+
+  test "an overdue student surfaces with the periodization_overdue tag and a sessions_remaining badge" do
+    student = overdue_student!(remaining: -3)
+
+    payload = Organization::DashboardQueue.new(@organization).to_h
+
+    row = payload[:rows].find { |r| r[:student][:id] == student.id }
+    assert_equal :periodization_overdue, row[:primary_tag]
+    assert_includes row[:tags], :periodization_overdue
+    assert_equal(-3, row[:sessions_remaining])
+  end
+
+  test "periodization_overdue outranks inactive and no_plan but sits below plan_needs_action" do
+    trainer = users(:one)
+    # plan_needs_action only: failed draft on active plan.
+    plan_action = @organization.students.create!(name: "Plan action", anamnesis_md: "x")
+    plan_action.start_periodization!(trainer: trainer).fail!("oops")
+    # periodization_overdue only: trained past target, last session is now (not inactive).
+    overdue = overdue_student!(remaining: -2)
+    # no_plan only: anamnesis but no active periodization.
+    no_plan = @organization.students.create!(name: "Sem plano", anamnesis_md: "x")
+
+    payload = Organization::DashboardQueue.new(@organization).to_h
+
+    assert_equal [ plan_action.id, overdue.id, no_plan.id ],
+                 payload[:rows].map { |r| r[:student][:id] }
+    assert_equal [ :plan_needs_action, :periodization_overdue, :no_plan ],
+                 payload[:rows].map { |r| r[:primary_tag] }
+  end
+
+  test "periodization_overdue tiebreaker sorts most-overshot (smallest sessions_remaining) first" do
+    a = overdue_student!(remaining: -1)
+    b = overdue_student!(remaining: -5)
+    c = overdue_student!(remaining: -3)
+
+    payload = Organization::DashboardQueue.new(@organization).to_h
+
+    overdue_ids = payload[:rows]
+      .select { |r| r[:primary_tag] == :periodization_overdue }
+      .map { |r| r[:student][:id] }
+    assert_equal [ b.id, c.id, a.id ], overdue_ids
+  end
+
+  test "periodization_overdue count reflects every matching student in the org" do
+    3.times { overdue_student!(remaining: -1) }
+
+    payload = Organization::DashboardQueue.new(@organization).to_h
+
+    assert_equal 3, payload[:counts][:periodization_overdue]
+  end
+
+  test "a student matching both plan_needs_action and periodization_overdue stacks tags with plan_needs_action primary" do
+    trainer = users(:one)
+    student = overdue_student!(remaining: -2)
+    # Add a failed draft on the same active periodization → also plan_needs_action.
+    failed = student.active_periodization.versions.create!(trainer: trainer)
+    failed.transition_to!(:generating)
+    failed.fail!("oops")
+
+    payload = Organization::DashboardQueue.new(@organization).to_h
+
+    row = payload[:rows].find { |r| r[:student][:id] == student.id }
+    assert_equal :plan_needs_action, row[:primary_tag]
+    assert_equal [ :plan_needs_action, :periodization_overdue ], row[:tags]
+  end
+
+  test "a student matching both periodization_overdue and inactive stacks tags with periodization_overdue primary" do
+    trainer = users(:one)
+    travel_to Time.zone.local(2026, 5, 15, 10, 0, 0) do
+      student = @organization.students.create!(name: "Vencida e inativa", anamnesis_md: "x", weekly_frequency: 3)
+      version = student.start_periodization!(trainer: trainer)
+      version.periodization_length_weeks = 1 # target 3
+      version.complete!
+      student.active_periodization.set_current_version!(version)
+      version.update_columns(created_at: 60.days.ago, updated_at: 60.days.ago)
+      # 4 finished sessions long ago → overshoot target 3 AND past the inactive cutoff.
+      4.times do
+        s = TrainingSession.create!(
+          student: student, trainer: trainer, periodization_version: version,
+          workout_name_snapshot: "Treino A", workout_position_snapshot: 1,
+          blocks_snapshot: [], progress: []
+        )
+        s.update_columns(created_at: 30.days.ago, finished_at: 30.days.ago)
+      end
+
+      payload = Organization::DashboardQueue.new(@organization).to_h
+
+      row = payload[:rows].find { |r| r[:student][:id] == student.id }
+      assert_equal :periodization_overdue, row[:primary_tag]
+      assert_equal [ :periodization_overdue, :inactive ], row[:tags]
+    end
+  end
+
+  test "sessions_remaining is omitted from rows whose primary tag is not periodization_overdue" do
+    trainer = users(:one)
+    # Promoted plan but blank anamnesis → anamnesis_pending only (not overdue).
+    student = @organization.students.create!(name: "Anamnese pendente")
+    version = student.start_periodization!(trainer: trainer)
+    version.periodization_length_weeks = 8
+    version.complete!
+    student.active_periodization.set_current_version!(version)
+
+    payload = Organization::DashboardQueue.new(@organization).to_h
+
+    row = payload[:rows].find { |r| r[:student][:id] == student.id }
+    assert_equal :anamnesis_pending, row[:primary_tag]
+    assert_not row.key?(:sessions_remaining)
+  end
+
+  private
+    # Builds an unarchived student in @organization whose active periodization is
+    # completed and promoted, with enough finished sessions (timestamped now, so
+    # they aren't also inactive) to land on the requested sessions_remaining.
+    def overdue_student!(remaining:, weekly_frequency: 1, length_weeks: 2)
+      trainer = users(:one)
+      student = @organization.students.create!(
+        name: "Vencida #{SecureRandom.hex(3)}",
+        anamnesis_md: "x",
+        weekly_frequency: weekly_frequency
+      )
+      version = student.start_periodization!(trainer: trainer)
+      version.periodization_length_weeks = length_weeks
+      version.complete!
+      student.active_periodization.set_current_version!(version)
+      target = length_weeks * weekly_frequency
+      (target - remaining).times do
+        TrainingSession.create!(
+          student: student, trainer: trainer, periodization_version: version,
+          workout_name_snapshot: "Treino A", workout_position_snapshot: 1,
+          blocks_snapshot: [], progress: []
+        ).update_columns(finished_at: Time.current)
+      end
+      student.reload
+    end
 end
