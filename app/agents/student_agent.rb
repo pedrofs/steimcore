@@ -21,7 +21,9 @@ class StudentAgent < RubyLLM::Agent
       Agent::Tools::UpdateAnamnesis.new(student: student, trainer: trainer),
       Agent::Tools::CreatePeriodization.new(student: student, trainer: trainer),
       Agent::Tools::UpdatePeriodization.new(student: student, trainer: trainer),
-      Agent::Tools::UpdateWorkout.new(student: student, trainer: trainer)
+      Agent::Tools::UpdateWorkout.new(student: student, trainer: trainer),
+      Agent::Tools::UpdateStudentNotes.new(student: student, trainer: trainer),
+      Agent::Tools::UpdateOrganizationNotes.new(organization: student.organization, trainer: trainer)
     ]
 
     by_name = tool_instances.index_by(&:name)

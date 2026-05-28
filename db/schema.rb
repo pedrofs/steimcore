@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.2].define(version: 2026_05_28_120000) do
+ActiveRecord::Schema[8.2].define(version: 2026_05_28_141824) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -132,6 +132,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_05_28_120000) do
     t.text "equipment_list_md", default: "", null: false
     t.string "name", null: false
     t.datetime "updated_at", null: false
+    t.text "notes_md", default: "", null: false
   end
 
   create_table "periodization_versions", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|

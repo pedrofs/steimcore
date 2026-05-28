@@ -20,7 +20,7 @@ class OrganizationsController < InertiaController
 
   def update
     if current_organization.update(organization_params)
-      redirect_to organization_path, notice: "Equipamentos atualizados."
+      redirect_to organization_path, notice: "Organização atualizada."
     else
       redirect_to edit_organization_path,
                   inertia: { errors: current_organization.errors.to_hash(true) }
@@ -29,14 +29,15 @@ class OrganizationsController < InertiaController
 
   private
     def organization_params
-      params.require(:organization).permit(:equipment_list_md)
+      params.require(:organization).permit(:equipment_list_md, :notes_md)
     end
 
     def organization_props
       {
         id: current_organization.id,
         name: current_organization.name,
-        equipment_list_md: current_organization.equipment_list_md
+        equipment_list_md: current_organization.equipment_list_md,
+        notes_md: current_organization.notes_md
       }
     end
 

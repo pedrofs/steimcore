@@ -19,6 +19,7 @@ type Organization = {
   id: string
   name: string
   equipmentListMd: string
+  notesMd: string
 }
 
 type Member = {
@@ -60,6 +61,7 @@ export default function Show({
   pendingInvitations,
 }: Props) {
   const hasEquipment = organization.equipmentListMd.trim().length > 0
+  const hasNotes = organization.notesMd.trim().length > 0
   const hasPending = pendingInvitations.length > 0
 
   return (
@@ -67,7 +69,7 @@ export default function Show({
       <PageHeader
         actions={
           <Button asChild className="h-11 w-full sm:h-10 sm:w-auto">
-            <Link href="/organization/edit">Editar equipamentos</Link>
+            <Link href="/organization/edit">Editar organização</Link>
           </Button>
         }
       >
@@ -187,7 +189,25 @@ export default function Show({
         ) : (
           <p className="rounded-xl border border-dashed bg-muted/20 p-4 text-sm text-muted-foreground">
             Nenhum equipamento cadastrado ainda. Toque em &quot;Editar
-            equipamentos&quot; para adicionar.
+            organização&quot; para adicionar.
+          </p>
+        )}
+      </section>
+
+      <section className="flex flex-col gap-2">
+        <h2 className="text-lg font-medium">Memória do agente</h2>
+        <p className="text-sm text-muted-foreground">
+          Regras gerais de prescrição que o agente respeita ao gerar
+          periodizações e treinos para qualquer aluno. O agente grava aqui
+          sozinho conforme você dá instruções no chat.
+        </p>
+        {hasNotes ? (
+          <pre className="whitespace-pre-wrap rounded-xl border bg-muted/30 p-4 font-sans text-sm leading-relaxed">
+            {organization.notesMd}
+          </pre>
+        ) : (
+          <p className="rounded-xl border border-dashed bg-muted/20 p-4 text-sm text-muted-foreground">
+            O agente ainda não registrou nenhuma regra por aqui.
           </p>
         )}
       </section>

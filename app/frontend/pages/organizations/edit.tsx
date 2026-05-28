@@ -9,6 +9,7 @@ type Organization = {
   id: string
   name: string
   equipmentListMd: string
+  notesMd: string
 }
 
 type Props = {
@@ -48,6 +49,30 @@ export default function Edit({ organization }: Props) {
               {errors.equipmentListMd && (
                 <p className="text-sm text-destructive">
                   {errors.equipmentListMd.join(", ")}
+                </p>
+              )}
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="notes_md">Memória do agente</Label>
+              <p className="text-sm text-muted-foreground">
+                Regras gerais de prescrição que o agente respeita ao gerar
+                periodizações e treinos. O agente escreve aqui sozinho
+                conforme você dá instruções no chat — você pode editar à
+                mão para corrigir ou remover regras que ficaram
+                desatualizadas.
+              </p>
+              <Textarea
+                id="notes_md"
+                name="organization[notes_md]"
+                defaultValue={organization.notesMd}
+                rows={14}
+                className="min-h-64 font-mono text-sm"
+                placeholder="- Sessões de no máximo 1 hora&#10;- Sempre terminar com alongamentos&#10;- Preferir RPE em vez de %1RM"
+              />
+              {errors.notesMd && (
+                <p className="text-sm text-destructive">
+                  {errors.notesMd.join(", ")}
                 </p>
               )}
             </div>
