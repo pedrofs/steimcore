@@ -6,6 +6,7 @@ import {
   Camera,
   Dumbbell,
   FileText,
+  IdCard,
   Loader2,
   Mic,
   Paperclip,
@@ -49,6 +50,13 @@ type Chat = {
 
 type UpdateAnamnesisResult = { ok?: boolean; summaryMd?: string; error?: string }
 
+type UpdateStudentResult = {
+  ok?: boolean
+  summaryMd?: string
+  updatedFields?: string[]
+  error?: string
+}
+
 type PeriodizationToolResult = {
   ok?: boolean
   versionId?: string
@@ -75,6 +83,7 @@ type ToolCall = {
   arguments: Record<string, unknown> | null
   result:
     | UpdateAnamnesisResult
+    | UpdateStudentResult
     | PeriodizationToolResult
     | UpdateWorkoutResult
     | Record<string, unknown>
@@ -546,6 +555,9 @@ function ToolCallCard({
   toolCall: ToolCall
   onOpen: OpenDrawer
 }) {
+  if (toolCall.name === "update_student") {
+    return <UpdateStudentCard toolCall={toolCall} />
+  }
   if (toolCall.name === "update_anamnesis") {
     return <UpdateAnamnesisCard toolCall={toolCall} onOpen={onOpen} />
   }
@@ -561,6 +573,48 @@ function ToolCallCard({
   return (
     <div className="rounded-xl border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
       {toolCall.name}
+    </div>
+  )
+}
+
+const STUDENT_FIELD_LABELS: Record<string, string> = {
+  birthday: "Data de nascimento",
+  sex: "Sexo",
+  primary_goal: "Objetivo",
+  weekly_frequency: "Frequência",
+  phone: "Telefone",
+  email: "E-mail",
+}
+
+function UpdateStudentCard({ toolCall }: { toolCall: ToolCall }) {
+  const result = (toolCall.result ?? {}) as UpdateStudentResult
+  const args = (toolCall.arguments ?? {}) as { summaryMd?: string }
+  const summary =
+    (result.summaryMd && result.summaryMd.trim()) ||
+    (args.summaryMd && args.summaryMd.trim()) ||
+    "dados atualizados"
+  if (result.error) {
+    return (
+      <div className="flex items-start gap-2 rounded-xl border border-destructive/40 bg-destructive/5 px-3 py-2 text-xs text-destructive">
+        <IdCard className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+        <span>Falha ao atualizar dados do aluno: {result.error}</span>
+      </div>
+    )
+  }
+  const labels = (result.updatedFields ?? [])
+    .map((f) => STUDENT_FIELD_LABELS[f] ?? f)
+  return (
+    <div className="flex flex-col gap-1 rounded-xl border border-brand/30 bg-brand/5 px-3 py-2.5 text-xs text-foreground">
+      <div className="flex items-start gap-2">
+        <IdCard className="mt-0.5 size-3.5 shrink-0 text-brand" aria-hidden />
+        <span className="flex-1">
+          <span className="font-medium">Dados do aluno atualizados</span> ·{" "}
+          {summary}
+        </span>
+      </div>
+      {labels.length > 0 && (
+        <div className="pl-5 text-muted-foreground">{labels.join(" · ")}</div>
+      )}
     </div>
   )
 }
@@ -777,11 +831,13 @@ function LiveMessageBubble({ live }: { live: LiveMessage }) {
 function LiveToolCallCard({ toolCall }: { toolCall: ToolCallEvent }) {
   const label = humanToolLabel(toolCall.name, toolCall.status)
   const Icon =
-    toolCall.name === "update_anamnesis"
-      ? FileText
-      : toolCall.name === "update_workout"
-        ? Dumbbell
-        : CalendarRange
+    toolCall.name === "update_student"
+      ? IdCard
+      : toolCall.name === "update_anamnesis"
+        ? FileText
+        : toolCall.name === "update_workout"
+          ? Dumbbell
+          : CalendarRange
   return (
     <div className="flex items-center gap-2 rounded-xl border border-brand/30 bg-brand/5 px-3 py-2 text-xs text-foreground">
       <Icon className="size-3.5 shrink-0 text-brand" aria-hidden />
@@ -796,6 +852,8 @@ function LiveToolCallCard({ toolCall }: { toolCall: ToolCallEvent }) {
 function humanToolLabel(name: string, status: ToolCallEvent["status"]): string {
   const verb = status === "running" ? "…" : " concluído"
   switch (name) {
+    case "update_student":
+      return `Atualizando dados do aluno${verb}`
     case "update_anamnesis":
       return `Atualizando anamnese${verb}`
     case "create_periodization":
