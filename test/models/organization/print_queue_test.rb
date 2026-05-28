@@ -76,21 +76,22 @@ class Organization::PrintQueueTest < ActiveSupport::TestCase
     assert_equal [], payload[:rows]
   end
 
-  test "excludes students flagged in plan_needs_action" do
+  test "includes students whose plan also needs trainer action" do
     student = ready_to_print_student!("Plano falhou", anamnesis: "ok")
-    # Add a failed version on the same active periodization to flag plan_needs_action.
+    # Add a failed version on the same active periodization — the student is
+    # also flagged plan_needs_action on the Dashboard queue, but Print queue
+    # membership is independent.
     failed = student.active_periodization.versions.create!(trainer: @trainer)
     failed.transition_to!(:generating)
     failed.fail!("oops")
 
-    assert_includes Organization::DashboardQueue.tagged_student_ids(@organization), student.id
     payload = Organization::PrintQueue.new(@organization).to_h
 
-    refute_includes payload[:rows].map { |r| r[:student][:id] }, student.id
-    assert_equal 0, payload[:count]
+    assert_includes payload[:rows].map { |r| r[:student][:id] }, student.id
+    assert_equal 1, payload[:count]
   end
 
-  test "excludes students flagged in inactive" do
+  test "includes students flagged inactive" do
     travel_to Time.zone.local(2026, 5, 15, 10, 0, 0) do
       student = @organization.students.create!(name: "Inativo", anamnesis_md: "ok", weekly_frequency: 3)
       version = student.start_periodization!(trainer: @trainer)
@@ -99,49 +100,43 @@ class Organization::PrintQueueTest < ActiveSupport::TestCase
       student.active_periodization.set_current_version!(version)
       version.update_columns(created_at: 30.days.ago, updated_at: 30.days.ago)
 
-      assert_includes Organization::DashboardQueue.tagged_student_ids(@organization), student.id
       payload = Organization::PrintQueue.new(@organization).to_h
 
-      refute_includes payload[:rows].map { |r| r[:student][:id] }, student.id
+      assert_includes payload[:rows].map { |r| r[:student][:id] }, student.id
     end
   end
 
-  test "excludes students flagged in no_plan" do
+  test "excludes students with no active periodization" do
     # no_plan = unarchived, active_periodization_id NULL. Such a student has no
-    # current_version, so they're already absent from PrintQueue by the
-    # `current_version_id IS NOT NULL` filter. This test just nails that down.
+    # current_version, so they're absent from PrintQueue by the
+    # `current_version_id IS NOT NULL` filter.
     student = @organization.students.create!(name: "Sem plano", anamnesis_md: "ok")
-    assert_includes Organization::DashboardQueue.tagged_student_ids(@organization), student.id
 
     payload = Organization::PrintQueue.new(@organization).to_h
 
     refute_includes payload[:rows].map { |r| r[:student][:id] }, student.id
   end
 
-  test "excludes students flagged in anamnesis_pending" do
-    # Promoted plan but blank anamnesis: matches anamnesis_pending and also
-    # would otherwise be eligible for the print queue.
+  test "includes students with a pending anamnesis" do
     student = @organization.students.create!(name: "Sem anamnese")
     version = student.start_periodization!(trainer: @trainer)
     version.periodization_length_weeks = 8
     version.complete!
     student.active_periodization.set_current_version!(version)
 
-    assert_includes Organization::DashboardQueue.tagged_student_ids(@organization), student.id
     payload = Organization::PrintQueue.new(@organization).to_h
 
-    refute_includes payload[:rows].map { |r| r[:student][:id] }, student.id
+    assert_includes payload[:rows].map { |r| r[:student][:id] }, student.id
   end
 
-  test "excludes students flagged in periodization_overdue" do
-    # Completed, promoted, unprinted current version (otherwise print-eligible),
-    # but the student has trained past the target → suppressed by ADR 0001.
+  test "includes students flagged periodization_overdue" do
+    # The plan was just promoted and is unprinted — the trainer still needs the
+    # sheet on paper even though the student has trained past the target.
     student = @organization.students.create!(name: "Vencida", anamnesis_md: "ok", weekly_frequency: 1)
     version = student.start_periodization!(trainer: @trainer)
     version.periodization_length_weeks = 1 # target 1
     version.complete!
     student.active_periodization.set_current_version!(version)
-    # Two finished sessions (now, so not also inactive) overshoot the target.
     2.times do
       TrainingSession.create!(
         student: student, trainer: @trainer, periodization_version: version,
@@ -150,22 +145,20 @@ class Organization::PrintQueueTest < ActiveSupport::TestCase
       ).update_columns(finished_at: Time.current)
     end
 
-    assert_includes Organization::DashboardQueue.tagged_student_ids(@organization), student.id
     payload = Organization::PrintQueue.new(@organization).to_h
 
-    refute_includes payload[:rows].map { |r| r[:student][:id] }, student.id
-    assert_equal 0, payload[:count]
+    assert_includes payload[:rows].map { |r| r[:student][:id] }, student.id
+    assert_equal 1, payload[:count]
   end
 
-  test "excludes students flagged in periodization_due" do
-    # Completed, promoted, unprinted current version (otherwise print-eligible),
-    # but the student is within 5 sessions of the target → suppressed by ADR 0001.
+  test "includes students flagged periodization_due" do
+    # Same reasoning as periodization_overdue: the newly promoted current
+    # version still needs to be handed to the student.
     student = @organization.students.create!(name: "Quase lá", anamnesis_md: "ok", weekly_frequency: 1)
     version = student.start_periodization!(trainer: @trainer)
     version.periodization_length_weeks = 8 # target 8
     version.complete!
     student.active_periodization.set_current_version!(version)
-    # 6 finished sessions (now, so not also inactive) → remaining 2 → due.
     6.times do
       TrainingSession.create!(
         student: student, trainer: @trainer, periodization_version: version,
@@ -174,17 +167,14 @@ class Organization::PrintQueueTest < ActiveSupport::TestCase
       ).update_columns(finished_at: Time.current)
     end
 
-    assert_includes Organization::DashboardQueue.tagged_student_ids(@organization), student.id
     payload = Organization::PrintQueue.new(@organization).to_h
 
-    refute_includes payload[:rows].map { |r| r[:student][:id] }, student.id
-    assert_equal 0, payload[:count]
+    assert_includes payload[:rows].map { |r| r[:student][:id] }, student.id
+    assert_equal 1, payload[:count]
   end
 
-  test "excludes students matching multiple dashboard tags at once" do
-    # No anamnesis + no plan = both no_plan and anamnesis_pending. Even with no
-    # periodization they shouldn't appear, but the point is the union covers
-    # both flags.
+  test "excludes students without an active periodization regardless of other state" do
+    # No anamnesis + no plan: still excluded because they have no current_version.
     student = @organization.students.create!(name: "Multi")
 
     payload = Organization::PrintQueue.new(@organization).to_h
@@ -232,9 +222,8 @@ class Organization::PrintQueueTest < ActiveSupport::TestCase
   end
 
   private
-    # Promotes a completed unprinted current version for a fresh student with
-    # an anamnesis filled in so the student is NOT flagged by any of the four
-    # dashboard tags (=> eligible for the print queue).
+    # Promotes a completed unprinted current version for a fresh student so
+    # the row is eligible for the print queue.
     def ready_to_print_student!(name, anamnesis:)
       student = @organization.students.create!(name: name, anamnesis_md: anamnesis)
       version = student.start_periodization!(trainer: @trainer)
