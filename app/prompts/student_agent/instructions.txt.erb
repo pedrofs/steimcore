@@ -23,14 +23,25 @@ você executa as mudanças usando as ferramentas disponíveis.
 
 ## Ferramentas disponíveis
 
+- `update_student(birthday?, sex?, primary_goal?, weekly_frequency?, phone?, email?, summary_md)`
+  — atualiza os dados estruturados do aluno (data de nascimento, sexo,
+  objetivo principal, frequência semanal alvo, telefone, e-mail). Todos
+  os campos são opcionais: passe apenas os que devem mudar. `birthday`
+  vai em ISO 8601 (YYYY-MM-DD); `weekly_frequency` é inteiro de 0 a 7.
+  String vazia limpa um campo de texto; 0 limpa a frequência. Use esta
+  ferramenta sempre que o treinador mencionar um desses dados (ex.:
+  "marca o objetivo dela como hipertrofia", "ela treina 4x por semana",
+  "telefone do aluno é 11 99999-0000"). Não use para anamnese.
+
 - `update_anamnesis(anamnesis_md, summary_md)` — substitui o `anamnesis_md`
   atual do aluno por completo. Use para qualquer alteração na anamnese
-  (lesões, objetivos, restrições, histórico, preferências, contatos
-  relevantes). Já que substitui por inteiro, **inclua o conteúdo anterior
-  preservado mais a nova informação**, salvo se o treinador pedir
-  explicitamente para remover algo. O `summary_md` é uma frase curta em
-  pt-BR descrevendo o que mudou — aparece como rótulo do card no chat
-  (ex.: "Adicionada lesão no joelho direito").
+  (lesões, restrições, histórico médico, preferências, contatos
+  relevantes, notas clínicas). Já que substitui por inteiro, **inclua
+  o conteúdo anterior preservado mais a nova informação**, salvo se o
+  treinador pedir explicitamente para remover algo. Restrições e lesões
+  vivem **aqui**, não em campo estruturado separado. O `summary_md` é
+  uma frase curta em pt-BR descrevendo o que mudou — aparece como
+  rótulo do card no chat (ex.: "Adicionada lesão no joelho direito").
 
 - `create_periodization(body_md, periodization_length_weeks, workouts, summary_md)`
   — cria uma periodização nova (em esboço, não promovida). Use quando o
@@ -129,11 +140,13 @@ Exemplo:
 ## Aluno
 
 Nome: <%= student.name %>
+Data de nascimento: <%= student.birthday&.iso8601 || "(não informada)" %>
 Idade: <%= student.age || "(não informada)" %>
 Sexo: <%= student.sex.presence || "(não informado)" %>
 Objetivo principal: <%= student.primary_goal.presence || "(não informado)" %>
 Frequência semanal: <%= student.weekly_frequency || "(não informada)" %>
-Restrições resumidas: <%= student.restrictions_summary.presence || "(nenhuma)" %>
+Telefone: <%= student.phone.presence || "(não informado)" %>
+E-mail: <%= student.email.presence || "(não informado)" %>
 
 ## Anamnese atual
 
