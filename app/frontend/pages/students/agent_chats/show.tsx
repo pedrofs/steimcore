@@ -9,6 +9,7 @@ import {
   IdCard,
   Loader2,
   Mic,
+  NotebookPen,
   Paperclip,
   Play,
   Send,
@@ -77,6 +78,8 @@ type UpdateWorkoutResult = {
   error?: string
 }
 
+type UpdateNotesResult = { ok?: boolean; summaryMd?: string; error?: string }
+
 type ToolCall = {
   id: string
   name: string
@@ -86,6 +89,7 @@ type ToolCall = {
     | UpdateStudentResult
     | PeriodizationToolResult
     | UpdateWorkoutResult
+    | UpdateNotesResult
     | Record<string, unknown>
     | null
 }
@@ -299,6 +303,7 @@ export default function AgentChatShow({
               <MessageBubble
                 key={message.id}
                 message={message}
+                studentId={student.id}
                 onOpen={openDrawer}
                 onLightbox={setLightboxUrl}
               />
@@ -426,10 +431,12 @@ type OpenLightbox = (url: string) => void
 
 function MessageBubble({
   message,
+  studentId,
   onOpen,
   onLightbox,
 }: {
   message: Message
+  studentId: string
   onOpen: OpenDrawer
   onLightbox: OpenLightbox
 }) {
@@ -470,7 +477,12 @@ function MessageBubble({
       {message.toolCalls.length > 0 && (
         <div className="flex w-full max-w-[85%] flex-col gap-1.5 sm:max-w-[75%]">
           {message.toolCalls.map((tc) => (
-            <ToolCallCard key={tc.id} toolCall={tc} onOpen={onOpen} />
+            <ToolCallCard
+              key={tc.id}
+              toolCall={tc}
+              studentId={studentId}
+              onOpen={onOpen}
+            />
           ))}
         </div>
       )}
@@ -550,9 +562,11 @@ function MessageAttachments({
 
 function ToolCallCard({
   toolCall,
+  studentId,
   onOpen,
 }: {
   toolCall: ToolCall
+  studentId: string
   onOpen: OpenDrawer
 }) {
   if (toolCall.name === "update_student") {
@@ -569,6 +583,12 @@ function ToolCallCard({
   }
   if (toolCall.name === "update_workout") {
     return <UpdateWorkoutCard toolCall={toolCall} onOpen={onOpen} />
+  }
+  if (toolCall.name === "update_student_notes") {
+    return <UpdateStudentNotesCard toolCall={toolCall} studentId={studentId} />
+  }
+  if (toolCall.name === "update_organization_notes") {
+    return <UpdateOrganizationNotesCard toolCall={toolCall} />
   }
   return (
     <div className="rounded-xl border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
@@ -656,6 +676,84 @@ function UpdateAnamnesisCard({
         onClick={() => onOpen({ kind: "anamnesis" })}
       >
         Abrir
+      </Button>
+    </div>
+  )
+}
+
+function UpdateStudentNotesCard({
+  toolCall,
+  studentId,
+}: {
+  toolCall: ToolCall
+  studentId: string
+}) {
+  const result = (toolCall.result ?? {}) as UpdateNotesResult
+  const args = (toolCall.arguments ?? {}) as { summaryMd?: string }
+  const summary =
+    (result.summaryMd && result.summaryMd.trim()) ||
+    (args.summaryMd && args.summaryMd.trim()) ||
+    "memória do aluno atualizada"
+  if (result.error) {
+    return (
+      <div className="flex items-start gap-2 rounded-xl border border-destructive/40 bg-destructive/5 px-3 py-2 text-xs text-destructive">
+        <NotebookPen className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+        <span>Falha ao atualizar memória do aluno: {result.error}</span>
+      </div>
+    )
+  }
+  return (
+    <div className="flex flex-col gap-2 rounded-xl border border-brand/30 bg-brand/5 px-3 py-2.5 text-xs text-foreground">
+      <div className="flex items-start gap-2">
+        <NotebookPen className="mt-0.5 size-3.5 shrink-0 text-brand" aria-hidden />
+        <span className="flex-1">
+          <span className="font-medium">Memória do aluno atualizada</span> ·{" "}
+          {summary}
+        </span>
+      </div>
+      <Button
+        asChild
+        size="sm"
+        variant="outline"
+        className="h-7 w-fit px-3 text-xs"
+      >
+        <Link href={`/students/${studentId}/edit#notes_md`}>Abrir</Link>
+      </Button>
+    </div>
+  )
+}
+
+function UpdateOrganizationNotesCard({ toolCall }: { toolCall: ToolCall }) {
+  const result = (toolCall.result ?? {}) as UpdateNotesResult
+  const args = (toolCall.arguments ?? {}) as { summaryMd?: string }
+  const summary =
+    (result.summaryMd && result.summaryMd.trim()) ||
+    (args.summaryMd && args.summaryMd.trim()) ||
+    "memória da organização atualizada"
+  if (result.error) {
+    return (
+      <div className="flex items-start gap-2 rounded-xl border border-destructive/40 bg-destructive/5 px-3 py-2 text-xs text-destructive">
+        <NotebookPen className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+        <span>Falha ao atualizar memória da organização: {result.error}</span>
+      </div>
+    )
+  }
+  return (
+    <div className="flex flex-col gap-2 rounded-xl border border-brand/30 bg-brand/5 px-3 py-2.5 text-xs text-foreground">
+      <div className="flex items-start gap-2">
+        <NotebookPen className="mt-0.5 size-3.5 shrink-0 text-brand" aria-hidden />
+        <span className="flex-1">
+          <span className="font-medium">Memória da organização atualizada</span>
+          {" "}· {summary}
+        </span>
+      </div>
+      <Button
+        asChild
+        size="sm"
+        variant="outline"
+        className="h-7 w-fit px-3 text-xs"
+      >
+        <Link href="/organization/edit#notes_md">Abrir</Link>
       </Button>
     </div>
   )

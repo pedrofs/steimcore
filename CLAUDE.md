@@ -62,7 +62,7 @@ Four logical Postgres databases in production (single primary in dev/test): `pri
 ### Vite ↔ Rails wiring
 
 - Source root: `app/frontend` (set in `config/vite.json`).
-- Dev server port: 3036 (test: 3037).
+- Dev server port: 3036 (test: 3037). Override via `VITE_RUBY_PORT` — `vite_ruby` reads it natively and falls back to the value in `config/vite.json`.
 - `vite.config.ts` plugin order is `tailwindcss → RubyPlugin → inertia → react`; preserve this order if editing.
 - The Rails layout pulls in (in order): `vite_stylesheet_tag "application"`, `vite_react_refresh_tag`, `vite_client_tag`, `vite_typescript_tag "inertia.tsx"`, `inertia_ssr_head`, `vite_typescript_tag "application"`.
 
