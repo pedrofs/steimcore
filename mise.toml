@@ -4,3 +4,6 @@
 # so `bin/rails test` crashes mid-run. This disables that fork-safety check.
 # No-op on Linux, so CI is unaffected.
 OBJC_DISABLE_INITIALIZE_FORK_SAFETY = "YES"
+
+[tools]
+ruby = "4.0.1"
