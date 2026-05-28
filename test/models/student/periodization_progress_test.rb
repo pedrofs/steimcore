@@ -27,16 +27,22 @@ class Student::PeriodizationProgressTest < ActiveSupport::TestCase
     assert_not progress.overdue?
   end
 
-  test "not applicable when weekly_frequency is null" do
+  test "weekly_frequency null falls back to DAYS_PER_WEEK" do
     student = student_with_plan!(weekly_frequency: nil, length_weeks: 8)
 
-    assert_not Student::PeriodizationProgress.new(student).applicable?
+    progress = Student::PeriodizationProgress.new(student)
+
+    assert progress.applicable?
+    assert_equal 8 * Student::PeriodizationProgress::DAYS_PER_WEEK, progress.target
   end
 
-  test "not applicable when weekly_frequency is zero" do
+  test "weekly_frequency zero falls back to DAYS_PER_WEEK" do
     student = student_with_plan!(weekly_frequency: 0, length_weeks: 8)
 
-    assert_not Student::PeriodizationProgress.new(student).applicable?
+    progress = Student::PeriodizationProgress.new(student)
+
+    assert progress.applicable?
+    assert_equal 8 * Student::PeriodizationProgress::DAYS_PER_WEEK, progress.target
   end
 
   test "not applicable when the current version is null (never promoted)" do
@@ -72,6 +78,29 @@ class Student::PeriodizationProgressTest < ActiveSupport::TestCase
 
     assert superseded.reload.superseded?
     assert_equal 2, Student::PeriodizationProgress.new(student).sessions_done
+  end
+
+  test "accepts an explicit periodization to surface progress on an archived one" do
+    student = student_with_plan!(weekly_frequency: 1, length_weeks: 8)
+    archived_periodization = student.active_periodization
+    archived_version = archived_periodization.current_version
+    finish_session_for!(student, version: archived_version)
+
+    # Starting fresh archives the prior periodization. The default constructor
+    # would now target the new (active) one; passing the archived periodization
+    # explicitly lets the show page render its historical progress.
+    new_version = student.start_periodization!(trainer: @trainer)
+    new_version.periodization_length_weeks = 8
+    new_version.complete!
+    student.active_periodization.set_current_version!(new_version)
+    student.reload
+
+    archived_progress = Student::PeriodizationProgress.new(student, periodization: archived_periodization)
+
+    assert archived_progress.applicable?
+    assert_equal 8, archived_progress.target
+    assert_equal 1, archived_progress.sessions_done
+    assert_equal 7, archived_progress.sessions_remaining
   end
 
   test "sessions_done does not count sessions on an archived periodization" do

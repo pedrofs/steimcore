@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.2].define(version: 2026_05_28_000000) do
+ActiveRecord::Schema[8.2].define(version: 2026_05_28_120000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -145,7 +145,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_05_28_000000) do
     t.bigint "trainer_id", null: false
     t.datetime "updated_at", null: false
     t.datetime "printed_at"
-    t.integer "periodization_length_weeks"
+    t.integer "periodization_length_weeks", default: 8
     t.index ["agent_tool_call_id"], name: "index_periodization_versions_on_agent_tool_call_id"
     t.index ["parent_version_id"], name: "index_periodization_versions_on_parent_version_id"
     t.index ["periodization_id", "created_at"], name: "idx_on_periodization_id_created_at_2ccdf56ebe"
