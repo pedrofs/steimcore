@@ -48,8 +48,7 @@ class Students::Periodizations::PrintablesController < InertiaController
         age: @student.age,
         sex: @student.sex,
         primary_goal: @student.primary_goal,
-        weekly_frequency: @student.weekly_frequency,
-        restrictions_summary: @student.restrictions_summary
+        weekly_frequency: @student.weekly_frequency
       }
     end
 

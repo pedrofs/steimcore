@@ -439,7 +439,6 @@ class StudentsControllerTest < ActionDispatch::IntegrationTest
       birthday: Date.new(1998, 6, 15),
       sex: "Feminino",
       primary_goal: "Hipertrofia",
-      restrictions_summary: "Joelho",
       weekly_frequency: 3,
       anamnesis_md: "## Anamnese",
       notes_md: "obs"
@@ -459,7 +458,6 @@ class StudentsControllerTest < ActionDispatch::IntegrationTest
     assert_equal "1998-06-15", props[:birthday]
     assert_equal "Feminino", props[:sex]
     assert_equal "Hipertrofia", props[:primary_goal]
-    assert_equal "Joelho", props[:restrictions_summary]
     assert_equal 3, props[:weekly_frequency]
     assert_equal "## Anamnese", props[:anamnesis_md]
     assert_equal "obs", props[:notes_md]
@@ -568,7 +566,6 @@ class StudentsControllerTest < ActionDispatch::IntegrationTest
         birthday: "1985-04-02",
         sex: "Masculino",
         primary_goal: "Resistência",
-        restrictions_summary: "Lombar",
         weekly_frequency: 5,
         anamnesis_md: "## Histórico\n\n- algo",
         notes_md: "lembretes"
@@ -580,7 +577,6 @@ class StudentsControllerTest < ActionDispatch::IntegrationTest
     assert_equal Date.new(1985, 4, 2), student.birthday
     assert_equal "Masculino", student.sex
     assert_equal "Resistência", student.primary_goal
-    assert_equal "Lombar", student.restrictions_summary
     assert_equal 5, student.weekly_frequency
     assert_equal "## Histórico\n\n- algo", student.anamnesis_md
     assert_equal "lembretes", student.notes_md

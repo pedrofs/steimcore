@@ -12,7 +12,6 @@ type Student = {
   birthday: string | null
   sex: string | null
   primaryGoal: string | null
-  restrictionsSummary: string | null
   weeklyFrequency: number | null
   phone: string | null
   email: string | null
@@ -142,17 +141,6 @@ export default function Edit({ student }: Props) {
                   </p>
                 )}
               </div>
-            </div>
-
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="restrictions_summary">Restrições</Label>
-              <Textarea
-                id="restrictions_summary"
-                name="student[restrictions_summary]"
-                defaultValue={student.restrictionsSummary ?? ""}
-                rows={3}
-                placeholder="Ex.: lombar sensível, ombro direito, joelho..."
-              />
             </div>
 
             <div className="flex flex-col gap-2">

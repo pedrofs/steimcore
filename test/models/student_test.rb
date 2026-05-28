@@ -32,7 +32,6 @@ class StudentTest < ActiveSupport::TestCase
     assert_nil student.age
     assert_nil student.sex
     assert_nil student.primary_goal
-    assert_nil student.restrictions_summary
     assert_nil student.weekly_frequency
     assert_nil student.active_periodization_id
     assert_equal "", student.anamnesis_md
@@ -46,7 +45,6 @@ class StudentTest < ActiveSupport::TestCase
       birthday: Date.new(1994, 3, 15),
       sex: "Feminino",
       primary_goal: "Hipertrofia",
-      restrictions_summary: "Lombar sensível",
       weekly_frequency: 4,
       anamnesis_md: "## Histórico\n\nLesão antiga.",
       notes_md: "Toca dança duas vezes por semana."
@@ -56,7 +54,6 @@ class StudentTest < ActiveSupport::TestCase
     assert_equal Date.new(1994, 3, 15), student.birthday
     assert_equal "Feminino", student.sex
     assert_equal "Hipertrofia", student.primary_goal
-    assert_equal "Lombar sensível", student.restrictions_summary
     assert_equal 4, student.weekly_frequency
     assert_equal "## Histórico\n\nLesão antiga.", student.anamnesis_md
     assert_equal "Toca dança duas vezes por semana.", student.notes_md

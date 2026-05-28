@@ -12,7 +12,6 @@ type Student = {
   name: string
   primaryGoal: string | null
   weeklyFrequency: number | null
-  restrictionsSummary: string | null
 }
 
 type Workout = {
@@ -184,12 +183,6 @@ function PrintHeader({
       <h1 className="text-[16pt] font-semibold leading-tight">{student.name}</h1>
       {demographics.length > 0 && (
         <p className="text-[9pt] text-neutral-700">{demographics.join(" · ")}</p>
-      )}
-      {student.restrictionsSummary && (
-        <p className="print-restrictions mt-1 rounded border border-neutral-800 bg-neutral-100 px-2 py-1 text-[9pt] font-medium text-neutral-900">
-          <span className="uppercase tracking-wide">Restrições:</span>{" "}
-          {student.restrictionsSummary}
-        </p>
       )}
     </header>
   )

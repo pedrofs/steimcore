@@ -1,7 +1,6 @@
 import { useState } from "react"
 import { Link, router } from "@inertiajs/react"
 import {
-  AlertTriangle,
   Archive,
   ChevronRight,
   Mail,
@@ -43,7 +42,6 @@ type Student = {
   age: number | null
   sex: string | null
   primaryGoal: string | null
-  restrictionsSummary: string | null
   weeklyFrequency: number | null
   phone: string | null
   email: string | null
@@ -278,8 +276,6 @@ function formatArchivedDate(iso: string | null): string | null {
 
 function StudentIdentity({ student }: { student: Student }) {
   const chips = buildChips(student)
-  const restriction = (student.restrictionsSummary ?? "").trim()
-  const hasRestriction = restriction.length > 0
   const phone = student.phone?.trim()
   const email = student.email?.trim()
   const hasContact = Boolean(phone) || Boolean(email)
@@ -351,20 +347,6 @@ function StudentIdentity({ student }: { student: Student }) {
           )}
         </div>
       </div>
-      {hasRestriction && (
-        <div className="flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50/60 p-3 text-sm dark:border-amber-500/40 dark:bg-amber-500/10">
-          <AlertTriangle
-            className="mt-0.5 size-4 shrink-0 text-amber-700 dark:text-amber-300"
-            aria-hidden
-          />
-          <div className="flex min-w-0 flex-col gap-0.5">
-            <span className="text-xs font-medium uppercase tracking-wide text-amber-900 dark:text-amber-200">
-              Restrição
-            </span>
-            <p className="text-amber-950 dark:text-amber-100">{restriction}</p>
-          </div>
-        </div>
-      )}
     </header>
   )
 }

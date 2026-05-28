@@ -17,6 +17,7 @@ class StudentAgent < RubyLLM::Agent
 
   tools do
     tool_instances = [
+      Agent::Tools::UpdateStudent.new(student: student, trainer: trainer),
       Agent::Tools::UpdateAnamnesis.new(student: student, trainer: trainer),
       Agent::Tools::CreatePeriodization.new(student: student, trainer: trainer),
       Agent::Tools::UpdatePeriodization.new(student: student, trainer: trainer),

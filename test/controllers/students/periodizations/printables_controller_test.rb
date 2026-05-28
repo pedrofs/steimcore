@@ -12,8 +12,7 @@ class Students::Periodizations::PrintablesControllerTest < ActionDispatch::Integ
       birthday: Date.new(1994, 1, 1),
       sex: "F",
       primary_goal: "Hipertrofia",
-      weekly_frequency: 4,
-      restrictions_summary: "Lesão no ombro direito."
+      weekly_frequency: 4
     )
     promote_completed_plan!(workouts: [
       { name: "A", blocks: [ exercise_block("Agachamento", "4x8") ], position: 1 },
@@ -36,7 +35,6 @@ class Students::Periodizations::PrintablesControllerTest < ActionDispatch::Integ
     assert_equal "F", props[:student][:sex]
     assert_equal "Hipertrofia", props[:student][:primary_goal]
     assert_equal 4, props[:student][:weekly_frequency]
-    assert_equal "Lesão no ombro direito.", props[:student][:restrictions_summary]
     assert_equal @organization.name, props[:organization][:name]
     assert_equal "## Plano", props[:periodization][:body_md]
     assert_not_nil props[:periodization][:started_on]
