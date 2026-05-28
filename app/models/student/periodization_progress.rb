@@ -47,6 +47,12 @@ class Student
       applicable? && sessions_remaining.negative?
     end
 
+    # Within 5 sessions of finishing the dose: time to plan the next
+    # Periodization. Mutually exclusive with overdue? by construction.
+    def due?
+      applicable? && sessions_remaining.between?(0, 4)
+    end
+
     private
       def active_periodization
         @student.active_periodization

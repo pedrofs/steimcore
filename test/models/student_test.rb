@@ -449,6 +449,106 @@ class StudentTest < ActiveSupport::TestCase
     assert_equal(-3, student.periodization_overdue_sort_value)
   end
 
+  test "periodization_due matches when sessions_remaining is within [0, 5)" do
+    @organization.students.destroy_all
+    student = due_student!(remaining: 2)
+
+    assert_includes Student.periodization_due, student
+  end
+
+  test "periodization_due matches at the lower boundary (sessions_remaining 0)" do
+    @organization.students.destroy_all
+    student = due_student!(remaining: 0)
+
+    assert_includes Student.periodization_due, student
+  end
+
+  test "periodization_due matches at sessions_remaining 4" do
+    @organization.students.destroy_all
+    student = due_student!(remaining: 4)
+
+    assert_includes Student.periodization_due, student
+  end
+
+  test "periodization_due does NOT match at the upper boundary (sessions_remaining 5)" do
+    @organization.students.destroy_all
+    student = due_student!(remaining: 5)
+
+    assert_not_includes Student.periodization_due, student
+  end
+
+  test "periodization_due does NOT match an overdue student (sessions_remaining -1)" do
+    @organization.students.destroy_all
+    student = due_student!(remaining: -1)
+
+    assert_not_includes Student.periodization_due, student
+  end
+
+  test "periodization_due counts finished sessions across superseded versions of the active periodization" do
+    @organization.students.destroy_all
+    trainer = users(:one)
+    student = @organization.students.create!(name: "Due histórica", anamnesis_md: "x", weekly_frequency: 1)
+    v1 = student.start_periodization!(trainer: trainer)
+    v1.periodization_length_weeks = 8 # target 8
+    v1.complete!
+    student.active_periodization.set_current_version!(v1)
+    finish_session_for!(student.reload, at: Time.current) # 1 session on v1
+    # Fork + promote v2; v1 becomes superseded but its session still counts.
+    v2 = student.active_periodization.start_edit!(scope: :periodization, trainer: trainer)
+    v2.periodization_length_weeks = 8
+    v2.complete!
+    student.active_periodization.set_current_version!(v2)
+    6.times { finish_session_for!(student.reload, at: Time.current) } # 7 done → remaining 1 → due
+
+    assert_includes Student.periodization_due, student
+  end
+
+  test "periodization_due excludes students with no active periodization" do
+    @organization.students.destroy_all
+    @organization.students.create!(name: "Sem plano", anamnesis_md: "x", weekly_frequency: 3)
+
+    assert_empty Student.periodization_due
+  end
+
+  test "periodization_due excludes students with null weekly_frequency" do
+    @organization.students.destroy_all
+    student = due_student!(remaining: 2)
+    student.update_columns(weekly_frequency: nil)
+
+    assert_not_includes Student.periodization_due, student
+  end
+
+  test "periodization_due excludes students with zero weekly_frequency" do
+    @organization.students.destroy_all
+    student = due_student!(remaining: 2)
+    student.update_columns(weekly_frequency: 0)
+
+    assert_not_includes Student.periodization_due, student
+  end
+
+  test "periodization_due excludes students whose current version has null periodization_length_weeks" do
+    @organization.students.destroy_all
+    student = due_student!(remaining: 2)
+    student.active_periodization.current_version.update_columns(periodization_length_weeks: nil)
+
+    assert_not_includes Student.periodization_due, student.reload
+  end
+
+  test "periodization_due excludes archived students" do
+    @organization.students.destroy_all
+    student = due_student!(remaining: 2)
+    student.archive!
+
+    assert_not_includes Student.periodization_due, student
+  end
+
+  test "periodization_due_sort_value returns sessions_remaining" do
+    @organization.students.destroy_all
+    student = due_student!(remaining: 3)
+
+    assert_equal 3, student.periodization_due_sort_value
+  end
+
   private
     # Build an unarchived student in @organization with an active periodization
     # whose current_version is :completed and pinned. plan_created_at sets both
@@ -486,6 +586,12 @@ class StudentTest < ActiveSupport::TestCase
       target = length_weeks * weekly_frequency
       (target - remaining).times { finish_session_for!(student.reload, at: Time.current) }
       student.reload
+    end
+
+    # Same shape as overdue_student! but with a length large enough that the
+    # due thresholds (remaining 0..5) all yield a non-negative session count.
+    def due_student!(remaining:, weekly_frequency: 1, length_weeks: 8)
+      overdue_student!(remaining: remaining, weekly_frequency: weekly_frequency, length_weeks: length_weeks)
     end
 
     def finish_session_for!(student, at:)

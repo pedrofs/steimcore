@@ -9,7 +9,7 @@ class Organization::DashboardQueueTest < ActiveSupport::TestCase
   test "returns zero counts and empty rows when the organization has no students" do
     payload = Organization::DashboardQueue.new(@organization).to_h
 
-    assert_equal({ plan_needs_action: 0, periodization_overdue: 0, inactive: 0, no_plan: 0, anamnesis_pending: 0 }, payload[:counts])
+    assert_equal({ plan_needs_action: 0, periodization_overdue: 0, periodization_due: 0, inactive: 0, no_plan: 0, anamnesis_pending: 0 }, payload[:counts])
     assert_equal [], payload[:rows]
   end
 
@@ -435,6 +435,63 @@ class Organization::DashboardQueueTest < ActiveSupport::TestCase
     end
   end
 
+  test "a due student surfaces with the periodization_due tag and a sessions_remaining badge" do
+    student = due_student!(remaining: 3)
+
+    payload = Organization::DashboardQueue.new(@organization).to_h
+
+    row = payload[:rows].find { |r| r[:student][:id] == student.id }
+    assert_equal :periodization_due, row[:primary_tag]
+    assert_includes row[:tags], :periodization_due
+    assert_equal 3, row[:sessions_remaining]
+  end
+
+  test "periodization_due sits below periodization_overdue and plan_needs_action but outranks inactive and no_plan" do
+    trainer = users(:one)
+    plan_action = @organization.students.create!(name: "Plan action", anamnesis_md: "x")
+    plan_action.start_periodization!(trainer: trainer).fail!("oops")
+    overdue = overdue_student!(remaining: -2)
+    due = due_student!(remaining: 2)
+    no_plan = @organization.students.create!(name: "Sem plano", anamnesis_md: "x")
+
+    payload = Organization::DashboardQueue.new(@organization).to_h
+
+    assert_equal [ plan_action.id, overdue.id, due.id, no_plan.id ],
+                 payload[:rows].map { |r| r[:student][:id] }
+    assert_equal [ :plan_needs_action, :periodization_overdue, :periodization_due, :no_plan ],
+                 payload[:rows].map { |r| r[:primary_tag] }
+  end
+
+  test "periodization_due tiebreaker sorts fewest-remaining (smallest sessions_remaining) first" do
+    a = due_student!(remaining: 4)
+    b = due_student!(remaining: 0)
+    c = due_student!(remaining: 2)
+
+    payload = Organization::DashboardQueue.new(@organization).to_h
+
+    due_ids = payload[:rows]
+      .select { |r| r[:primary_tag] == :periodization_due }
+      .map { |r| r[:student][:id] }
+    assert_equal [ b.id, c.id, a.id ], due_ids
+  end
+
+  test "periodization_due count reflects every matching student in the org" do
+    3.times { due_student!(remaining: 1) }
+
+    payload = Organization::DashboardQueue.new(@organization).to_h
+
+    assert_equal 3, payload[:counts][:periodization_due]
+  end
+
+  test "row payload includes sessions_remaining when primary tag is periodization_due" do
+    student = due_student!(remaining: 2)
+
+    payload = Organization::DashboardQueue.new(@organization).to_h
+
+    row = payload[:rows].find { |r| r[:student][:id] == student.id }
+    assert_equal 2, row[:sessions_remaining]
+  end
+
   test "sessions_remaining is omitted from rows whose primary tag is not periodization_overdue" do
     trainer = users(:one)
     # Promoted plan but blank anamnesis → anamnesis_pending only (not overdue).
@@ -475,5 +532,11 @@ class Organization::DashboardQueueTest < ActiveSupport::TestCase
         ).update_columns(finished_at: Time.current)
       end
       student.reload
+    end
+
+    # Same shape as overdue_student! but with a length large enough that the
+    # due thresholds (remaining 0..4) all yield a non-negative session count.
+    def due_student!(remaining:, weekly_frequency: 1, length_weeks: 8)
+      overdue_student!(remaining: remaining, weekly_frequency: weekly_frequency, length_weeks: length_weeks)
     end
 end

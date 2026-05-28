@@ -13,6 +13,7 @@ class Organization
     TAGS = [
       { name: :plan_needs_action,     scope: :plan_needs_action,     sort_by: ->(student) { student.plan_needs_action_sort_value } },
       { name: :periodization_overdue, scope: :periodization_overdue, sort_by: ->(student) { student.periodization_overdue_sort_value } },
+      { name: :periodization_due,     scope: :periodization_due,     sort_by: ->(student) { student.periodization_due_sort_value } },
       { name: :inactive,              scope: :inactive,              sort_by: ->(student) { student.inactive_sort_value } },
       { name: :no_plan,               scope: :without_active_plan,   sort_by: ->(student) { student.created_at } },
       { name: :anamnesis_pending,     scope: :anamnesis_pending,     sort_by: ->(student) { student.created_at } }
@@ -72,10 +73,12 @@ class Organization
           primary_tag: row[:primary_tag],
           sort_value: row[:sort_value]
         }
-        # The overdue sort value IS sessions_remaining (see Student), so reuse it
-        # rather than recompute. Only surfaced when overdue is the primary tag —
-        # other rows don't pay the lookup.
-        payload[:sessions_remaining] = row[:sort_value] if row[:primary_tag] == :periodization_overdue
+        # The overdue/due sort value IS sessions_remaining (see Student), so reuse
+        # it rather than recompute. Only surfaced when one of those is the primary
+        # tag — other rows don't pay the lookup.
+        if [ :periodization_overdue, :periodization_due ].include?(row[:primary_tag])
+          payload[:sessions_remaining] = row[:sort_value]
+        end
         payload
       end
 

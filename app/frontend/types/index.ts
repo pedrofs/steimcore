@@ -30,6 +30,7 @@ export type SharedProps = {
 export type DashboardTag =
   | "plan_needs_action"
   | "periodization_overdue"
+  | "periodization_due"
   | "inactive"
   | "no_plan"
   | "anamnesis_pending"
@@ -37,6 +38,7 @@ export type DashboardTag =
 export type DashboardCounts = {
   planNeedsAction: number
   periodizationOverdue: number
+  periodizationDue: number
   inactive: number
   noPlan: number
   anamnesisPending: number

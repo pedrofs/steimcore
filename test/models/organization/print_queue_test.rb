@@ -157,6 +157,30 @@ class Organization::PrintQueueTest < ActiveSupport::TestCase
     assert_equal 0, payload[:count]
   end
 
+  test "excludes students flagged in periodization_due" do
+    # Completed, promoted, unprinted current version (otherwise print-eligible),
+    # but the student is within 5 sessions of the target → suppressed by ADR 0001.
+    student = @organization.students.create!(name: "Quase lá", anamnesis_md: "ok", weekly_frequency: 1)
+    version = student.start_periodization!(trainer: @trainer)
+    version.periodization_length_weeks = 8 # target 8
+    version.complete!
+    student.active_periodization.set_current_version!(version)
+    # 6 finished sessions (now, so not also inactive) → remaining 2 → due.
+    6.times do
+      TrainingSession.create!(
+        student: student, trainer: @trainer, periodization_version: version,
+        workout_name_snapshot: "Treino A", workout_position_snapshot: 1,
+        blocks_snapshot: [], progress: []
+      ).update_columns(finished_at: Time.current)
+    end
+
+    assert_includes Organization::DashboardQueue.tagged_student_ids(@organization), student.id
+    payload = Organization::PrintQueue.new(@organization).to_h
+
+    refute_includes payload[:rows].map { |r| r[:student][:id] }, student.id
+    assert_equal 0, payload[:count]
+  end
+
   test "excludes students matching multiple dashboard tags at once" do
     # No anamnesis + no plan = both no_plan and anamnesis_pending. Even with no
     # periodization they shouldn't appear, but the point is the union covers

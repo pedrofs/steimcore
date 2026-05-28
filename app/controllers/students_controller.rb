@@ -94,6 +94,7 @@ class StudentsController < InertiaController
     STATUS_SCOPES = {
       "plan_needs_action"     => :plan_needs_action,
       "periodization_overdue" => :periodization_overdue,
+      "periodization_due"     => :periodization_due,
       "inactive"              => :inactive,
       "anamnesis_pending"     => :anamnesis_pending,
       "no_plan"               => :without_active_plan

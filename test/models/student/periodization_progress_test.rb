@@ -119,6 +119,45 @@ class Student::PeriodizationProgressTest < ActiveSupport::TestCase
     assert_not Student::PeriodizationProgress.new(student).overdue?
   end
 
+  test "due? is true when sessions_remaining is 0" do
+    student = student_with_remaining(0)
+
+    assert Student::PeriodizationProgress.new(student).due?
+  end
+
+  test "due? is true when sessions_remaining is 4" do
+    student = student_with_remaining(4)
+
+    assert Student::PeriodizationProgress.new(student).due?
+  end
+
+  test "due? is false when sessions_remaining is 5" do
+    student = student_with_remaining(5)
+
+    assert_not Student::PeriodizationProgress.new(student).due?
+  end
+
+  test "due? is false when sessions_remaining is -1 (overdue, not due)" do
+    student = student_with_remaining(-1)
+
+    assert_not Student::PeriodizationProgress.new(student).due?
+  end
+
+  test "due? is false when not applicable" do
+    student = @organization.students.create!(name: "Sem plano", anamnesis_md: "x", weekly_frequency: 3)
+
+    assert_not Student::PeriodizationProgress.new(student).due?
+  end
+
+  test "due? and overdue? are mutually exclusive across boundary states" do
+    [ -1, 0, 1, 4, 5 ].each do |remaining|
+      progress = Student::PeriodizationProgress.new(student_with_remaining(remaining))
+
+      assert_not (progress.due? && progress.overdue?),
+                 "due? and overdue? both true at sessions_remaining=#{remaining}"
+    end
+  end
+
   private
     # Builds an unarchived student with a completed, promoted current version
     # carrying periodization_length_weeks, so PeriodizationProgress is applicable.
@@ -135,12 +174,12 @@ class Student::PeriodizationProgressTest < ActiveSupport::TestCase
       student.reload
     end
 
-    # weekly_frequency=1, length=2 → target 2, so sessions_done = target - remaining
-    # is small and easy to set up.
+    # weekly_frequency=1, length=8 → target 8, so sessions_done = target - remaining
+    # stays non-negative for every remaining we exercise (incl. the 5 boundary).
     def student_with_remaining(remaining)
-      student = student_with_plan!(weekly_frequency: 1, length_weeks: 2)
+      student = student_with_plan!(weekly_frequency: 1, length_weeks: 8)
       version = student.active_periodization.current_version
-      (2 - remaining).times { finish_session_for!(student, version: version) }
+      (8 - remaining).times { finish_session_for!(student, version: version) }
       student
     end
 

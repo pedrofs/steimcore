@@ -15,6 +15,7 @@ type Props = {
 const TAG_LABEL: Record<DashboardTag, string> = {
   plan_needs_action: "Plano precisa ação",
   periodization_overdue: "Periodização vencida",
+  periodization_due: "Periodização a vencer",
   inactive: "Inativo",
   no_plan: "Sem plano",
   anamnesis_pending: "Anamnese pendente",
@@ -23,6 +24,7 @@ const TAG_LABEL: Record<DashboardTag, string> = {
 const TAG_HREF: Record<DashboardTag, string> = {
   plan_needs_action: "/students?status=plan_needs_action",
   periodization_overdue: "/students?status=periodization_overdue",
+  periodization_due: "/students?status=periodization_due",
   inactive: "/students?status=inactive",
   no_plan: "/students?status=no_plan",
   anamnesis_pending: "/students?status=anamnesis_pending",
@@ -67,6 +69,7 @@ function CountsStrip({ counts }: { counts: DashboardQueue["counts"] }) {
   const entries: Array<{ tag: DashboardTag; count: number }> = [
     { tag: "plan_needs_action", count: counts.planNeedsAction },
     { tag: "periodization_overdue", count: counts.periodizationOverdue },
+    { tag: "periodization_due", count: counts.periodizationDue },
     { tag: "inactive", count: counts.inactive },
     { tag: "no_plan", count: counts.noPlan },
     { tag: "anamnesis_pending", count: counts.anamnesisPending },
@@ -113,11 +116,16 @@ function QueueList({ rows }: { rows: DashboardQueue["rows"] }) {
                     {TAG_LABEL[tag]}
                   </Badge>
                 ))}
-                {row.sessionsRemaining !== undefined && (
-                  <Badge variant="destructive" className="tabular-nums">
-                    {row.sessionsRemaining} sessões
-                  </Badge>
-                )}
+                {row.sessionsRemaining !== undefined &&
+                  (row.primaryTag === "periodization_overdue" ? (
+                    <Badge variant="destructive" className="tabular-nums">
+                      {row.sessionsRemaining} sessões
+                    </Badge>
+                  ) : (
+                    <Badge className="bg-amber-500/10 tabular-nums text-amber-700 [a]:hover:bg-amber-500/20 dark:bg-amber-500/20 dark:text-amber-300">
+                      {row.sessionsRemaining} sessões
+                    </Badge>
+                  ))}
               </div>
             </div>
             <ChevronRightIcon className="size-4 shrink-0 text-muted-foreground" aria-hidden />

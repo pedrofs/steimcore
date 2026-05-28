@@ -133,6 +133,41 @@ class Student < ApplicationRecord
     PeriodizationProgress.new(self).sessions_remaining
   end
 
+  # Students within 5 sessions of finishing their Periodization target: the
+  # Current version is completed, the target is defined (weekly_frequency > 0
+  # and the version carries a periodization_length_weeks), and the finished
+  # session count across every version of the Active periodization leaves
+  # sessions_remaining in [0, 5) — i.e. the count sits in (target − 5, target].
+  # Mirrors Student::PeriodizationProgress#due? in SQL so the dashboard avoids
+  # N+1. Mutually exclusive with periodization_overdue by construction.
+  scope :periodization_due, -> {
+    unarchived
+      .joins("INNER JOIN periodizations ON periodizations.id = students.active_periodization_id")
+      .joins("INNER JOIN periodization_versions current_version ON current_version.id = periodizations.current_version_id")
+      .where("current_version.status = 'completed'")
+      .where("students.weekly_frequency > 0")
+      .where("current_version.periodization_length_weeks IS NOT NULL")
+      .where(<<~SQL.squish)
+        (
+          SELECT COUNT(*)
+          FROM training_sessions ts
+          JOIN periodization_versions pv ON pv.id = ts.periodization_version_id
+          WHERE ts.student_id = students.id
+            AND ts.finished_at IS NOT NULL
+            AND pv.periodization_id = periodizations.id
+        ) BETWEEN current_version.periodization_length_weeks * students.weekly_frequency - 4
+              AND current_version.periodization_length_weeks * students.weekly_frequency
+      SQL
+  }
+
+  # Within-tag tiebreaker for the periodization_due dashboard cohort:
+  # sessions_remaining, smaller-is-earlier so the most-imminent replan (0)
+  # surfaces before one with more runway (4). Delegates to
+  # Student::PeriodizationProgress so the SQL scope and Ruby value stay aligned.
+  def periodization_due_sort_value
+    PeriodizationProgress.new(self).sessions_remaining
+  end
+
   def age(today: Date.current)
     return nil if birthday.nil?
     age = today.year - birthday.year
