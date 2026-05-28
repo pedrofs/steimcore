@@ -2,6 +2,7 @@ import { Head, router } from "@inertiajs/react"
 import { useEffect } from "react"
 
 import { BlocksRenderer, type Block } from "@/components/blocks-renderer"
+import { BrandLockup } from "@/components/brand"
 import { Markdown } from "@/components/markdown"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
@@ -9,8 +10,6 @@ import { cn } from "@/lib/utils"
 type Student = {
   id: string
   name: string
-  age: number | null
-  sex: string | null
   primaryGoal: string | null
   weeklyFrequency: number | null
   restrictionsSummary: string | null
@@ -34,11 +33,8 @@ type Periodization = {
   workouts: Workout[]
 }
 
-type Organization = { name: string }
-
 type Props = {
   student: Student
-  organization: Organization
   periodization: Periodization
 }
 
@@ -46,7 +42,6 @@ const ATTENDANCE_ROWS = 30
 
 export default function PrintablePeriodization({
   student,
-  organization,
   periodization,
 }: Props) {
   useEffect(() => {
@@ -78,7 +73,6 @@ export default function PrintablePeriodization({
       <article className="print-page mx-auto flex w-[210mm] flex-col bg-white text-black">
         <PeriodizationHalf
           student={student}
-          organization={organization}
           periodization={periodization}
         />
         <AttendanceHalf rowCount={ATTENDANCE_ROWS} />
@@ -90,18 +84,15 @@ export default function PrintablePeriodization({
 
 function PeriodizationHalf({
   student,
-  organization,
   periodization,
 }: {
   student: Student
-  organization: Organization
   periodization: Periodization
 }) {
   return (
     <section className="print-half print-half-periodization flex h-[148.5mm] flex-col gap-1 overflow-hidden px-[8mm] pt-[8mm] pb-[4mm]">
       <PrintHeader
         student={student}
-        organization={organization}
         periodization={periodization}
       />
       <div className="print-body flex-1 overflow-hidden">
@@ -169,17 +160,13 @@ function WorkoutsFull({ workouts }: { workouts: Workout[] }) {
 
 function PrintHeader({
   student,
-  organization,
   periodization,
 }: {
   student: Student
-  organization: Organization
   periodization: Periodization
 }) {
   const dateLabel = formatStartedOn(periodization.startedOn)
   const demographics = [
-    student.age != null ? `${student.age} anos` : null,
-    formatSex(student.sex),
     student.primaryGoal,
     student.weeklyFrequency != null
       ? `${student.weeklyFrequency}× por semana`
@@ -188,8 +175,8 @@ function PrintHeader({
 
   return (
     <header className="flex flex-col gap-1">
-      <div className="flex items-baseline justify-between text-[8pt] text-neutral-600">
-        <span className="print-org">{organization.name}</span>
+      <div className="flex items-center justify-between text-[8pt] text-neutral-600">
+        <BrandLockup size="sm" className="h-[7mm] text-black" />
         <span className="print-started-on">
           Periodização iniciada em {dateLabel}
         </span>
@@ -291,10 +278,3 @@ function formatStartedOn(iso: string) {
   return `${day}/${month}/${year}`
 }
 
-function formatSex(sex: string | null): string | null {
-  if (!sex) return null
-  const upper = sex.toUpperCase()
-  if (upper === "F") return "feminino"
-  if (upper === "M") return "masculino"
-  return sex
-}
