@@ -1,5 +1,7 @@
 # Print queue is suppressed by the Dashboard queue
 
+Status: Superseded by [ADR-0003](0003-print-queue-independent-from-dashboard-queue.md) on 2026-05-28.
+
 The home page surfaces two cohorts of students needing trainer action: the **Dashboard queue** (attention signals — `plan_needs_action`, `inactive`, `no_plan`, `anamnesis_pending`) and the new **Print queue** (active periodizations whose `current_version` is completed but unprinted). We deliberately exclude any student in the Dashboard queue from the Print queue, even when their current version is unprinted, because printing is a clean-handoff task and shouldn't compete for attention with broken plans, lapsed students, or missing anamneses.
 
 ## Considered options

@@ -1,8 +1,6 @@
 class Organization
   # Builds the home page's "Imprimir" card payload: active periodizations whose
-  # current version is completed and unprinted, ordered oldest-first. Students
-  # already surfaced by the DashboardQueue are suppressed per ADR-0001 — the
-  # print card is a clean handoff list, not a duplicate of the attention queue.
+  # current version is completed and unprinted, ordered oldest-first.
   class PrintQueue
     ROW_CAP = 10
 
@@ -17,9 +15,7 @@ class Organization
 
     private
       def eligible_versions
-        suppressed_ids = Organization::DashboardQueue.tagged_student_ids(@organization)
-
-        scope = PeriodizationVersion
+        PeriodizationVersion
           .joins(periodization: :student)
           .where(periodizations: { archived_at: nil })
           .where("periodization_versions.id = periodizations.current_version_id")
@@ -27,9 +23,7 @@ class Organization
           .where(students: { organization_id: @organization.id })
           .order("periodization_versions.created_at ASC")
           .includes(periodization: :student)
-
-        scope = scope.where.not(students: { id: suppressed_ids }) if suppressed_ids.any?
-        scope.to_a
+          .to_a
       end
 
       def serialize(version)

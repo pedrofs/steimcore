@@ -25,7 +25,7 @@ There is also an existing **`inactive`** Dashboard tag that flags students whose
 3. **The dashboard signal is count-based, not calendar-based.** Two new tags:
    - `periodization_overdue` — `sessions_remaining < 0`.
    - `periodization_due` — `sessions_remaining ∈ [0, 5)`.
-   They cluster directly under `plan_needs_action`, above `inactive`. Both suppress the Print queue, same as every other Dashboard tag.
+   They cluster directly under `plan_needs_action`, above `inactive`. (Originally accepted as also suppressing the Print queue; reversed by [ADR-0003](0003-print-queue-independent-from-dashboard-queue.md) — see below.)
 
 4. **Students without a `periodization_length_weeks` on the current version, or without `weekly_frequency`, are silently excluded from both tags.** They surface via existing tags (`anamnesis_pending`, `plan_needs_action`, etc.).
 
@@ -58,9 +58,9 @@ The cost: a 5×/week student gets ~1 calendar week of warning; a 2×/week studen
 
 `plan_needs_action` is a 30-second task (review a draft already on the desk). `periodization_overdue` is heavier (design the next block). Letting trainers clear cheap wins first matches the bottleneck-first ergonomics of the queue — the new tags go just under `plan_needs_action` rather than above it.
 
-### Suppress the Print queue on both new tags
+### Suppress the Print queue on both new tags (reversed)
 
-`periodization_overdue` clearly should suppress — the sheet they'd print is stale. `periodization_due` is more ambiguous: the current sheet is still valid for a few more sessions. We chose to suppress both, to preserve the simpler invariant from ADR 0001 ("any Dashboard tag suppresses the Print queue"). The cost is at most a week of not printing for students about to roll over.
+Originally we chose to have both new tags suppress the Print queue, preserving the invariant from ADR 0001. That turned out to hide exactly the rows the trainer needs: promoting a fresh version of an ongoing **Periodization** doesn't reset the session clock (per the trade-off above), so the student stays tagged `periodization_due` / `…_overdue` and the unprinted plan disappears from "Imprimir". [ADR-0003](0003-print-queue-independent-from-dashboard-queue.md) drops the suppression rule entirely — the two cards are now independent.
 
 ## Consequences
 
@@ -68,5 +68,4 @@ The cost: a 5×/week student gets ~1 calendar week of warning; a 2×/week studen
 - **LLM tool contract**: the periodization-generation tool gains a required structured argument `periodization_length_weeks`. Versions cannot complete without it.
 - **`Student` scopes**: two new scopes (`periodization_overdue`, `periodization_due`) and two corresponding `_sort_value` methods (mirror `plan_needs_action_sort_value` / `inactive_sort_value`).
 - **Dashboard view**: rows in the queue display a `sessions_remaining` badge for any student tagged with either new tag.
-- **ADR 0001 is preserved unchanged** — the Print queue continues to be suppressed by any Dashboard tag.
 - **No data backfill**: the app is pre-production. Existing periodizations/versions/training_sessions are truncated when this ships. Going forward every completed version has a length.

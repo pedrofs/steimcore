@@ -54,13 +54,13 @@ The RESTful sub-resource representing the trainer's act of marking a version as 
 _Avoid_: print mark, print toggle.
 
 **Print queue**:
-The home dashboard cohort of **Periodization versions** that need printing. A version is in the print queue iff: it is the **Current version** of an **Active periodization**, its `status = "completed"`, its `printed_at IS NULL`, AND the **Student** is not in any other home **Dashboard queue** tag. The suppression rule is deliberate — printing is a clean-handoff task, not an attention task, so it only surfaces for students whose plan and engagement are otherwise healthy.
+The home dashboard cohort of **Periodization versions** that need printing. A version is in the print queue iff: it is the **Current version** of an **Active periodization**, its `status = "completed"`, and its `printed_at IS NULL`. Membership is independent of the **Dashboard queue** — a student can appear in both cards at once (e.g. their plan needs printing AND their anamnesis is pending).
 _Avoid_: needs printing list, awaiting print.
 
 ### Trainer attention model
 
 **Dashboard queue**:
-The bottleneck-first list of **Students** that need trainer attention on the home page. Tags (in priority order): `plan_needs_action`, `periodization_overdue`, `periodization_due`, `inactive`, `no_plan`, `anamnesis_pending`. Students stack tags; rows are capped at 10. Distinct from the **Print queue**, which is shown as a separate card on home and excludes any student already in the **Dashboard queue**.
+The bottleneck-first list of **Students** that need trainer attention on the home page. Tags (in priority order): `plan_needs_action`, `periodization_overdue`, `periodization_due`, `inactive`, `no_plan`, `anamnesis_pending`. Students stack tags; rows are capped at 10. Shown alongside the **Print queue** on home as two independent cards — a student can appear in both.
 
 **`periodization_overdue`** *(Dashboard tag)*:
 The **Student**'s **Sessions remaining** is `< 0` — they trained past the **Periodization target** without the trainer planning a new Periodization. Within-tag sort: most-overshot first (smallest `sessions_remaining` first; e.g. `−5` before `−1`).
@@ -69,19 +69,19 @@ The **Student**'s **Sessions remaining** is `< 0` — they trained past the **Pe
 The **Student**'s **Sessions remaining** is in `[0, 5)` — the planning runway window. Heads-up signal so the trainer can prepare the next Periodization before the current one ends. Within-tag sort: fewest-remaining first (`0` before `4`). The `5` is a flat session count, not a calendar window — it gives the trainer a fixed planning runway regardless of `weekly_frequency`.
 
 **Dashboard tag**:
-A named attention signal applied to a **Student** by the **Dashboard queue**. Each tag has a scope on `Student` and a within-tag sort. Tags are not mutually exclusive among themselves, but they ARE mutually exclusive with **Print queue** membership.
+A named attention signal applied to a **Student** by the **Dashboard queue**. Each tag has a scope on `Student` and a within-tag sort. Tags are not mutually exclusive among themselves and do not affect **Print queue** membership.
 
 ## Relationships
 
 - A **Student** has one optional **Active periodization**.
 - A **Periodization** has many **Periodization versions** and points to at most one **Current version**.
 - A **Periodization version** is **Printed** at most once (one-way).
-- The **Print queue** and **Dashboard queue** are disjoint cohorts on the home page — a **Student** in the **Dashboard queue** never appears in the **Print queue**, even if their **Current version** is unprinted.
+- The **Print queue** and **Dashboard queue** are independent cohorts on the home page — a **Student** can appear in both at the same time.
 
 ## Example dialogue
 
 > **Dev:** "If a student has an unprinted current version but is also flagged `inactive`, do they show up in the print card?"
-> **Trainer:** "No — if they're inactive, printing isn't the next thing I need to do. Call them first. The print card is only for students where the plan is done, they're training, and the one thing left is to hand them the sheet."
+> **Trainer:** "Yes — the two cards are independent. If a plan is promoted and unprinted I want to see it on the print card, even if there's something else I also need to act on for that student."
 
 > **Dev:** "When does the print card row clear? When I hit the printable view?"
 > **Trainer:** "No, only when I press 'Marcar como impresso'. Sometimes I open the print view to re-check the plan without actually printing — I don't want that to clear the row."
