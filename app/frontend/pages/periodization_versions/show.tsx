@@ -60,7 +60,13 @@ export default function ShowPeriodizationVersion({
     <>
       <PageHeader>
         <p className="text-sm text-muted-foreground">
-          Aluno: <span className="font-medium">{student.name}</span>
+          Aluno:{" "}
+          <Link
+            href={`/students/${student.id}`}
+            className="font-medium hover:underline"
+          >
+            {student.name}
+          </Link>
         </p>
       </PageHeader>
 
