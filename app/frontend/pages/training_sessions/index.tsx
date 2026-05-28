@@ -513,7 +513,12 @@ function FocusedView({
           </div>
           <div className="flex flex-col">
             <h1 className="text-lg font-semibold text-foreground">
-              {session.student.name}
+              <Link
+                href={`/students/${session.student.id}`}
+                className="hover:underline"
+              >
+                {session.student.name}
+              </Link>
             </h1>
             <p className="text-sm text-muted-foreground">{session.workoutName}</p>
             {showAttribution && (

@@ -390,9 +390,12 @@ function ChatHeader({ student }: { student: Student }) {
           </AvatarFallback>
         </Avatar>
         <div className="min-w-0 flex-1">
-          <p className="truncate font-display text-base font-semibold leading-tight">
+          <Link
+            href={`/students/${student.id}`}
+            className="block truncate font-display text-base font-semibold leading-tight hover:underline"
+          >
             {student.name}
-          </p>
+          </Link>
           <p className="text-xs text-muted-foreground">Chat com o assistente</p>
         </div>
       </div>

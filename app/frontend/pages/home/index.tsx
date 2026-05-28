@@ -165,7 +165,12 @@ function PrintRow({ row }: { row: PrintQueueRow }) {
   return (
     <li className="flex flex-col gap-2 rounded-lg border bg-background p-3">
       <div className="flex min-w-0 flex-col gap-0.5">
-        <span className="truncate text-sm font-medium">{row.student.name}</span>
+        <Link
+          href={`/students/${row.student.id}`}
+          className="truncate text-sm font-medium hover:underline"
+        >
+          {row.student.name}
+        </Link>
         <span className="text-xs text-muted-foreground">
           {createdAgoLabel(row.version.createdAt)}
         </span>
