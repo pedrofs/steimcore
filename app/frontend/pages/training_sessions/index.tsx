@@ -244,6 +244,11 @@ export default function TrainingSessionsIndex({
     )
   }
 
+  function removeFocused() {
+    if (!focused) return
+    router.delete(`/training_sessions/${focused.id}`, PICKER_RELOAD)
+  }
+
   function swapFocusedTo(workoutId: string) {
     if (!focused) return
     setSwapOpen(false)
@@ -299,6 +304,7 @@ export default function TrainingSessionsIndex({
                 isBlockDone={(i) => isBlockDone(focused, i)}
                 onToggleBlock={(i) => toggleBlock(focused, i)}
                 onFinish={finishFocused}
+                onRemove={removeFocused}
                 onSwap={() => setSwapOpen(true)}
                 showAttribution={
                   currentUserId !== null && focused.trainerId !== currentUserId
@@ -477,6 +483,7 @@ function FocusedView({
   isBlockDone,
   onToggleBlock,
   onFinish,
+  onRemove,
   onSwap,
   showAttribution,
 }: {
@@ -485,6 +492,7 @@ function FocusedView({
   isBlockDone: (index: number) => boolean
   onToggleBlock: (index: number) => void
   onFinish: () => void
+  onRemove: () => void
   onSwap: () => void
   showAttribution: boolean
 }) {
@@ -565,6 +573,34 @@ function FocusedView({
             >
               Trocar treino
             </Button>
+          )}
+          {!session.finishedAt && (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="text-xs text-destructive hover:text-destructive"
+                >
+                  Remover da pista
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent size="sm">
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Remover da pista?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    A sessão será apagada e não aparecerá no histórico do aluno.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                  <AlertDialogAction onClick={onRemove}>
+                    Remover
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           )}
         </div>
       </div>

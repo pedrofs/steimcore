@@ -5,7 +5,8 @@ class TrainingSessionsController < InertiaController
 
   ALLOWED_SCOPES = %w[trainer org].freeze
 
-  before_action :load_student,    only: :create
+  before_action :load_student, only: :create
+  before_action :load_session, only: :destroy
   rescue_from RuntimeError,                  with: :handle_ineligible
   rescue_from ActiveRecord::RecordNotUnique, with: :handle_duplicate_active
 
@@ -20,8 +21,18 @@ class TrainingSessionsController < InertiaController
   end
 
   def create
-    Current.user.training_sessions.start_for!(@student)
-    redirect_to training_sessions_path
+    if backdated_create?
+      Current.user.training_sessions.log_past_for!(@student, on_date: backdated_date, workout: backdated_workout)
+      redirect_back fallback_location: student_path(@student), notice: "Sessão registrada."
+    else
+      Current.user.training_sessions.start_for!(@student)
+      redirect_to training_sessions_path
+    end
+  end
+
+  def destroy
+    @session.destroy!
+    redirect_back fallback_location: training_sessions_path, notice: "Sessão removida."
   end
 
   private
@@ -29,8 +40,31 @@ class TrainingSessionsController < InertiaController
       @student = current_organization.students.find(params[:student_id])
     end
 
+    def load_session
+      @session = TrainingSession.joins(:student)
+                                .where(students: { organization_id: current_organization.id })
+                                .find(params[:id])
+    end
+
+    def backdated_create?
+      params[:for_date].present? && params[:workout_id].present?
+    end
+
+    def backdated_date
+      Date.iso8601(params[:for_date].to_s)
+    rescue ArgumentError
+      raise "Data inválida"
+    end
+
+    def backdated_workout
+      version = @student.active_periodization&.current_version
+      raise "Aluno não tem periodização ativa" if version.nil?
+      version.workouts.find_by(id: params[:workout_id]) ||
+        (raise "Treino não pertence à periodização atual do aluno")
+    end
+
     def handle_ineligible(exception)
-      redirect_to training_sessions_path, alert: exception.message
+      redirect_back fallback_location: training_sessions_path, alert: exception.message
     end
 
     def handle_duplicate_active(_exception)

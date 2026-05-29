@@ -18,7 +18,9 @@ class Student
         window_end: window_end,
         today: today,
         days: build_days,
-        versions: build_versions
+        versions: build_versions,
+        workout_options: workout_options,
+        suggested_workout_id: TrainingSession.next_workout_for(@student)&.id
       }
     end
 
@@ -101,6 +103,15 @@ class Student
 
       def session_date(session)
         session.created_at.in_time_zone.to_date
+      end
+
+      def workout_options
+        version = @student.active_periodization&.current_version
+        return [] if version.nil? || version.status != "completed"
+
+        version.workouts.order(:position).map do |workout|
+          { id: workout.id, name: workout.name, position: workout.position }
+        end
       end
 
       def sessions

@@ -42,6 +42,40 @@ class TrainingSession < ApplicationRecord
     end
   end
 
+  # Creates a finished training session backdated to +on_date+ for the given
+  # student/workout pair under +trainer+. Snapshots the workout name/position/
+  # blocks the same way +start!+ does, and stamps created_at/finished_at to
+  # noon on the chosen date so +Student::FrequencyView+ buckets the cell on the
+  # right day. Raises if the student is archived, the date is in the future, or
+  # the workout doesn't belong to the student's active periodization.
+  def self.log_past!(trainer:, student:, on_date:, workout:)
+    raise "Aluno está arquivado" if student.archived?
+    raise "Data não pode ser futura" if on_date > Time.zone.today
+    raise "Treino é obrigatório" if workout.nil?
+
+    periodization = student.active_periodization
+    raise "Aluno não tem periodização ativa" if periodization.nil?
+    raise "Treino não pertence à periodização atual do aluno" \
+      if workout.periodization_version_id != periodization.current_version_id
+
+    timestamp = on_date.in_time_zone.noon
+
+    transaction do
+      create!(
+        student: student,
+        trainer: trainer,
+        workout: workout,
+        periodization_version: workout.periodization_version,
+        workout_name_snapshot: workout.name,
+        workout_position_snapshot: workout.position,
+        blocks_snapshot: workout.blocks,
+        created_at: timestamp,
+        updated_at: timestamp,
+        finished_at: timestamp
+      )
+    end
+  end
+
   # Returns the workout the student should perform on their next session, per
   # the auto-pick rule: most-recent finished session's workout_position_snapshot
   # + 1, wrapping to the first workout; first-ever session returns the first

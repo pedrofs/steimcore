@@ -261,6 +261,79 @@ class TrainingSessionsControllerTest < ActionDispatch::IntegrationTest
     assert_match(/em sessão ativa.*Todas/i, flash[:alert] || "")
   end
 
+  test "backdated create logs a finished session on the given past date" do
+    workouts = make_eligible(@alice, workout_count: 2)
+    sign_in_as(@user)
+    on_date = Date.current - 3
+
+    assert_difference -> { TrainingSession.count }, 1 do
+      post training_sessions_path,
+           params: { student_id: @alice.id, for_date: on_date.iso8601, workout_id: workouts.last.id },
+           headers: { "Referer" => student_url(@alice) }
+    end
+
+    assert_redirected_to student_url(@alice)
+    session = TrainingSession.order(created_at: :desc).first
+    assert_equal workouts.last.id, session.workout_id
+    assert_equal on_date, session.created_at.in_time_zone.to_date
+    assert_not_nil session.finished_at
+  end
+
+  test "backdated create rejects future dates" do
+    workouts = make_eligible(@alice, workout_count: 1)
+    sign_in_as(@user)
+
+    assert_no_difference -> { TrainingSession.count } do
+      post training_sessions_path,
+           params: { student_id: @alice.id, for_date: (Date.current + 1).iso8601, workout_id: workouts.first.id },
+           headers: { "Referer" => student_url(@alice) }
+    end
+
+    follow_redirect!
+    assert_match(/futura/i, flash[:alert] || "")
+  end
+
+  test "backdated create rejects a workout that is not part of the student's current version" do
+    make_eligible(@alice, workout_count: 1)
+    other_workouts = make_eligible(@bob, workout_count: 1)
+    sign_in_as(@user)
+
+    assert_no_difference -> { TrainingSession.count } do
+      post training_sessions_path,
+           params: { student_id: @alice.id, for_date: Date.current.iso8601, workout_id: other_workouts.first.id },
+           headers: { "Referer" => student_url(@alice) }
+    end
+
+    follow_redirect!
+    assert_match(/periodiza/i, flash[:alert] || "")
+  end
+
+  test "destroy removes the session and redirects back" do
+    make_eligible(@alice, workout_count: 1)
+    session = @user.training_sessions.start_for!(@alice)
+    sign_in_as(@user)
+
+    assert_difference -> { TrainingSession.count }, -1 do
+      delete training_session_path(session), headers: { "Referer" => training_sessions_url }
+    end
+
+    assert_redirected_to training_sessions_url
+  end
+
+  test "destroy is org-scoped" do
+    make_eligible(@alice, workout_count: 1)
+    session = @user.training_sessions.start_for!(@alice)
+
+    other_org   = Organization.create!(name: "Other Gym", equipment_list_md: "")
+    other_user  = User.create!(email_address: "other@example.com", password: "password", organization: other_org)
+    sign_in_as(other_user)
+
+    assert_no_difference -> { TrainingSession.count } do
+      delete training_session_path(session)
+    end
+    assert_response :not_found
+  end
+
   private
     def make_eligible(student, workout_count:, blocks: [], trainer: @user, organization: @organization)
       version = student.start_periodization!(trainer: trainer)
