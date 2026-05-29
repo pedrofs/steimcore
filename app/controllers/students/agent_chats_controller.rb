@@ -21,7 +21,8 @@ class Students::AgentChatsController < InertiaController
       messages: messages_props(@chat),
       open_version: open_version_props,
       has_active_periodization: @student.active_periodization_id.present?,
-      suggestion_workouts: suggestion_workouts_props(@student)
+      suggestion_workouts: suggestion_workouts_props(@student),
+      organization_notes_md: current_organization.notes_md
     }
   end
 
@@ -86,7 +87,8 @@ class Students::AgentChatsController < InertiaController
         sex: student.sex,
         primary_goal: student.primary_goal,
         weekly_frequency: student.weekly_frequency,
-        anamnesis_md: student.anamnesis_md
+        anamnesis_md: student.anamnesis_md,
+        notes_md: student.notes_md
       }
     end
 

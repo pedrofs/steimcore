@@ -1,5 +1,10 @@
 import { router } from "@inertiajs/react"
-import { CalendarRangeIcon, FileTextIcon, Loader2Icon } from "lucide-react"
+import {
+  CalendarRangeIcon,
+  FileTextIcon,
+  Loader2Icon,
+  NotebookPenIcon,
+} from "lucide-react"
 import { useState } from "react"
 
 import { Markdown } from "@/components/markdown"
@@ -48,7 +53,24 @@ type AnamnesisProps = {
   anamnesisMd: string
 }
 
-type Props = CommonProps & (PeriodizationProps | AnamnesisProps)
+type StudentNotesProps = {
+  kind: "student_notes"
+  studentName: string
+  notesMd: string
+}
+
+type OrganizationNotesProps = {
+  kind: "organization_notes"
+  notesMd: string
+}
+
+type Props = CommonProps &
+  (
+    | PeriodizationProps
+    | AnamnesisProps
+    | StudentNotesProps
+    | OrganizationNotesProps
+  )
 
 export function ArtifactDrawer(props: Props) {
   const isMobile = useIsMobile()
@@ -66,11 +88,62 @@ export function ArtifactDrawer(props: Props) {
       >
         {props.kind === "anamnesis" ? (
           <AnamnesisContent {...props} />
+        ) : props.kind === "student_notes" ? (
+          <NotesContent
+            title="Memória do aluno"
+            description={props.studentName}
+            notesMd={props.notesMd}
+            placeholder="A memória do aluno ainda está em branco."
+          />
+        ) : props.kind === "organization_notes" ? (
+          <NotesContent
+            title="Memória da organização"
+            description={null}
+            notesMd={props.notesMd}
+            placeholder="A memória da organização ainda está em branco."
+          />
         ) : (
           <PeriodizationContent {...props} />
         )}
       </SheetContent>
     </Sheet>
+  )
+}
+
+function NotesContent({
+  title,
+  description,
+  notesMd,
+  placeholder,
+}: {
+  title: string
+  description: string | null
+  notesMd: string
+  placeholder: string
+}) {
+  return (
+    <>
+      <SheetHeader className="border-b border-border/60 px-4 pt-4 pb-3 sm:px-6">
+        <div className="flex items-start gap-3 pr-10">
+          <NotebookPenIcon
+            className="mt-0.5 size-5 shrink-0 text-brand"
+            aria-hidden
+          />
+          <div className="flex-1">
+            <SheetTitle className="text-base">{title}</SheetTitle>
+            {description && (
+              <SheetDescription className="text-xs">
+                {description}
+              </SheetDescription>
+            )}
+          </div>
+        </div>
+      </SheetHeader>
+
+      <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-6">
+        <Markdown content={notesMd} placeholder={placeholder} />
+      </div>
+    </>
   )
 }
 

@@ -40,6 +40,7 @@ type Student = {
   primaryGoal: string | null
   weeklyFrequency: number | null
   anamnesisMd: string
+  notesMd: string
 }
 
 type ChatState = "idle" | "running"
@@ -128,11 +129,18 @@ type Props = {
   openVersion: PeriodizationVersionData | null
   hasActivePeriodization: boolean
   suggestionWorkouts: SuggestionWorkout[]
+  organizationNotesMd: string
 }
+
+type DrawerKind =
+  | "periodization"
+  | "anamnesis"
+  | "student_notes"
+  | "organization_notes"
 
 type DrawerState = {
   open: boolean
-  kind: "periodization" | "anamnesis"
+  kind: DrawerKind
   versionId: string | null
   workoutId: string | null
 }
@@ -140,6 +148,8 @@ type DrawerState = {
 type ArtifactRef =
   | { kind: "periodization"; versionId: string; workoutId: string | null }
   | { kind: "anamnesis" }
+  | { kind: "student_notes" }
+  | { kind: "organization_notes" }
 
 const MAX_ATTACHMENT_COUNT = 5
 const MAX_ATTACHMENT_BYTES = 20 * 1024 * 1024
@@ -151,6 +161,7 @@ export default function AgentChatShow({
   openVersion,
   hasActivePeriodization,
   suggestionWorkouts,
+  organizationNotesMd,
 }: Props) {
   const visibleMessages = useMemo(
     () => messages.filter((m) => m.role !== "tool" && m.role !== "system"),
@@ -158,7 +169,13 @@ export default function AgentChatShow({
   )
 
   const { liveMessage, error, clearError } = useChatStream(chat.id, {
-    reloadProps: [ "messages", "open_version", "chat" ],
+    reloadProps: [
+      "messages",
+      "open_version",
+      "chat",
+      "student",
+      "organization_notes_md",
+    ],
   })
 
   const [composerContent, setComposerContent] = useState("")
@@ -210,10 +227,10 @@ export default function AgentChatShow({
 
   const openDrawer = useCallback(
     (artifact: ArtifactRef) => {
-      if (artifact.kind === "anamnesis") {
+      if (artifact.kind !== "periodization") {
         setDrawerState({
           open: true,
-          kind: "anamnesis",
+          kind: artifact.kind,
           versionId: null,
           workoutId: null,
         })
@@ -303,7 +320,6 @@ export default function AgentChatShow({
               <MessageBubble
                 key={message.id}
                 message={message}
-                studentId={student.id}
                 onOpen={openDrawer}
                 onLightbox={setLightboxUrl}
               />
@@ -344,6 +360,21 @@ export default function AgentChatShow({
           kind="anamnesis"
           studentName={student.name}
           anamnesisMd={student.anamnesisMd}
+        />
+      ) : drawerState.kind === "student_notes" ? (
+        <ArtifactDrawer
+          open={drawerState.open}
+          onOpenChange={handleOpenChange}
+          kind="student_notes"
+          studentName={student.name}
+          notesMd={student.notesMd}
+        />
+      ) : drawerState.kind === "organization_notes" ? (
+        <ArtifactDrawer
+          open={drawerState.open}
+          onOpenChange={handleOpenChange}
+          kind="organization_notes"
+          notesMd={organizationNotesMd}
         />
       ) : (
         <ArtifactDrawer
@@ -431,12 +462,10 @@ type OpenLightbox = (url: string) => void
 
 function MessageBubble({
   message,
-  studentId,
   onOpen,
   onLightbox,
 }: {
   message: Message
-  studentId: string
   onOpen: OpenDrawer
   onLightbox: OpenLightbox
 }) {
@@ -480,7 +509,6 @@ function MessageBubble({
             <ToolCallCard
               key={tc.id}
               toolCall={tc}
-              studentId={studentId}
               onOpen={onOpen}
             />
           ))}
@@ -562,11 +590,9 @@ function MessageAttachments({
 
 function ToolCallCard({
   toolCall,
-  studentId,
   onOpen,
 }: {
   toolCall: ToolCall
-  studentId: string
   onOpen: OpenDrawer
 }) {
   if (toolCall.name === "update_student") {
@@ -585,10 +611,10 @@ function ToolCallCard({
     return <UpdateWorkoutCard toolCall={toolCall} onOpen={onOpen} />
   }
   if (toolCall.name === "update_student_notes") {
-    return <UpdateStudentNotesCard toolCall={toolCall} studentId={studentId} />
+    return <UpdateStudentNotesCard toolCall={toolCall} onOpen={onOpen} />
   }
   if (toolCall.name === "update_organization_notes") {
-    return <UpdateOrganizationNotesCard toolCall={toolCall} />
+    return <UpdateOrganizationNotesCard toolCall={toolCall} onOpen={onOpen} />
   }
   return (
     <div className="rounded-xl border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
@@ -683,10 +709,10 @@ function UpdateAnamnesisCard({
 
 function UpdateStudentNotesCard({
   toolCall,
-  studentId,
+  onOpen,
 }: {
   toolCall: ToolCall
-  studentId: string
+  onOpen: OpenDrawer
 }) {
   const result = (toolCall.result ?? {}) as UpdateNotesResult
   const args = (toolCall.arguments ?? {}) as { summaryMd?: string }
@@ -712,18 +738,25 @@ function UpdateStudentNotesCard({
         </span>
       </div>
       <Button
-        asChild
+        type="button"
         size="sm"
         variant="outline"
         className="h-7 w-fit px-3 text-xs"
+        onClick={() => onOpen({ kind: "student_notes" })}
       >
-        <Link href={`/students/${studentId}/edit#notes_md`}>Abrir</Link>
+        Abrir
       </Button>
     </div>
   )
 }
 
-function UpdateOrganizationNotesCard({ toolCall }: { toolCall: ToolCall }) {
+function UpdateOrganizationNotesCard({
+  toolCall,
+  onOpen,
+}: {
+  toolCall: ToolCall
+  onOpen: OpenDrawer
+}) {
   const result = (toolCall.result ?? {}) as UpdateNotesResult
   const args = (toolCall.arguments ?? {}) as { summaryMd?: string }
   const summary =
@@ -748,12 +781,13 @@ function UpdateOrganizationNotesCard({ toolCall }: { toolCall: ToolCall }) {
         </span>
       </div>
       <Button
-        asChild
+        type="button"
         size="sm"
         variant="outline"
         className="h-7 w-fit px-3 text-xs"
+        onClick={() => onOpen({ kind: "organization_notes" })}
       >
-        <Link href="/organization/edit#notes_md">Abrir</Link>
+        Abrir
       </Button>
     </div>
   )
