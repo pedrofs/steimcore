@@ -32,7 +32,7 @@ Rails.application.routes.draw do
     resource :inline_edit, only: :create, module: :periodizations
   end
 
-  resources :training_sessions, only: [ :index, :create ] do
+  resources :training_sessions, only: [ :index, :create, :destroy ] do
     resources :block_completions, only: [ :create, :destroy ], module: :training_sessions
     resource  :completion,        only: [ :create, :destroy ], module: :training_sessions
     resource  :workout_swap,      only: :create,               module: :training_sessions

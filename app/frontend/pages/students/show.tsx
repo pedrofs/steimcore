@@ -10,14 +10,27 @@ import {
   Play,
   RotateCcw,
   Sparkles,
+  Trash2,
 } from "lucide-react"
 import { motion } from "motion/react"
 
 import { Markdown } from "@/components/markdown"
 import { ArchiveStudentDialog } from "@/components/students/archive-student-dialog"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Label } from "@/components/ui/label"
 import {
   Popover,
   PopoverContent,
@@ -79,12 +92,20 @@ type FrequencyVersion = {
   isCurrent: boolean
 }
 
+type FrequencyWorkoutOption = {
+  id: string
+  name: string
+  position: number
+}
+
 type Frequency = {
   windowStart: string
   windowEnd: string
   today: string
   days: FrequencyDay[]
   versions: FrequencyVersion[]
+  workoutOptions: FrequencyWorkoutOption[]
+  suggestedWorkoutId: string | null
 }
 
 type Props = {
@@ -459,6 +480,7 @@ function FrequencySection({
             const col = Math.floor(i / 7)
             const row = i % 7
             const isToday = day.date === today
+            const isPast = day.date < today
             const latest = day.sessions.length > 0 ? day.sessions[day.sessions.length - 1] : undefined
             return (
               <FrequencyCell
@@ -466,10 +488,13 @@ function FrequencySection({
                 day={day}
                 latest={latest}
                 isToday={isToday}
+                isPastOrToday={isPast || isToday}
                 row={row}
                 col={col}
                 versionsById={versionsById}
                 studentId={studentId}
+                workoutOptions={frequency.workoutOptions}
+                suggestedWorkoutId={frequency.suggestedWorkoutId}
               />
             )
           })}
@@ -493,29 +518,58 @@ function FrequencyCell({
   day,
   latest,
   isToday,
+  isPastOrToday,
   row,
   col,
   versionsById,
   studentId,
+  workoutOptions,
+  suggestedWorkoutId,
 }: {
   day: FrequencyDay
   latest: FrequencySession | undefined
   isToday: boolean
+  isPastOrToday: boolean
   row: number
   col: number
   versionsById: Map<string, FrequencyVersion>
   studentId: string
+  workoutOptions: FrequencyWorkoutOption[]
+  suggestedWorkoutId: string | null
 }) {
   const style = { gridRow: row + 2, gridColumn: col + 2 }
   const outlineClass = isToday ? "outline outline-1 outline-foreground/70" : ""
 
   if (!latest) {
+    if (!isPastOrToday) {
+      return (
+        <div
+          aria-hidden
+          style={style}
+          className={cn("rounded-sm bg-muted/50", outlineClass)}
+        />
+      )
+    }
+
     return (
-      <div
-        aria-hidden
-        style={style}
-        className={cn("rounded-sm bg-muted/50", outlineClass)}
-      />
+      <LogPastSessionDialog
+        date={day.date}
+        studentId={studentId}
+        workoutOptions={workoutOptions}
+        suggestedWorkoutId={suggestedWorkoutId}
+      >
+        <button
+          type="button"
+          style={style}
+          aria-label={`Registrar treino em ${formatLongDatePt(day.date)}`}
+          className={cn(
+            "rounded-sm bg-muted/50",
+            outlineClass,
+            "cursor-pointer transition-opacity hover:opacity-70",
+            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50 focus-visible:ring-offset-1 focus-visible:ring-offset-background",
+          )}
+        />
+      </LogPastSessionDialog>
     )
   }
 
@@ -631,6 +685,7 @@ function SingleSessionPopoverBody({
           Ver periodização
         </Link>
       )}
+      <RemoveSessionAction session={session} dateLabel={formatLongDatePt(day.date)} />
     </>
   )
 }
@@ -692,6 +747,7 @@ function MultiSessionPopoverBody({
                   <span>Versão {version.number} — Periodização</span>
                 </div>
               )}
+              <RemoveSessionAction session={session} dateLabel={formatLongDatePt(day.date)} />
             </div>
           )
         })}
@@ -723,6 +779,126 @@ const LONG_DATE_FORMATTER_PT = new Intl.DateTimeFormat("pt-BR", {
 
 function formatLongDatePt(iso: string): string {
   return LONG_DATE_FORMATTER_PT.format(parseDateOnly(iso))
+}
+
+const FREQUENCY_RELOAD = {
+  only: ["frequency", "student"],
+  preserveScroll: true,
+} as const
+
+function RemoveSessionAction({
+  session,
+  dateLabel,
+}: {
+  session: FrequencySession
+  dateLabel: string
+}) {
+  function remove() {
+    router.delete(`/training_sessions/${session.id}`, FREQUENCY_RELOAD)
+  }
+
+  return (
+    <AlertDialog>
+      <AlertDialogTrigger asChild>
+        <button
+          type="button"
+          className="inline-flex items-center gap-1 self-start text-xs font-medium text-destructive hover:underline"
+        >
+          <Trash2 className="size-3" aria-hidden />
+          Remover
+        </button>
+      </AlertDialogTrigger>
+      <AlertDialogContent size="sm">
+        <AlertDialogHeader>
+          <AlertDialogTitle>Remover treino?</AlertDialogTitle>
+          <AlertDialogDescription>
+            O treino <strong>{session.workoutNameSnapshot}</strong> registrado em{" "}
+            <strong>{dateLabel}</strong> será apagado do histórico.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Cancelar</AlertDialogCancel>
+          <AlertDialogAction onClick={remove}>Remover</AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  )
+}
+
+function LogPastSessionDialog({
+  date,
+  studentId,
+  workoutOptions,
+  suggestedWorkoutId,
+  children,
+}: {
+  date: string
+  studentId: string
+  workoutOptions: FrequencyWorkoutOption[]
+  suggestedWorkoutId: string | null
+  children: React.ReactNode
+}) {
+  const hasOptions = workoutOptions.length > 0
+  const initialId =
+    (suggestedWorkoutId && workoutOptions.some((w) => w.id === suggestedWorkoutId)
+      ? suggestedWorkoutId
+      : workoutOptions[0]?.id) ?? ""
+  const [open, setOpen] = useState(false)
+  const [workoutId, setWorkoutId] = useState(initialId)
+
+  function submit() {
+    if (!workoutId) return
+    router.post(
+      "/training_sessions",
+      { student_id: studentId, for_date: date, workout_id: workoutId },
+      {
+        ...FREQUENCY_RELOAD,
+        onSuccess: () => setOpen(false),
+      },
+    )
+  }
+
+  return (
+    <AlertDialog open={open} onOpenChange={setOpen}>
+      <AlertDialogTrigger asChild>{children}</AlertDialogTrigger>
+      <AlertDialogContent size="sm">
+        <AlertDialogHeader>
+          <AlertDialogTitle>Registrar treino</AlertDialogTitle>
+          <AlertDialogDescription>
+            Esta sessão será registrada como feita em{" "}
+            <strong>{formatLongDatePt(date)}</strong>.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        {hasOptions ? (
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="log-past-workout">Treino</Label>
+            <select
+              id="log-past-workout"
+              value={workoutId}
+              onChange={(e) => setWorkoutId(e.target.value)}
+              className="h-9 rounded-md border border-input bg-background px-3 text-sm shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50"
+            >
+              {workoutOptions.map((w) => (
+                <option key={w.id} value={w.id}>
+                  Treino {w.position} — {w.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            O aluno não tem treinos disponíveis na periodização atual.
+          </p>
+        )}
+        <AlertDialogFooter>
+          <AlertDialogCancel>Cancelar</AlertDialogCancel>
+          <AlertDialogAction onClick={submit} disabled={!hasOptions || !workoutId}>
+            Registrar
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  )
 }
 
 function FrequencyLegend({ versions }: { versions: FrequencyVersion[] }) {
