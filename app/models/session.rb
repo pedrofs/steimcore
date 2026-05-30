@@ -1,3 +1,3 @@
 class Session < ApplicationRecord
-  belongs_to :user
+  belongs_to :authenticatable, polymorphic: true
 end

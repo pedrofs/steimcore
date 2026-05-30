@@ -32,4 +32,17 @@ class SessionsControllerTest < ActionDispatch::IntegrationTest
     assert_redirected_to new_session_path
     assert_empty cookies[:session_id]
   end
+
+  test "session whose authenticatable is not a User is rejected on a trainer-side controller" do
+    non_user_session = Session.create!(authenticatable: organizations(:steimfit))
+
+    ActionDispatch::TestRequest.create.cookie_jar.tap do |cookie_jar|
+      cookie_jar.signed[:session_id] = non_user_session.id
+      cookies["session_id"] = cookie_jar[:session_id]
+    end
+
+    get root_path
+
+    assert_redirected_to new_session_path
+  end
 end

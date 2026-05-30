@@ -9,7 +9,7 @@ module ApplicationCable
     private
       def set_current_user
         if session = Session.find_by(id: cookies.signed[:session_id])
-          self.current_user = session.user
+          self.current_user = session.authenticatable if session.authenticatable.is_a?(User)
         end
       end
   end
