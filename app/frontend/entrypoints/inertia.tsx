@@ -1,7 +1,10 @@
 import { createInertiaApp } from '@inertiajs/react'
 import { BRAND_NAME } from '@/lib/brand'
+import { initKeyboardTracking } from '@/lib/keyboard'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { ApplicationLayout } from '@/layouts/application-layout'
+
+initKeyboardTracking()
 
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
