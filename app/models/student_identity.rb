@@ -13,7 +13,7 @@ class StudentIdentity < ApplicationRecord
   normalizes :email_address, with: ->(e) { e.strip.downcase }
 
   validates :email_address, presence: true, uniqueness: { case_sensitive: false }
-  validates :password, presence: true, confirmation: true, on: :setup
+  validates :password, presence: true, confirmation: true, on: [ :setup, :password_reset ]
 
   generates_token_for :setup, expires_in: 30.days do
     password_digest
@@ -31,5 +31,17 @@ class StudentIdentity < ApplicationRecord
     self.password = password
     self.password_confirmation = password_confirmation
     save!(context: :setup)
+  end
+
+  # Resets the password from the forgot-password flow and revokes every existing
+  # session for this identity (so any stale access is dropped). Validated in the
+  # :password_reset context, mirroring :setup. See PRD #108, issue #116.
+  def reset_password!(password:, password_confirmation:)
+    self.password = password
+    self.password_confirmation = password_confirmation
+    transaction do
+      save!(context: :password_reset)
+      sessions.destroy_all
+    end
   end
 end

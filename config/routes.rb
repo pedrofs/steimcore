@@ -28,6 +28,7 @@ Rails.application.routes.draw do
 
   namespace :student do
     resource :session, only: [ :new, :create, :destroy ]
+    resources :passwords, param: :token, only: [ :new, :create, :edit, :update ]
     resources :setup_acceptances, param: :token, only: [ :edit, :update ]
     resource :profile_selection, only: [ :new, :create ]
     resource :no_profile, only: :show

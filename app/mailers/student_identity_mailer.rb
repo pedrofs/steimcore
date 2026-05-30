@@ -9,4 +9,13 @@ class StudentIdentityMailer < ApplicationMailer
       subject: "Você foi convidado(a) para o #{@organization.name}"
     )
   end
+
+  def password_reset(student_identity)
+    @reset_url = edit_student_password_url(student_identity.password_reset_token)
+
+    mail(
+      to: student_identity.email_address,
+      subject: "Redefina sua senha"
+    )
+  end
 end
