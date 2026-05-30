@@ -29,6 +29,10 @@ export function ApplicationLayout({ children }: { children: ReactNode }) {
       <SidebarProvider>
         <AppSidebar />
         <SidebarInset>
+          <div
+            aria-hidden
+            className="h-[env(safe-area-inset-top)] shrink-0 bg-sidebar"
+          />
           <header className="flex h-16 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12">
             <div className="flex items-center gap-2 px-4">
               <SidebarTrigger className="-ml-1 size-11 md:size-8" />
@@ -60,7 +64,9 @@ export function ApplicationLayout({ children }: { children: ReactNode }) {
             </div>
           </header>
           <InstallAppBanner />
-          <div className="flex flex-1 flex-col gap-6 p-4 pt-0">{children}</div>
+          <div className="flex flex-1 flex-col gap-6 p-4 pt-0 pb-[max(1rem,env(safe-area-inset-bottom))]">
+            {children}
+          </div>
         </SidebarInset>
       </SidebarProvider>
     </InstallAppProvider>
