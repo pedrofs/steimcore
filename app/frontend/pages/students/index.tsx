@@ -221,6 +221,7 @@ function Toolbar({ filters }: { filters: Filters }) {
   const lastReloadedQ = useRef(filters.q)
 
   useEffect(() => {
+    if (filters.q === lastReloadedQ.current) return
     setQ(filters.q)
     lastReloadedQ.current = filters.q
   }, [filters.q])
