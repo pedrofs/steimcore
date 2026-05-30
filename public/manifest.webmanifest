@@ -1,13 +1,17 @@
 {
+  "id": "/",
   "name": "Steimfit",
   "short_name": "Steimfit",
   "description": "Steimfit · plataforma de treinamento personalizado para coaches e alunos.",
+  "lang": "pt-BR",
+  "dir": "ltr",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#a80038",
   "theme_color": "#a80038",
+  "categories": ["fitness", "health", "lifestyle"],
   "icons": [
     {
       "src": "/icon.svg",
