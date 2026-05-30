@@ -17,11 +17,47 @@ class Student::SessionsControllerTest < ActionDispatch::IntegrationTest
     assert_equal "student/sessions/new", inertia.component
   end
 
-  test "create with valid credentials signs in and lands on the student home" do
+  test "create with valid credentials and a single profile auto-selects it and lands on the student home" do
     post student_session_path, params: { email_address: @identity.email_address, password: "password" }
 
     assert_redirected_to student_home_path
     assert cookies[:session_id]
+    assert_equal @identity.students.sole.id, @identity.sessions.sole.selected_student_id
+  end
+
+  test "create with two or more profiles lands on the chooser without auto-selecting" do
+    other_org = Organization.create!(name: "Other Gym", equipment_list_md: "")
+    other_org.students.create!(name: "Second Profile", email: @identity.email_address)
+
+    post student_session_path, params: { email_address: @identity.email_address, password: "password" }
+
+    assert_redirected_to new_student_profile_selection_path
+    assert_nil @identity.sessions.sole.selected_student_id
+  end
+
+  test "every sign-in with multiple profiles forces a fresh choice with no remembered default" do
+    other_org = Organization.create!(name: "Other Gym", equipment_list_md: "")
+    other_org.students.create!(name: "Second Profile", email: @identity.email_address)
+
+    # First sign-in: pick a profile, then sign out.
+    post student_session_path, params: { email_address: @identity.email_address, password: "password" }
+    chosen = @identity.students.first
+    post student_profile_selection_path, params: { student_id: chosen.id }
+    delete student_session_path
+
+    # Second sign-in: must land on the chooser again, with no remembered default.
+    post student_session_path, params: { email_address: @identity.email_address, password: "password" }
+
+    assert_redirected_to new_student_profile_selection_path
+    assert_nil @identity.sessions.sole.selected_student_id
+  end
+
+  test "create with zero linked profiles lands on the no-profile page" do
+    @identity.students.destroy_all
+
+    post student_session_path, params: { email_address: @identity.email_address, password: "password" }
+
+    assert_redirected_to student_no_profile_path
   end
 
   test "create with invalid credentials redirects back with an error" do

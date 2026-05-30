@@ -16,7 +16,8 @@ class Student::SetupAcceptancesController < Student::ApplicationController
       password_confirmation: params[:password_confirmation]
     )
     start_new_session_for(@identity)
-    redirect_to student_home_path, notice: "Bem-vindo(a), #{@identity.email_address}!"
+    flash[:notice] = "Bem-vindo(a), #{@identity.email_address}!"
+    redirect_to_profile_destination
   rescue ActiveRecord::RecordInvalid => e
     redirect_to edit_student_setup_acceptance_path(params[:token]),
                 inertia: { errors: e.record.errors.to_hash(true) }

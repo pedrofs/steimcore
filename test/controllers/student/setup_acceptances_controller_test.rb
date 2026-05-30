@@ -30,8 +30,9 @@ class Student::SetupAcceptancesControllerTest < ActionDispatch::IntegrationTest
     assert_equal "Este convite não é mais válido.", flash[:alert]
   end
 
-  test "update with a valid token and matching password sets the digest, signs in, lands on the placeholder home" do
+  test "update with a valid token and matching password sets the digest, signs in, auto-selects the single profile, lands on the placeholder home" do
     assert_nil @identity.password_digest
+    @identity.students.create!(name: "Only Profile", organization: organizations(:steimfit), email: @identity.email_address)
 
     put student_setup_acceptance_path(@token), params: {
       password: "newpassword",
@@ -44,6 +45,31 @@ class Student::SetupAcceptancesControllerTest < ActionDispatch::IntegrationTest
     assert @identity.confirmed?
     assert cookies[:session_id]
     assert_redirected_to student_home_path
+    assert_equal @identity.students.sole.id, @identity.sessions.sole.selected_student_id
+  end
+
+  test "update routes a multi-profile identity to the chooser after sign-in" do
+    other_org = Organization.create!(name: "Other Gym", equipment_list_md: "")
+    @identity.students.create!(name: "Profile One", organization: organizations(:steimfit), email: @identity.email_address)
+    other_org.students.create!(name: "Profile Two", email: @identity.email_address)
+
+    put student_setup_acceptance_path(@token), params: {
+      password: "newpassword",
+      password_confirmation: "newpassword"
+    }
+
+    assert cookies[:session_id]
+    assert_redirected_to new_student_profile_selection_path
+  end
+
+  test "update routes a zero-profile identity to the no-profile page after sign-in" do
+    put student_setup_acceptance_path(@token), params: {
+      password: "newpassword",
+      password_confirmation: "newpassword"
+    }
+
+    assert cookies[:session_id]
+    assert_redirected_to student_no_profile_path
   end
 
   test "update with a token for an already-confirmed identity redirects with alert" do

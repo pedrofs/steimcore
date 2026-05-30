@@ -11,7 +11,7 @@ class Student::SessionsController < Student::ApplicationController
   def create
     if identity = StudentIdentity.authenticate_by(params.permit(:email_address, :password))
       start_new_session_for identity
-      redirect_to student_home_path
+      redirect_to_profile_destination
     else
       redirect_to new_student_session_path(email_address: params[:email_address]),
                   inertia: { errors: { base: [ "E-mail ou senha incorretos." ] } }

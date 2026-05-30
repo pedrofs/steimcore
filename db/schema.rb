@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.2].define(version: 2026_05_30_120002) do
+ActiveRecord::Schema[8.2].define(version: 2026_05_30_120003) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -171,7 +171,9 @@ ActiveRecord::Schema[8.2].define(version: 2026_05_30_120002) do
     t.string "user_agent"
     t.string "authenticatable_id", null: false
     t.string "authenticatable_type", null: false
+    t.uuid "selected_student_id"
     t.index ["authenticatable_type", "authenticatable_id"], name: "index_sessions_on_authenticatable_type_and_authenticatable_id"
+    t.index ["selected_student_id"], name: "index_sessions_on_selected_student_id"
   end
 
   create_table "student_identities", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
@@ -264,6 +266,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_05_30_120002) do
   add_foreign_key "periodization_versions", "users", column: "trainer_id"
   add_foreign_key "periodizations", "periodization_versions", column: "current_version_id", name: "fk_rails_periodizations_current_version_id", deferrable: :deferred
   add_foreign_key "periodizations", "students"
+  add_foreign_key "sessions", "students", column: "selected_student_id", on_delete: :nullify
   add_foreign_key "students", "organizations"
   add_foreign_key "students", "periodizations", column: "active_periodization_id", name: "fk_rails_students_active_periodization_id", deferrable: :deferred
   add_foreign_key "students", "student_identities"

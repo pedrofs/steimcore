@@ -1,13 +1,26 @@
 class Student::HomeController < Student::ApplicationController
-  # Single-profile only in this slice: the profile chooser and the proper
-  # Current.student derivation land in #114/#115. Until then the placeholder
-  # home shows the first (and, in this slice, only) linked Student.
-  def show
-    student = Current.student_identity.students.first
+  before_action :require_selected_profile
 
+  def show
     render inertia: "student/home/show", props: {
-      student_name: student&.name,
-      organization_name: student&.organization&.name
+      student_name: Current.student.name,
+      organization_name: Current.student.organization.name
     }
   end
+
+  private
+    # The placeholder home requires a Selected profile. When the selection is
+    # missing or no longer reachable (e.g. the trainer destroyed that Student
+    # mid-session), bounce to the Profile chooser if any profiles remain, or to
+    # the "Nenhum perfil disponível" page if none do. The session itself stays
+    # alive — the identity is still authenticated. See PRD #108.
+    def require_selected_profile
+      return if Current.student
+
+      if Current.student_identity.students.exists?
+        redirect_to new_student_profile_selection_path
+      else
+        redirect_to student_no_profile_path
+      end
+    end
 end

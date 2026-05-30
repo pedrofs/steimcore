@@ -25,6 +25,7 @@ export type SharedProps = {
   title: string | null
   breadcrumbs: Breadcrumb[]
   activeSessionCount: number
+  canSwitchProfile?: boolean
 }
 
 export type DashboardTag =
