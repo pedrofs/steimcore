@@ -18,12 +18,21 @@ const isUnchromed = (name: string) =>
   name.startsWith("training_sessions/") ||
   name.startsWith("students/periodizations/printables/")
 
+function dismissBootSplash() {
+  const splash = document.getElementById("app-boot-splash")
+  if (!splash) return
+  splash.classList.add("is-hidden")
+  window.setTimeout(() => splash.remove(), 280)
+}
+
 void createInertiaApp({
   pages: "../pages",
 
   title: (title) => (title ? `${title} · ${BRAND_NAME}` : BRAND_NAME),
 
   strictMode: true,
+
+  progress: false,
 
   defaults: {
     form: {
@@ -51,4 +60,4 @@ void createInertiaApp({
       'Consider moving <%= vite_typescript_tag "inertia.tsx" %> to the Inertia-specific layout instead.',
     )
   }
-})
+}).finally(dismissBootSplash)
