@@ -26,6 +26,11 @@ Rails.application.routes.draw do
 
   resource :student_setup_invitation_batch, only: :create
 
+  namespace :student do
+    resource :session, only: [ :new, :create, :destroy ]
+    resource :home, only: :show, controller: "home"
+  end
+
   resources :periodization_versions, only: [ :show, :destroy ] do
     resource :promotion, only: :create, module: :periodization_versions
     resources :workouts, only: :update, module: :periodization_versions

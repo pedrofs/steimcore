@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.2].define(version: 2026_05_30_120001) do
+ActiveRecord::Schema[8.2].define(version: 2026_05_30_120002) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -169,7 +169,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_05_30_120001) do
     t.string "ip_address"
     t.datetime "updated_at", null: false
     t.string "user_agent"
-    t.bigint "authenticatable_id", null: false
+    t.string "authenticatable_id", null: false
     t.string "authenticatable_type", null: false
     t.index ["authenticatable_type", "authenticatable_id"], name: "index_sessions_on_authenticatable_type_and_authenticatable_id"
   end

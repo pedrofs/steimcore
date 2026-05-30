@@ -8,6 +8,7 @@ class StudentIdentity < ApplicationRecord
   # setup invitation. Confirmation lives in a later slice.
   has_secure_password validations: false
   has_many :students, dependent: :nullify
+  has_many :sessions, as: :authenticatable, dependent: :destroy
 
   normalizes :email_address, with: ->(e) { e.strip.downcase }
 

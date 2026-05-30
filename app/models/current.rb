@@ -6,4 +6,9 @@ class Current < ActiveSupport::CurrentAttributes
     principal = session&.authenticatable
     principal if principal.is_a?(User)
   end
+
+  def student_identity
+    principal = session&.authenticatable
+    principal if principal.is_a?(StudentIdentity)
+  end
 end
