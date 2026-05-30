@@ -180,6 +180,55 @@ class Agent::Chat::RunnableTest < ActiveSupport::TestCase
     assert_equal Agent::Chat::Runnable::ORPHAN_TOOL_RESULT_NOTICE, backfilled.content
   end
 
+  test "heal_history! destroys an empty assistant message between a tool result and a user message" do
+    @chat.messages.create!(role: :assistant, content: "Pensando...")
+    tc_carrier = @chat.messages.create!(role: :assistant, content: "calling tool")
+    tc = tc_carrier.tool_calls.create!(tool_call_id: "toolu_x", name: "update_anamnesis", arguments: {})
+    @chat.messages.create!(role: :tool, tool_call_id: tc.id, content: "{ok: true}")
+    empty_assistant = @chat.messages.create!(role: :assistant, content: "")
+    @chat.messages.create!(role: :user, content: "próxima pergunta", trainer: @user)
+
+    @chat.heal_history!
+
+    assert_raises(ActiveRecord::RecordNotFound) { empty_assistant.reload }
+  end
+
+  test "heal_history! preserves an empty assistant message that still carries tool_calls" do
+    assistant = @chat.messages.create!(role: :assistant, content: "")
+    assistant.tool_calls.create!(tool_call_id: "toolu_y", name: "update_anamnesis", arguments: {})
+    # Pair the tool_call so heal_orphan_tool_calls! doesn't backfill a row.
+    @chat.messages.create!(role: :tool, tool_call_id: assistant.tool_calls.first.id, content: "{ok: true}")
+
+    assert_no_difference -> { @chat.messages.where(role: :assistant).count } do
+      @chat.heal_history!
+    end
+  end
+
+  test "heal_history! coalesces consecutive text-only assistant messages" do
+    @chat.messages.create!(role: :assistant, content: "primeira parte")
+    @chat.messages.create!(role: :assistant, content: "segunda parte")
+
+    @chat.heal_history!
+
+    assistants = @chat.reload.messages.where(role: :assistant).order(:created_at).to_a
+    assert_equal 1, assistants.size
+    assert_equal "primeira parte\n\nsegunda parte", assistants.first.content
+  end
+
+  test "heal_history! leaves a tool-bearing assistant run untouched" do
+    a = @chat.messages.create!(role: :assistant, content: "antes")
+    b = @chat.messages.create!(role: :assistant, content: "depois")
+    b.tool_calls.create!(tool_call_id: "toolu_z", name: "update_anamnesis", arguments: {})
+    @chat.messages.create!(role: :tool, tool_call_id: b.tool_calls.first.id, content: "{ok: true}")
+
+    assert_no_difference -> { @chat.messages.where(role: :assistant).count } do
+      @chat.heal_history!
+    end
+
+    assert_equal "antes",  a.reload.content
+    assert_equal "depois", b.reload.content
+  end
+
   test "heal_history! is a no-op on a clean history" do
     @chat.messages.create!(role: :assistant, content: "Olá!")
 
