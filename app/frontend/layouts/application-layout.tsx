@@ -2,6 +2,7 @@ import { Head, Link, usePage } from "@inertiajs/react"
 import { Fragment, type ReactNode } from "react"
 
 import { AppSidebar } from "@/components/app-sidebar"
+import { InstallAppBanner, InstallAppProvider } from "@/components/install-app"
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -23,7 +24,7 @@ export function ApplicationLayout({ children }: { children: ReactNode }) {
   const breadcrumbs = props.breadcrumbs
 
   return (
-    <>
+    <InstallAppProvider>
       <Head title={title ?? undefined} />
       <SidebarProvider>
         <AppSidebar />
@@ -58,9 +59,10 @@ export function ApplicationLayout({ children }: { children: ReactNode }) {
               </Breadcrumb>
             </div>
           </header>
+          <InstallAppBanner />
           <div className="flex flex-1 flex-col gap-6 p-4 pt-0">{children}</div>
         </SidebarInset>
       </SidebarProvider>
-    </>
+    </InstallAppProvider>
   )
 }

@@ -3,6 +3,7 @@ import { Link, router, usePage } from "@inertiajs/react"
 import { Activity, ChevronsUpDown, DumbbellIcon, HomeIcon, LogOut, UsersIcon } from "lucide-react"
 
 import { BrandLockup, BrandMark } from "@/components/brand"
+import { InstallAppMenuItem } from "@/components/install-app"
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
@@ -146,6 +147,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                     {user.email}
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
+                  <InstallAppMenuItem />
                   <DropdownMenuItem
                     onSelect={() =>
                       router.delete("/session", { preserveScroll: true })
