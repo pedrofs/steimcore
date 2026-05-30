@@ -32,6 +32,7 @@ import {
   ChevronRightIcon,
   MoreVertical,
   RotateCcw,
+  Send,
 } from "lucide-react"
 
 type StudentSummary = {
@@ -62,15 +63,27 @@ type Filters = {
   status: "plan_needs_action" | "no_plan" | "anamnesis_pending" | null
 }
 
+type InvitationSummary = {
+  eligible: number
+  noEmail: number
+  confirmed: number
+}
+
 type Props = {
   students: StudentSummary[]
   pagination: PaginationProps
   filters: Filters
+  invitationSummary: InvitationSummary
 }
 
 const SEARCH_DEBOUNCE_MS = 250
 
-export default function Index({ students, pagination, filters }: Props) {
+export default function Index({
+  students,
+  pagination,
+  filters,
+  invitationSummary,
+}: Props) {
   const hasActiveFilters =
     filters.q !== "" || filters.withoutActive || filters.archived || filters.status !== null
   const orgIsEmpty = students.length === 0 && !hasActiveFilters
@@ -94,6 +107,8 @@ export default function Index({ students, pagination, filters }: Props) {
         </p>
       ) : (
         <>
+          <InvitationSummaryBar summary={invitationSummary} />
+
           <Toolbar filters={filters} />
 
           {students.length === 0 ? (
@@ -202,6 +217,52 @@ export default function Index({ students, pagination, filters }: Props) {
         </>
       )}
     </>
+  )
+}
+
+function InvitationSummaryBar({ summary }: { summary: InvitationSummary }) {
+  const [sending, setSending] = useState(false)
+  const noneEligible = summary.eligible === 0
+
+  const inviteAll = () => {
+    router.post(
+      "/student_setup_invitation_batch",
+      {},
+      {
+        preserveScroll: true,
+        onStart: () => setSending(true),
+        onFinish: () => setSending(false),
+      },
+    )
+  }
+
+  return (
+    <div className="flex flex-col gap-3 rounded-xl border bg-card p-4 sm:flex-row sm:items-center sm:justify-between">
+      <dl className="flex flex-wrap gap-x-6 gap-y-1 text-sm">
+        <div className="flex items-baseline gap-1.5">
+          <dt className="text-muted-foreground">A convidar</dt>
+          <dd className="font-medium tabular-nums">{summary.eligible}</dd>
+        </div>
+        <div className="flex items-baseline gap-1.5">
+          <dt className="text-muted-foreground">Sem e-mail</dt>
+          <dd className="font-medium tabular-nums">{summary.noEmail}</dd>
+        </div>
+        <div className="flex items-baseline gap-1.5">
+          <dt className="text-muted-foreground">Com acesso</dt>
+          <dd className="font-medium tabular-nums">{summary.confirmed}</dd>
+        </div>
+      </dl>
+      <Button
+        type="button"
+        variant="outline"
+        className="h-11 w-full sm:h-10 sm:w-auto"
+        onClick={inviteAll}
+        disabled={noneEligible || sending}
+      >
+        <Send className="size-4" />
+        Convidar todos
+      </Button>
+    </div>
   )
 }
 

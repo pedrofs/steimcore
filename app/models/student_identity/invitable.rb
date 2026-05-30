@@ -8,6 +8,30 @@ module StudentIdentity::Invitable
 
   COOLDOWN = 24.hours
 
+  included do
+    scope :pending,   -> { where(password_digest: nil) }
+    scope :confirmed, -> { where.not(password_digest: nil) }
+    scope :off_cooldown, -> {
+      where("last_invited_at IS NULL OR last_invited_at <= ?", COOLDOWN.ago)
+    }
+    scope :invitable, -> { pending.off_cooldown }
+  end
+
+  class_methods do
+    # The pending-identity cohort the trainer can invite: identities not yet
+    # confirmed, linked to at least one unarchived student with an email in the
+    # given organization. Includes under-cooldown identities — the bulk trigger
+    # skips those at send time (invite! raises), keeping the cohort definition
+    # stable while the off_cooldown scope narrows it to who'll actually receive.
+    def pending_for_organization(organization)
+      pending
+        .joins(:students)
+        .where(students: { organization: organization, archived_at: nil })
+        .where.not(students: { email: [ nil, "" ] })
+        .distinct
+    end
+  end
+
   # No-op when already confirmed; raises StudentIdentity::UnderCooldown when a
   # prior invite is still within the cooldown window. Otherwise stamps
   # last_invited_at and enqueues the setup mailer in the same transaction. The

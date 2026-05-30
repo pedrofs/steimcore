@@ -14,7 +14,8 @@ class StudentsController < InertiaController
     render inertia: "students/index", props: {
       students: students.map { |student| student_summary(student) },
       pagination: pagination_props(@pagy),
-      filters: filters
+      filters: filters,
+      invitation_summary: invitation_summary
     }
   end
 
@@ -43,7 +44,8 @@ class StudentsController < InertiaController
 
     render inertia: "students/show", props: {
       student: student_props(student),
-      frequency: frequency_props(student)
+      frequency: frequency_props(student),
+      invitation: invitation_props(student)
     }
   end
 
@@ -77,6 +79,33 @@ class StudentsController < InertiaController
         :name, :birthday, :sex, :primary_goal,
         :weekly_frequency, :phone, :email, :anamnesis_md, :notes_md
       )
+    end
+
+    # Counts surfaced above the roster so the trainer sees onboarding progress
+    # and what the bulk "Convidar todos" button will actually do before clicking.
+    def invitation_summary
+      unarchived = current_organization.students.unarchived
+      {
+        eligible: StudentIdentity.pending_for_organization(current_organization).off_cooldown.count,
+        no_email: unarchived.where(email: [ nil, "" ]).count,
+        confirmed: unarchived.joins(:student_identity)
+                             .merge(StudentIdentity.confirmed).distinct.count
+      }
+    end
+
+    # Per-student invite state for the show page. nil hides the control entirely
+    # (archived, no email, or already confirmed); otherwise the frontend renders
+    # an enabled "Convidar" button or a disabled cooldown state.
+    def invitation_props(student)
+      identity = student.student_identity
+      return nil if student.archived? || student.email.blank?
+      return nil if identity.nil? || identity.confirmed?
+
+      {
+        invitable: identity.invitable?,
+        last_invited_at: identity.last_invited_at&.iso8601,
+        cooldown_available_at: identity.cooldown_available_at&.iso8601
+      }
     end
 
     def student_summary(student)

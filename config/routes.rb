@@ -21,7 +21,10 @@ Rails.application.routes.draw do
     end
     resource :archive,     only: :create, module: :students
     resource :restoration, only: :create, module: :students
+    resource :setup_invitation, only: :create, module: :students
   end
+
+  resource :student_setup_invitation_batch, only: :create
 
   resources :periodization_versions, only: [ :show, :destroy ] do
     resource :promotion, only: :create, module: :periodization_versions

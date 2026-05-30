@@ -9,6 +9,7 @@ import {
   Phone,
   Play,
   RotateCcw,
+  Send,
   Sparkles,
   Trash2,
 } from "lucide-react"
@@ -108,15 +109,22 @@ type Frequency = {
   suggestedWorkoutId: string | null
 }
 
+type Invitation = {
+  invitable: boolean
+  lastInvitedAt: string | null
+  cooldownAvailableAt: string | null
+}
+
 type Props = {
   student: Student
   frequency: Frequency | null
+  invitation: Invitation | null
 }
 
-export default function Show({ student, frequency }: Props) {
+export default function Show({ student, frequency, invitation }: Props) {
   return (
     <>
-      <StudentIdentity student={student} />
+      <StudentIdentity student={student} invitation={invitation} />
 
       {student.archived && <ArchivedBanner student={student} />}
 
@@ -295,7 +303,13 @@ function formatArchivedDate(iso: string | null): string | null {
   }).format(date)
 }
 
-function StudentIdentity({ student }: { student: Student }) {
+function StudentIdentity({
+  student,
+  invitation,
+}: {
+  student: Student
+  invitation: Invitation | null
+}) {
   const chips = buildChips(student)
   const phone = student.phone?.trim()
   const email = student.email?.trim()
@@ -366,10 +380,89 @@ function StudentIdentity({ student }: { student: Student }) {
               )}
             </div>
           )}
+          {invitation && (
+            <StudentInvite student={student} invitation={invitation} />
+          )}
         </div>
       </div>
     </header>
   )
+}
+
+function StudentInvite({
+  student,
+  invitation,
+}: {
+  student: Student
+  invitation: Invitation
+}) {
+  const [sending, setSending] = useState(false)
+
+  const invite = () => {
+    router.post(
+      `/students/${student.id}/setup_invitation`,
+      {},
+      {
+        preserveScroll: true,
+        onStart: () => setSending(true),
+        onFinish: () => setSending(false),
+      },
+    )
+  }
+
+  if (!invitation.invitable) {
+    return (
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        className="mt-1 self-start"
+        disabled
+      >
+        <Send className="size-3.5" />
+        {cooldownLabel(invitation)}
+      </Button>
+    )
+  }
+
+  return (
+    <Button
+      type="button"
+      variant="outline"
+      size="sm"
+      className="mt-1 self-start"
+      onClick={invite}
+      disabled={sending}
+    >
+      <Send className="size-3.5" />
+      Convidar
+    </Button>
+  )
+}
+
+function cooldownLabel(invitation: Invitation): string {
+  const available = formatTime(invitation.cooldownAvailableAt)
+  const elapsed = hoursSince(invitation.lastInvitedAt)
+  const prefix = elapsed != null ? `Convidado há ${elapsed}h` : "Convidado"
+  return available ? `${prefix}, disponível às ${available}` : prefix
+}
+
+function hoursSince(iso: string | null): number | null {
+  if (!iso) return null
+  const then = new Date(iso)
+  if (Number.isNaN(then.getTime())) return null
+  const diffMs = Date.now() - then.getTime()
+  return Math.max(0, Math.floor(diffMs / (1000 * 60 * 60)))
+}
+
+function formatTime(iso: string | null): string | null {
+  if (!iso) return null
+  const date = new Date(iso)
+  if (Number.isNaN(date.getTime())) return null
+  return new Intl.DateTimeFormat("pt-BR", {
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date)
 }
 
 const GAP_PX = 3
