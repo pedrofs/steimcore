@@ -110,6 +110,104 @@ class Agent::Chat::RunnableTest < ActiveSupport::TestCase
     assert_equal "Tipo de anexo não suportado pelo assistente.", failed["error"]
   end
 
+  test "heal_history! destroys user messages with no content and no attachments" do
+    @chat.messages.create!(role: :user, content: "", trainer: @user)
+    @chat.messages.create!(role: :assistant, content: "Olá!")
+
+    assert_difference -> { @chat.messages.where(role: :user, content: "").count }, -1 do
+      @chat.heal_history!
+    end
+  end
+
+  test "heal_history! preserves an empty user message that still has voice clips attached" do
+    # Assistant separator so this empty user row isn't merged into @user_message
+    # by `heal_consecutive_user_messages!` — we're testing the empty-row guard.
+    @chat.messages.create!(role: :assistant, content: "Pode falar")
+    empty_with_clip = @chat.messages.create!(role: :user, content: "", trainer: @user)
+    empty_with_clip.voice_clips.attach(
+      io: StringIO.new("audio"), filename: "c.webm", content_type: "audio/webm"
+    )
+
+    assert_no_difference -> { @chat.messages.count } do
+      @chat.heal_history!
+    end
+  end
+
+  test "heal_history! coalesces a run of consecutive user messages into the latest one" do
+    @chat.messages.create!(role: :assistant, content: "Pode mandar")
+    a = @chat.messages.create!(role: :user, content: "primeira",  trainer: @user)
+    b = @chat.messages.create!(role: :user, content: "segunda",   trainer: @user)
+    c = @chat.messages.create!(role: :user, content: "terceira",  trainer: @user)
+
+    @chat.heal_history!
+
+    assert_raises(ActiveRecord::RecordNotFound) { a.reload }
+    assert_raises(ActiveRecord::RecordNotFound) { b.reload }
+    # @user_message (set up in `setup`) was the only user before this run, so
+    # it's separated from a/b/c by the assistant turn and not part of the run.
+    keeper = c.reload
+    assert_equal "primeira\n\nsegunda\n\nterceira", keeper.content
+  end
+
+  test "heal_history! moves attachments from earlier user messages onto the keeper" do
+    @chat.messages.create!(role: :assistant, content: "ok")
+    earlier = @chat.messages.create!(role: :user, content: "",  trainer: @user)
+    earlier.voice_clips.attach(
+      io: StringIO.new("audio"), filename: "c.webm", content_type: "audio/webm"
+    )
+    keeper = @chat.messages.create!(role: :user, content: "depois", trainer: @user)
+
+    @chat.heal_history!
+
+    assert_raises(ActiveRecord::RecordNotFound) { earlier.reload }
+    keeper.reload
+    assert keeper.voice_clips.attached?
+    assert_equal "depois", keeper.content
+  end
+
+  test "heal_history! backfills a synthetic tool result for an orphan assistant tool_use" do
+    assistant = @chat.messages.create!(role: :assistant, content: "")
+    orphan_tc = assistant.tool_calls.create!(tool_call_id: "toolu_orphan", name: "update_anamnesis", arguments: {})
+
+    assert_nil orphan_tc.result_message
+
+    assert_difference -> { @chat.messages.where(role: :tool).count }, +1 do
+      @chat.heal_history!
+    end
+
+    backfilled = orphan_tc.reload.result_message
+    refute_nil backfilled
+    assert_equal Agent::Chat::Runnable::ORPHAN_TOOL_RESULT_NOTICE, backfilled.content
+  end
+
+  test "heal_history! is a no-op on a clean history" do
+    @chat.messages.create!(role: :assistant, content: "Olá!")
+
+    assert_no_difference -> { @chat.messages.count } do
+      @chat.heal_history!
+    end
+  end
+
+  test "run_turn! heals history before invoking the agent so the complete call sees alternating roles" do
+    # Reproduce the broken-chat shape: an extra empty user + one trailing
+    # duplicate user, on top of the user message created in setup.
+    @chat.messages.create!(role: :user, content: "",       trainer: @user)
+    @chat.messages.create!(role: :user, content: "extra",  trainer: @user)
+
+    seen_roles = nil
+    behavior = ->(chat, &_block) {
+      seen_roles = chat.messages.order(:created_at, :id).pluck(:role)
+      chat.messages.create!(role: :assistant, content: "ok")
+    }
+
+    stub_agent_new(behavior) { @chat.run_turn! }
+
+    assert_equal [ "user" ], seen_roles, "expected heal_history! to collapse the user run before complete"
+    user_rows = @chat.reload.messages.where(role: :user).order(:created_at).to_a
+    assert_equal 1, user_rows.size
+    assert_equal "Olá\n\nextra", user_rows.first.content
+  end
+
   test "broadcast helpers emit tool_call_started and tool_call_completed with the documented payload shape" do
     payloads = capture_broadcasts(@chat.stream_name) do
       @chat.broadcast_tool_call_started!(tool_call_id: "toolu_123", name: "update_anamnesis", message_id: @user_message.id)
