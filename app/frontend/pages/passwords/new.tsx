@@ -18,7 +18,7 @@ export default function NewPassword({ email_address }: Props) {
   return (
     <>
       <Head title="Redefinir senha" />
-      <div className="flex min-h-screen items-center justify-center bg-muted/40 p-4">
+      <div className="flex min-h-dvh items-center justify-center bg-muted/40 px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))]">
         <form
           onSubmit={submit}
           className="w-full max-w-sm space-y-4 rounded-lg border bg-background p-6 shadow-sm"

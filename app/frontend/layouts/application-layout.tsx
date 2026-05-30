@@ -2,7 +2,9 @@ import { Head, Link, usePage } from "@inertiajs/react"
 import { Fragment, type ReactNode } from "react"
 
 import { AppSidebar } from "@/components/app-sidebar"
+import { InertiaProgressBar } from "@/components/inertia-progress"
 import { InstallAppBanner, InstallAppProvider } from "@/components/install-app"
+import { PullToRefresh } from "@/components/pull-to-refresh"
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -26,6 +28,8 @@ export function ApplicationLayout({ children }: { children: ReactNode }) {
   return (
     <InstallAppProvider>
       <Head title={title ?? undefined} />
+      <InertiaProgressBar />
+      <PullToRefresh />
       <SidebarProvider>
         <AppSidebar />
         <SidebarInset>
