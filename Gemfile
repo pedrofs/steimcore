@@ -3,6 +3,7 @@ source "https://rubygems.org"
 gem "inertia_rails", "~> 3.21"
 gem "aws-sdk-s3", require: false
 gem "resend"
+gem "ruby-vips"
 
 # Use specific branch of Rails
 gem "rails", github: "rails/rails", branch: "main"

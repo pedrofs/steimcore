@@ -21,6 +21,15 @@ Rails.application.routes.draw do
     end
     resource :archive,     only: :create, module: :students
     resource :restoration, only: :create, module: :students
+    resource :setup_invitation, only: :create, module: :students
+  end
+
+  resource :student_setup_invitation_batch, only: :create
+
+  namespace :student do
+    resource :session, only: [ :new, :create, :destroy ]
+    resources :setup_acceptances, param: :token, only: [ :edit, :update ]
+    resource :home, only: :show, controller: "home"
   end
 
   resources :periodization_versions, only: [ :show, :destroy ] do

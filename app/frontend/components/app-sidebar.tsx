@@ -31,8 +31,11 @@ import {
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { url, props: pageProps } = usePage()
-  const { state } = useSidebar()
+  const { state, isMobile, setOpenMobile } = useSidebar()
   const collapsed = state === "collapsed"
+  const closeOnMobile = () => {
+    if (isMobile) setOpenMobile(false)
+  }
   const user = pageProps.currentUser
   const activeSessionCount = pageProps.activeSessionCount
   const initials = (user?.email ?? "?").slice(0, 2).toUpperCase()
@@ -65,7 +68,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                 isActive={url === "/"}
                 className="h-11 md:h-8"
               >
-                <Link href="/">
+                <Link href="/" onClick={closeOnMobile}>
                   <HomeIcon />
                   <span>Home</span>
                 </Link>
@@ -78,7 +81,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                 isActive={url.startsWith("/training_sessions")}
                 className="h-11 md:h-8"
               >
-                <Link href="/training_sessions">
+                <Link href="/training_sessions" onClick={closeOnMobile}>
                   <Activity />
                   <span>Pista</span>
                   {activeSessionCount > 0 && (
@@ -96,7 +99,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                 isActive={url.startsWith("/students")}
                 className="h-11 md:h-8"
               >
-                <Link href="/students">
+                <Link href="/students" onClick={closeOnMobile}>
                   <UsersIcon />
                   <span>Alunos</span>
                 </Link>
@@ -109,7 +112,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                 isActive={url.startsWith("/organization")}
                 className="h-11 md:h-8"
               >
-                <Link href="/organization">
+                <Link href="/organization" onClick={closeOnMobile}>
                   <DumbbellIcon />
                   <span>Organização</span>
                 </Link>

@@ -2,12 +2,20 @@ class Student < ApplicationRecord
   include Archivable
 
   belongs_to :organization
+  belongs_to :student_identity, optional: true
   belongs_to :active_periodization, class_name: "Periodization", optional: true
   has_many :periodizations, dependent: :destroy
   has_many :training_sessions, dependent: :destroy
   has_one :agent_chat, class_name: "Agent::Chat", as: :chattable, dependent: :destroy
 
   validates :name, presence: true
+
+  # Keep the cross-organization StudentIdentity link in sync with the per-org
+  # contact email. When the email is present, find-or-create the identity keyed
+  # by its normalised form and point the FK there; when cleared, drop the link.
+  # Orphaned identities are left in place — they may still link other students
+  # from other organizations.
+  before_save :sync_student_identity, if: :sync_student_identity?
 
   scope :anamnesis_pending, -> { unarchived.where("anamnesis_md ~ '^\\s*$'") }
   scope :without_active_plan, -> { unarchived.where(active_periodization_id: nil) }
@@ -203,4 +211,16 @@ class Student < ApplicationRecord
       new_version
     end
   end
+
+  private
+    # Resync whenever the email changed, or when an email is present but the FK
+    # is still missing (covers rows created before identities existed).
+    def sync_student_identity?
+      email_changed? || (email.present? && student_identity_id.nil?)
+    end
+
+    def sync_student_identity
+      normalized = email.to_s.strip.downcase.presence
+      self.student_identity = normalized && StudentIdentity.find_or_create_by!(email_address: normalized)
+    end
 end

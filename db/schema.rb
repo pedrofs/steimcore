@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.2].define(version: 2026_05_28_141824) do
+ActiveRecord::Schema[8.2].define(version: 2026_05_30_120002) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -169,8 +169,18 @@ ActiveRecord::Schema[8.2].define(version: 2026_05_28_141824) do
     t.string "ip_address"
     t.datetime "updated_at", null: false
     t.string "user_agent"
-    t.bigint "user_id", null: false
-    t.index ["user_id"], name: "index_sessions_on_user_id"
+    t.string "authenticatable_id", null: false
+    t.string "authenticatable_type", null: false
+    t.index ["authenticatable_type", "authenticatable_id"], name: "index_sessions_on_authenticatable_type_and_authenticatable_id"
+  end
+
+  create_table "student_identities", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
+    t.string "email_address", null: false
+    t.string "password_digest"
+    t.datetime "last_invited_at"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["email_address"], name: "index_student_identities_on_email_address", unique: true
   end
 
   create_table "students", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
@@ -189,10 +199,12 @@ ActiveRecord::Schema[8.2].define(version: 2026_05_28_141824) do
     t.datetime "updated_at", null: false
     t.integer "weekly_frequency"
     t.string "archive_reason"
+    t.uuid "student_identity_id"
     t.index ["archived_at"], name: "index_students_on_archived_at"
     t.index ["email"], name: "index_students_on_email", where: "(email IS NOT NULL)"
     t.index ["organization_id"], name: "index_students_on_organization_id"
     t.index ["phone"], name: "index_students_on_phone", where: "(phone IS NOT NULL)"
+    t.index ["student_identity_id"], name: "index_students_on_student_identity_id"
   end
 
   create_table "training_sessions", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
@@ -252,9 +264,9 @@ ActiveRecord::Schema[8.2].define(version: 2026_05_28_141824) do
   add_foreign_key "periodization_versions", "users", column: "trainer_id"
   add_foreign_key "periodizations", "periodization_versions", column: "current_version_id", name: "fk_rails_periodizations_current_version_id", deferrable: :deferred
   add_foreign_key "periodizations", "students"
-  add_foreign_key "sessions", "users"
   add_foreign_key "students", "organizations"
   add_foreign_key "students", "periodizations", column: "active_periodization_id", name: "fk_rails_students_active_periodization_id", deferrable: :deferred
+  add_foreign_key "students", "student_identities"
   add_foreign_key "training_sessions", "periodization_versions", on_delete: :nullify
   add_foreign_key "training_sessions", "students"
   add_foreign_key "training_sessions", "users", column: "trainer_id"
