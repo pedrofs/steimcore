@@ -120,6 +120,9 @@ class Agent::Chat::RunnableTest < ActiveSupport::TestCase
   end
 
   test "heal_history! preserves an empty user message that still has voice clips attached" do
+    # Assistant separator so this empty user row isn't merged into @user_message
+    # by `heal_consecutive_user_messages!` — we're testing the empty-row guard.
+    @chat.messages.create!(role: :assistant, content: "Pode falar")
     empty_with_clip = @chat.messages.create!(role: :user, content: "", trainer: @user)
     empty_with_clip.voice_clips.attach(
       io: StringIO.new("audio"), filename: "c.webm", content_type: "audio/webm"
