@@ -1,0 +1,6 @@
+pending:
+  email_address: pending@example.com
+
+confirmed:
+  email_address: confirmed@example.com
+  password_digest: <%= BCrypt::Password.create("password") %>

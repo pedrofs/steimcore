@@ -646,4 +646,45 @@ class StudentTest < ActiveSupport::TestCase
       student.destroy!
     end
   end
+
+  test "saving with an email find-or-creates the matching StudentIdentity and links it" do
+    assert_difference -> { StudentIdentity.count } => 1 do
+      @student = Student.create!(name: "Alice", organization: @organization, email: "  Alice@Example.com ")
+    end
+
+    assert_equal "alice@example.com", @student.student_identity.email_address
+
+    # A second student with the same normalised email links the SAME identity.
+    other = Student.create!(name: "Alice elsewhere", organization: @organization, email: "alice@example.com")
+    assert_equal @student.student_identity, other.student_identity
+  end
+
+  test "changing the email rewires the FK to the new identity" do
+    student = Student.create!(name: "Alice", organization: @organization, email: "alice@example.com")
+    original_identity = student.student_identity
+
+    student.update!(email: "new@example.com")
+
+    assert_not_equal original_identity, student.student_identity
+    assert_equal "new@example.com", student.student_identity.email_address
+  end
+
+  test "clearing the email leaves the identity FK nil" do
+    student = Student.create!(name: "Alice", organization: @organization, email: "alice@example.com")
+    assert_not_nil student.student_identity
+
+    student.update!(email: "")
+
+    assert_nil student.student_identity_id
+  end
+
+  test "destroying the last linked student leaves the identity in place" do
+    student = Student.create!(name: "Alice", organization: @organization, email: "alice@example.com")
+    identity = student.student_identity
+
+    assert_no_difference -> { StudentIdentity.count } do
+      student.destroy!
+    end
+    assert StudentIdentity.exists?(identity.id)
+  end
 end
