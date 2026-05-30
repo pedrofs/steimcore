@@ -784,7 +784,10 @@ function PickerSheet({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="bottom" className="max-h-[80vh] overflow-y-auto">
+      <SheetContent
+        side="bottom"
+        className="max-h-[min(80vh,calc(100dvh-var(--keyboard-h,0px)-env(safe-area-inset-top)-1rem))] overflow-y-auto"
+      >
         <SheetHeader>
           <SheetTitle>Adicionar aluno</SheetTitle>
         </SheetHeader>
@@ -877,7 +880,10 @@ function SwapSheet({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="bottom" className="max-h-[80vh] overflow-y-auto">
+      <SheetContent
+        side="bottom"
+        className="max-h-[min(80vh,calc(100dvh-var(--keyboard-h,0px)-env(safe-area-inset-top)-1rem))] overflow-y-auto"
+      >
         <SheetHeader>
           <SheetTitle>
             {pendingWorkout ? "Confirmar troca" : "Trocar treino"}
