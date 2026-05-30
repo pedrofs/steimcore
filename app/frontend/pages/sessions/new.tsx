@@ -22,7 +22,7 @@ export default function NewSession({ email_address }: Props) {
   return (
     <>
       <Head title="Entrar" />
-      <div className="flex min-h-dvh flex-col items-center justify-center gap-6 bg-muted/40 p-4">
+      <div className="flex min-h-dvh flex-col items-center justify-center gap-6 bg-muted/40 px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))]">
         <BrandLockup size="lg" showTagline animate />
         <motion.form
           onSubmit={submit}
