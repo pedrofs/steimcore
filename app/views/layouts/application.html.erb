@@ -20,6 +20,24 @@
     <link rel="icon" href="/icon.png" type="image/png" sizes="512x512">
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180">
 
+    <style>
+      #app-boot-splash {
+        position: fixed; inset: 0; z-index: 9999;
+        display: flex; align-items: center; justify-content: center;
+        background-color: <%= Brand::COLOR %>;
+        transition: opacity 240ms ease-out;
+      }
+      #app-boot-splash img {
+        width: 96px; height: 96px;
+        animation: app-boot-pulse 1.4s ease-in-out infinite;
+      }
+      #app-boot-splash.is-hidden { opacity: 0; pointer-events: none; }
+      @keyframes app-boot-pulse {
+        0%, 100% { opacity: 0.75; transform: scale(0.98); }
+        50%      { opacity: 1;    transform: scale(1.02); }
+      }
+    </style>
+
     <%# Includes all stylesheet files in app/assets/stylesheets %>
     <%= vite_stylesheet_tag "application" %>
     <%= vite_react_refresh_tag %>
@@ -40,6 +58,9 @@
   </head>
 
   <body>
+    <div id="app-boot-splash" aria-hidden="true">
+      <img src="/icon.svg" alt="" width="96" height="96">
+    </div>
     <%= yield %>
   </body>
 </html>
