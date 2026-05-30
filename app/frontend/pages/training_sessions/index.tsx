@@ -267,7 +267,7 @@ export default function TrainingSessionsIndex({
         <Link
           href="/"
           aria-label="Fechar"
-          className="absolute top-3 right-3 z-20 inline-flex size-9 items-center justify-center rounded-full bg-background/70 text-muted-foreground hover:bg-muted hover:text-foreground"
+          className="absolute top-[calc(env(safe-area-inset-top)+0.75rem)] right-3 z-20 inline-flex size-9 items-center justify-center rounded-full bg-background/70 text-muted-foreground hover:bg-muted hover:text-foreground"
         >
           <XIcon className="size-5" />
         </Link>
@@ -380,7 +380,7 @@ function AvatarStrip({
   scope: Scope
 }) {
   return (
-    <div className="sticky top-0 z-10 border-b border-border bg-background/95 backdrop-blur">
+    <div className="sticky top-0 z-10 border-b border-border bg-background/95 pt-[env(safe-area-inset-top)] backdrop-blur">
       <div className="flex items-center justify-between px-3 pt-2">
         <ScopeToggle scope={scope} />
       </div>
