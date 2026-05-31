@@ -52,7 +52,9 @@ module Agent
         return { error: "Faltou um resumo curto (`summary_md`) descrevendo a alteração." } if summary_md.empty?
 
         result = NotesEditor.apply(current: @student.notes_md, old_string: old_string, new_string: new_string)
-        return { error: result.error } unless result.ok?
+        unless result.ok?
+          return { error: "#{result.error} Use `read_student_notes` para ver o conteúdo atual da memória e refaça a edição com o `old_string` correto." }
+        end
 
         @student.update!(notes_md: result.value)
 
