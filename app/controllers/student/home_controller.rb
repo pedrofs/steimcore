@@ -3,8 +3,8 @@ class Student::HomeController < Student::ApplicationController
 
   def show
     render inertia: "student/home/show", props: {
-      student_name: Current.student.name,
-      organization_name: Current.student.organization.name
+      organization_name: Current.student.organization.name,
+      dashboard: Student::DashboardView.new(Current.student).to_h
     }
   end
 

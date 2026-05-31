@@ -3,6 +3,7 @@ import { BRAND_NAME } from '@/lib/brand'
 import { initKeyboardTracking } from '@/lib/keyboard'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { ApplicationLayout } from '@/layouts/application-layout'
+import { StudentLayout } from '@/layouts/student-layout'
 
 initKeyboardTracking()
 
@@ -20,6 +21,18 @@ const isUnchromed = (name: string) =>
   name.startsWith("prototypes/") ||
   name.startsWith("training_sessions/") ||
   name.startsWith("students/periodizations/printables/")
+
+// Authenticated student app pages get the mobile bottom-nav StudentLayout.
+// Student auth/onboarding pages (sign in, password reset, profile selection,
+// no-profile) are full-screen centered and stay chrome-less. Neither should
+// ever render the trainer's AppSidebar.
+const isStudentApp = (name: string) => name === "student/home/show"
+
+const resolveLayout = (name: string) => {
+  if (isStudentApp(name)) return StudentLayout
+  if (name.startsWith("student/")) return undefined
+  return isUnchromed(name) ? undefined : ApplicationLayout
+}
 
 function dismissBootSplash() {
   const splash = document.getElementById("app-boot-splash")
@@ -47,7 +60,7 @@ void createInertiaApp({
     },
   },
 
-  layout: (name) => (isUnchromed(name) ? undefined : ApplicationLayout),
+  layout: (name) => resolveLayout(name),
 
   withApp: (app) => <TooltipProvider>{app}</TooltipProvider>,
 }).catch((error) => {
