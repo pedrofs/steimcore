@@ -42,6 +42,7 @@ class Agent::Tools::UpdateOrganizationNotesTest < ActiveSupport::TestCase
     @organization.reload
     assert_equal "- Regra geral", @organization.notes_md
     assert_match(/não foi encontrado/i, result[:error])
+    assert_match(/read_organization_notes/, result[:error])
   end
 
   test "requires summary_md" do

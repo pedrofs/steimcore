@@ -595,6 +595,13 @@ function ToolCallCard({
   toolCall: ToolCall
   onOpen: OpenDrawer
 }) {
+  // Internal memory reads are a recovery step, not something to surface.
+  if (
+    toolCall.name === "read_student_notes" ||
+    toolCall.name === "read_organization_notes"
+  ) {
+    return null
+  }
   if (toolCall.name === "update_student") {
     return <UpdateStudentCard toolCall={toolCall} />
   }
@@ -961,6 +968,13 @@ function LiveMessageBubble({ live }: { live: LiveMessage }) {
 }
 
 function LiveToolCallCard({ toolCall }: { toolCall: ToolCallEvent }) {
+  // Internal memory reads are a recovery step, not something to surface.
+  if (
+    toolCall.name === "read_student_notes" ||
+    toolCall.name === "read_organization_notes"
+  ) {
+    return null
+  }
   const label = humanToolLabel(toolCall.name, toolCall.status)
   const Icon =
     toolCall.name === "update_student"

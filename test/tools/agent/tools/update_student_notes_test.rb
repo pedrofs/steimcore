@@ -42,6 +42,7 @@ class Agent::Tools::UpdateStudentNotesTest < ActiveSupport::TestCase
     @student.reload
     assert_equal "- Regra existente", @student.notes_md
     assert_match(/não foi encontrado/i, result[:error])
+    assert_match(/read_student_notes/, result[:error])
   end
 
   test "requires summary_md" do
