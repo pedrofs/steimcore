@@ -1,7 +1,7 @@
 # 0003 — Print queue is independent from the Dashboard queue
 
 Date: 2026-05-28
-Status: Accepted. Supersedes [ADR-0001](0001-print-queue-suppressed-by-dashboard-queue.md) and overrides one trade-off in [ADR-0002](0002-periodization-progress-on-the-dashboard.md) ("Suppress the Print queue on both new tags").
+Status: Superseded by [ADR-0004](0004-remove-print-queue-and-printed-state.md) on 2026-05-31. (Originally: Accepted. Supersedes [ADR-0001](0001-print-queue-suppressed-by-dashboard-queue.md) and overrides one trade-off in [ADR-0002](0002-periodization-progress-on-the-dashboard.md), "Suppress the Print queue on both new tags".)
 
 ## Context
 
