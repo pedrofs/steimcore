@@ -39,6 +39,14 @@ class InertiaController < ApplicationController
     Current.user.training_sessions.where(finished_at: nil).count
   }
 
+  # Front-end feature flags. Student invites are still being rolled out, so the
+  # trainer-facing invite affordances are gated to development for now.
+  inertia_share features: -> {
+    {
+      student_invites: Rails.env.development?
+    }
+  }
+
   private
     def current_organization
       Current.organization
