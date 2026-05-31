@@ -61,6 +61,29 @@ export function BrandMark({
   )
 }
 
+// Just the "S" monogram (no hexagon), in currentColor so callers can tint it.
+// Rendered in the monogram path's own coordinate space; the viewBox is the
+// path's exact bounding box (+1 unit padding) so the glyph fills the box.
+export function BrandMonogram({
+  className,
+  title = BRAND_NAME,
+}: {
+  className?: string
+  title?: string
+}) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0.53 15.53 28.37 45.47"
+      role="img"
+      aria-label={title}
+      className={cn("shrink-0", className)}
+    >
+      <path d={MONOGRAM_PATH} fill="currentColor" />
+    </svg>
+  )
+}
+
 type LockupSize = "sm" | "md" | "lg"
 
 const lockupHeights: Record<LockupSize, string> = {
