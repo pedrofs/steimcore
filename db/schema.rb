@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.2].define(version: 2026_05_31_170024) do
+ActiveRecord::Schema[8.2].define(version: 2026_05_31_173022) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -161,6 +161,19 @@ ActiveRecord::Schema[8.2].define(version: 2026_05_31_170024) do
     t.datetime "updated_at", null: false
     t.index ["student_id", "archived_at"], name: "index_periodizations_on_student_id_and_archived_at"
     t.index ["student_id"], name: "index_periodizations_on_student_id"
+  end
+
+  create_table "push_subscriptions", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
+    t.string "authenticatable_type", null: false
+    t.string "authenticatable_id", null: false
+    t.string "endpoint", null: false
+    t.string "p256dh_key", null: false
+    t.string "auth_key", null: false
+    t.string "user_agent"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["authenticatable_type", "authenticatable_id"], name: "index_push_subscriptions_on_authenticatable"
+    t.index ["endpoint"], name: "index_push_subscriptions_on_endpoint", unique: true
   end
 
   create_table "sessions", force: :cascade do |t|

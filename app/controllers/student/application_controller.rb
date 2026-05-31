@@ -11,6 +11,10 @@ class Student::ApplicationController < InertiaController
       new_student_session_path
     end
 
+    def web_push_subscription_path
+      student_push_subscription_path
+    end
+
     # Three-branch routing shared by sign-in (`Student::SessionsController`) and
     # setup acceptance (`Student::SetupAcceptancesController`): zero profiles →
     # the "Nenhum perfil disponível" page; exactly one → auto-select it and land

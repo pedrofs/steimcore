@@ -2,6 +2,7 @@ class StudentIdentity < ApplicationRecord
   class UnderCooldown < StandardError; end
 
   include Invitable
+  include PushNotifiable
 
   # validations: false — a pending identity is created eagerly from Student#save
   # with no password yet; the password is set later when the student accepts the

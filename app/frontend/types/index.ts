@@ -22,6 +22,11 @@ export type Features = {
   studentInvites: boolean
 }
 
+export type WebPushConfig = {
+  vapidPublicKey: string | null
+  subscriptionPath: string
+}
+
 export type SharedProps = {
   currentUser: CurrentUser | null
   currentOrganization: CurrentOrganization | null
@@ -30,6 +35,7 @@ export type SharedProps = {
   breadcrumbs: Breadcrumb[]
   activeSessionCount: number
   features: Features
+  webPush: WebPushConfig
   canSwitchProfile?: boolean
 }
 
