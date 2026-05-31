@@ -1,4 +1,4 @@
-import { Link, router } from "@inertiajs/react"
+import { Link, router, usePage } from "@inertiajs/react"
 import { useEffect, useRef, useState } from "react"
 
 import { PageHeader } from "@/components/page-header"
@@ -84,6 +84,7 @@ export default function Index({
   filters,
   invitationSummary,
 }: Props) {
+  const { features } = usePage().props
   const hasActiveFilters =
     filters.q !== "" || filters.withoutActive || filters.archived || filters.status !== null
   const orgIsEmpty = students.length === 0 && !hasActiveFilters
@@ -107,7 +108,9 @@ export default function Index({
         </p>
       ) : (
         <>
-          <InvitationSummaryBar summary={invitationSummary} />
+          {features.studentInvites && (
+            <InvitationSummaryBar summary={invitationSummary} />
+          )}
 
           <Toolbar filters={filters} />
 

@@ -18,6 +18,10 @@ export type Breadcrumb = {
   path: string
 }
 
+export type Features = {
+  studentInvites: boolean
+}
+
 export type SharedProps = {
   currentUser: CurrentUser | null
   currentOrganization: CurrentOrganization | null
@@ -25,6 +29,7 @@ export type SharedProps = {
   title: string | null
   breadcrumbs: Breadcrumb[]
   activeSessionCount: number
+  features: Features
   canSwitchProfile?: boolean
 }
 

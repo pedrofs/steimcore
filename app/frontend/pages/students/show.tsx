@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { Link, router } from "@inertiajs/react"
+import { Link, router, usePage } from "@inertiajs/react"
 import {
   Archive,
   ChevronRight,
@@ -310,6 +310,7 @@ function StudentIdentity({
   student: Student
   invitation: Invitation | null
 }) {
+  const { features } = usePage().props
   const chips = buildChips(student)
   const phone = student.phone?.trim()
   const email = student.email?.trim()
@@ -380,7 +381,7 @@ function StudentIdentity({
               )}
             </div>
           )}
-          {invitation && (
+          {features.studentInvites && invitation && (
             <StudentInvite student={student} invitation={invitation} />
           )}
         </div>
