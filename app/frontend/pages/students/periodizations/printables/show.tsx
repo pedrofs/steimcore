@@ -1,10 +1,8 @@
-import { Head, router } from "@inertiajs/react"
+import { Head } from "@inertiajs/react"
 import { useEffect } from "react"
 
 import { BlocksRenderer, type Block } from "@/components/blocks-renderer"
 import { BrandLockup } from "@/components/brand"
-import { Markdown } from "@/components/markdown"
-import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 
 type Student = {
@@ -25,10 +23,6 @@ type Periodization = {
   id: string
   startedOn: string
   bodyMd: string
-  version: {
-    id: string
-    printedAt: string | null
-  }
   workouts: Workout[]
 }
 
@@ -36,8 +30,6 @@ type Props = {
   student: Student
   periodization: Periodization
 }
-
-const ATTENDANCE_ROWS = 30
 
 export default function PrintablePeriodization({
   student,
@@ -50,58 +42,19 @@ export default function PrintablePeriodization({
     ready.then(() => window.print()).catch(() => window.print())
   }, [])
 
-  const isPrinted = periodization.version.printedAt !== null
-
   return (
     <>
       <Head title={`Imprimir — ${student.name}`} />
-      {!isPrinted && (
-        <div className="print:hidden mx-auto flex w-[210mm] items-center justify-end gap-2 px-[8mm] py-3">
-          <Button
-            type="button"
-            onClick={() =>
-              router.post(
-                `/students/${student.id}/periodizations/${periodization.id}/versions/${periodization.version.id}/print_confirmation`,
-              )
-            }
-          >
-            Marcar como impresso
-          </Button>
+      <article className="print-page mx-auto flex h-[297mm] w-[210mm] flex-col bg-white text-black">
+        <div className="px-[8mm] pt-[8mm] pb-[4mm]">
+          <PrintHeader
+            student={student}
+            periodization={periodization}
+          />
         </div>
-      )}
-      <article className="print-page mx-auto flex w-[210mm] flex-col bg-white text-black">
-        <PeriodizationHalf
-          student={student}
-          periodization={periodization}
-        />
-        <AttendanceHalf rowCount={ATTENDANCE_ROWS} />
         <WorkoutsFull workouts={periodization.workouts} />
       </article>
     </>
-  )
-}
-
-function PeriodizationHalf({
-  student,
-  periodization,
-}: {
-  student: Student
-  periodization: Periodization
-}) {
-  return (
-    <section className="print-half print-half-periodization flex h-[148.5mm] flex-col gap-1 overflow-hidden px-[8mm] pt-[8mm] pb-[4mm]">
-      <PrintHeader
-        student={student}
-        periodization={periodization}
-      />
-      <div className="print-body flex-1 overflow-hidden">
-        <Markdown
-          content={periodization.bodyMd}
-          placeholder="Plano sem conteúdo."
-          className="print-body-md text-[8.5pt] leading-tight [&_h1]:hidden [&_h2]:text-[10pt] [&_h2]:font-semibold [&_h2]:mt-1.5 [&_h2]:mb-0.5 [&_h3]:text-[9pt] [&_h3]:font-semibold [&_h3]:mt-1 [&_h3]:mb-0 [&_p]:my-0.5 [&_p]:leading-tight [&_ul]:my-0.5 [&_ul]:pl-4 [&_ol]:my-0.5 [&_ol]:pl-4 [&_li]:my-0 [&_li]:leading-tight [&_li>p]:my-0 [&_strong]:font-semibold [&_hr]:my-1"
-        />
-      </div>
-    </section>
   )
 }
 
@@ -112,12 +65,12 @@ function WorkoutsFull({ workouts }: { workouts: Workout[] }) {
     const bottomHalf = workouts.slice(splitIdx)
 
     return (
-      <section className="print-workouts-full flex h-[297mm] flex-col break-before-page">
-        <div className="workouts-half h-[148.5mm] overflow-hidden px-[8mm] pt-[8mm] pb-[4mm]">
+      <section className="print-workouts-full flex flex-1 flex-col overflow-hidden">
+        <div className="workouts-half flex-1 overflow-hidden px-[8mm] pt-[4mm] pb-[4mm]">
           <WorkoutsMasonry workouts={topHalf} />
         </div>
         {bottomHalf.length > 0 && (
-          <div className="workouts-half h-[148.5mm] overflow-hidden px-[8mm] pt-[4mm] pb-[8mm] border-t border-dashed border-neutral-400">
+          <div className="workouts-half flex-1 overflow-hidden px-[8mm] pt-[4mm] pb-[8mm] border-t border-dashed border-neutral-400">
             <WorkoutsMasonry workouts={bottomHalf} />
           </div>
         )}
@@ -129,23 +82,19 @@ function WorkoutsFull({ workouts }: { workouts: Workout[] }) {
   for (let i = 0; i < workouts.length; i += 2) {
     rows.push(workouts.slice(i, i + 2))
   }
-  const rowHeightMm = 297 / rows.length
 
   return (
-    <section className="print-workouts-full flex h-[297mm] flex-col break-before-page">
+    <section className="print-workouts-full flex flex-1 flex-col overflow-hidden">
       {rows.map((row, i) => {
-        const isFirst = i === 0
         const isLast = i === rows.length - 1
         return (
           <div
             key={i}
             className={cn(
-              "workouts-row grid grid-cols-2 gap-x-[4mm] overflow-hidden px-[8mm]",
-              isFirst ? "pt-[8mm]" : "pt-[4mm]",
+              "workouts-row grid flex-1 grid-cols-2 gap-x-[4mm] overflow-hidden px-[8mm] pt-[4mm]",
               isLast ? "pb-[8mm]" : "pb-[4mm]",
-              !isFirst && "border-t border-dashed border-neutral-400",
+              i !== 0 && "border-t border-dashed border-neutral-400",
             )}
-            style={{ height: `${rowHeightMm}mm` }}
           >
             {row.map((w) => (
               <WorkoutCard key={w.id} workout={w} />
@@ -217,50 +166,6 @@ function WorkoutCard({
       </h3>
       <BlocksRenderer blocks={workout.blocks} dense />
     </article>
-  )
-}
-
-function AttendanceHalf({ rowCount }: { rowCount: number }) {
-  const rows = Array.from({ length: rowCount }, (_, i) => i)
-  return (
-    <section className="attendance-half flex h-[148.5mm] flex-col gap-1 overflow-hidden px-[8mm] pt-[4mm] pb-[8mm] border-t border-dashed border-neutral-400">
-      <h2 className="text-[9pt] font-semibold uppercase tracking-wide text-neutral-700">
-        Registro de sessões
-      </h2>
-      <div className="attendance-columns flex flex-1 gap-3">
-        <AttendanceTable rows={rows} />
-        <AttendanceTable rows={rows} />
-      </div>
-    </section>
-  )
-}
-
-function AttendanceTable({ rows }: { rows: number[] }) {
-  return (
-    <table className="attendance-table flex-1 border-collapse text-[7.5pt]">
-      <thead>
-        <tr>
-          <th className="border border-neutral-700 px-1 py-0.5 text-left font-semibold w-[18mm]">
-            Data
-          </th>
-          <th className="border border-neutral-700 px-1 py-0.5 text-left font-semibold w-[16mm]">
-            Treino
-          </th>
-          <th className="border border-neutral-700 px-1 py-0.5 text-left font-semibold">
-            Observações
-          </th>
-        </tr>
-      </thead>
-      <tbody>
-        {rows.map((i) => (
-          <tr key={i}>
-            <td className="border border-neutral-400 px-1 py-0 h-[3.7mm]"></td>
-            <td className="border border-neutral-400 px-1 py-0"></td>
-            <td className="border border-neutral-400 px-1 py-0"></td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
   )
 }
 

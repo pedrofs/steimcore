@@ -1,7 +1,6 @@
 class PeriodizationVersion < ApplicationRecord
   include JobStatusable
   include Forkable
-  include Printable
 
   belongs_to :periodization
   belongs_to :trainer, class_name: "User"
