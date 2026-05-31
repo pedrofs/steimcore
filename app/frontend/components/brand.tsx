@@ -140,7 +140,7 @@ export function BrandLockup({
         </MarkG>
         {animate ? (
           <motion.g
-            transform="matrix(1.792114597327962,0,0,1.792114597327962,164.84946282502517,39.37992837667002)"
+            transform="matrix(1.792114597327962,0,0,1.792114597327962,164.84946282502517,48.86427)"
             fill="currentColor"
             {...wordmarkProps}
           >
@@ -148,7 +148,7 @@ export function BrandLockup({
           </motion.g>
         ) : (
           <g
-            transform="matrix(1.792114597327962,0,0,1.792114597327962,164.84946282502517,39.37992837667002)"
+            transform="matrix(1.792114597327962,0,0,1.792114597327962,164.84946282502517,48.86427)"
             fill="currentColor"
           >
             <path d={WORDMARK_PATH} />
