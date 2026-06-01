@@ -34,6 +34,37 @@ class Student::DashboardViewTest < ActiveSupport::TestCase
     end
   end
 
+  test "trained days carry a session summary with the workout name and flattened exercises" do
+    travel_to Time.zone.local(2026, 5, 13, 10, 0, 0) do
+      build_session(finished: true, created_at: Time.zone.local(2026, 5, 11, 9, 0, 0),
+                    workout_name: "Treino B", blocks: [
+                      { "kind" => "exercise", "name" => "Agachamento", "prescription" => "4x8" },
+                      { "kind" => "group", "label" => "Circuito", "items" => [
+                        { "name" => "Flexão", "prescription" => "3x12" },
+                        { "name" => "Prancha", "prescription" => "60s" }
+                      ] },
+                      { "kind" => "freeform", "text_md" => "Alongar bem" }
+                    ])
+
+      days = Student::DashboardView.new(@student).to_h[:calendar][:days].index_by { |d| d[:date] }
+      trained = days[Date.new(2026, 5, 11).iso8601]
+
+      assert_equal 1, trained[:sessions].length
+      summary = trained[:sessions].first
+      assert_equal "Treino B", summary[:workout_name]
+      assert_equal [ "Agachamento", "Flexão", "Prancha" ], summary[:exercises].map { |e| e[:name] }
+      assert_equal "4x8", summary[:exercises].first[:detail]
+    end
+  end
+
+  test "untrained days carry an empty sessions array" do
+    travel_to Time.zone.local(2026, 5, 13, 10, 0, 0) do
+      days = Student::DashboardView.new(@student).to_h[:calendar][:days]
+
+      assert days.all? { |d| d[:sessions] == [] }
+    end
+  end
+
   test "trained_today and today_workout_name reflect a finished session created today" do
     travel_to Time.zone.local(2026, 5, 13, 10, 0, 0) do
       build_session(finished: true, created_at: Time.zone.local(2026, 5, 13, 8, 0, 0), workout_name: "Treino C")
@@ -94,7 +125,7 @@ class Student::DashboardViewTest < ActiveSupport::TestCase
       build_session(finished: true, created_at: time, **opts)
     end
 
-    def build_session(finished:, created_at:, workout_name: "Treino A", position: 1, version: :auto, student: @student)
+    def build_session(finished:, created_at:, workout_name: "Treino A", position: 1, version: :auto, blocks: [], student: @student)
       resolved = version == :auto ? build_version : version
       session = TrainingSession.create!(
         student: student,
@@ -102,7 +133,7 @@ class Student::DashboardViewTest < ActiveSupport::TestCase
         periodization_version: resolved,
         workout_name_snapshot: workout_name,
         workout_position_snapshot: position,
-        blocks_snapshot: [],
+        blocks_snapshot: blocks,
         progress: []
       )
       session.update_columns(created_at: created_at, finished_at: finished ? created_at + 1.hour : nil)

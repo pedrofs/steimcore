@@ -1,8 +1,16 @@
 import { Head } from "@inertiajs/react"
 import { DumbbellIcon, Sparkles } from "lucide-react"
 import { motion, type Variants } from "motion/react"
+import { useState } from "react"
 
 import { BrandMonogram } from "@/components/brand"
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet"
 import { cn } from "@/lib/utils"
 
 type Exercise = { name: string; detail: string }
@@ -22,7 +30,14 @@ type Progress = {
   lengthWeeks: number
 }
 
-type CalendarDay = { date: string; trained: boolean; isFuture: boolean }
+type SessionSummary = { id: string; workoutName: string | null; exercises: Exercise[] }
+
+type CalendarDay = {
+  date: string
+  trained: boolean
+  isFuture: boolean
+  sessions: SessionSummary[]
+}
 
 type Dashboard = {
   firstName: string
@@ -52,6 +67,15 @@ function formatWeekday(iso: string) {
   return new Intl.DateTimeFormat("pt-BR", { weekday: "long" }).format(date)
 }
 
+function formatFullDate(iso: string) {
+  const date = new Date(`${iso}T12:00:00`)
+  return new Intl.DateTimeFormat("pt-BR", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  }).format(date)
+}
+
 // Saturday and Sunday are rest days — a fixed rule, no per-student schedule.
 function isWeekend(iso: string) {
   const weekday = new Date(`${iso}T12:00:00`).getDay()
@@ -61,6 +85,7 @@ function isWeekend(iso: string) {
 export default function StudentHome({ dashboard }: Props) {
   const { firstName, today, trainedToday, todayWorkoutName, nextWorkout, progress, calendar } =
     dashboard
+  const [selectedDay, setSelectedDay] = useState<CalendarDay | null>(null)
 
   return (
     <>
@@ -94,10 +119,12 @@ export default function StudentHome({ dashboard }: Props) {
           )}
 
           <motion.div variants={section} transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}>
-            <CalendarCard days={calendar.days} today={today} />
+            <CalendarCard days={calendar.days} today={today} onSelect={setSelectedDay} />
           </motion.div>
         </motion.div>
       </div>
+
+      <SessionSheet day={selectedDay} onClose={() => setSelectedDay(null)} />
     </>
   )
 }
@@ -265,7 +292,15 @@ function ProgressCard({ progress }: { progress: Progress }) {
   )
 }
 
-function CalendarCard({ days, today }: { days: CalendarDay[]; today: string }) {
+function CalendarCard({
+  days,
+  today,
+  onSelect,
+}: {
+  days: CalendarDay[]
+  today: string
+  onSelect: (day: CalendarDay) => void
+}) {
   const trainedCount = days.filter((d) => d.trained).length
 
   return (
@@ -294,6 +329,7 @@ function CalendarCard({ days, today }: { days: CalendarDay[]; today: string }) {
             isToday={day.date === today}
             weekend={isWeekend(day.date)}
             index={i}
+            onSelect={onSelect}
           />
         ))}
       </div>
@@ -308,18 +344,24 @@ function CalendarCell({
   isToday,
   weekend,
   index,
+  onSelect,
 }: {
   day: CalendarDay
   isToday: boolean
   weekend: boolean
   index: number
+  onSelect: (day: CalendarDay) => void
 }) {
   // Trained always wins — training on a rest day still earns its mark.
   if (day.trained) {
     return (
-      <motion.div
+      <motion.button
+        type="button"
+        onClick={() => onSelect(day)}
+        aria-label={`Ver treino de ${formatWeekday(day.date)}`}
         className={cn(
           "grid aspect-square place-items-center rounded-lg bg-brand text-brand-foreground shadow-sm shadow-brand/25",
+          "motion-safe:active:scale-95",
           isToday && RING
         )}
         initial={{ scale: 0.4, opacity: 0 }}
@@ -332,7 +374,7 @@ function CalendarCell({
         }}
       >
         <BrandMonogram title="" className="h-[58%] w-[58%]" />
-      </motion.div>
+      </motion.button>
     )
   }
 
@@ -362,4 +404,61 @@ function CalendarCell({
   }
 
   return <div className={cn("aspect-square rounded-lg bg-muted", isToday && RING)} />
+}
+
+function SessionSheet({ day, onClose }: { day: CalendarDay | null; onClose: () => void }) {
+  // Keep the last selected day mounted during the close animation so the sheet
+  // doesn't blank out as it slides away.
+  const sessions = day?.sessions ?? []
+  const title = sessions[0]?.workoutName ?? "Treino"
+  const multiple = sessions.length > 1
+
+  return (
+    <Sheet open={day !== null} onOpenChange={(open) => !open && onClose()}>
+      <SheetContent
+        side="bottom"
+        className="max-h-[min(80vh,calc(100dvh-env(safe-area-inset-top)-1rem))] overflow-y-auto"
+      >
+        <SheetHeader>
+          <SheetTitle className="font-display text-2xl font-extrabold tracking-tight">
+            {title}
+          </SheetTitle>
+          {day && (
+            <SheetDescription className="capitalize">{formatFullDate(day.date)}</SheetDescription>
+          )}
+        </SheetHeader>
+
+        <div className="flex flex-col gap-5 p-4 pt-0">
+          {sessions.map((session) => (
+            <div key={session.id}>
+              {multiple && (
+                <p className="mb-2 font-heading text-sm font-semibold">
+                  {session.workoutName ?? "Treino"}
+                </p>
+              )}
+              {session.exercises.length > 0 ? (
+                <ul className="space-y-2.5">
+                  {session.exercises.map((exercise, i) => (
+                    <li key={i} className="flex items-baseline justify-between gap-3">
+                      <span className="flex min-w-0 items-baseline gap-2.5">
+                        <span className="text-xs font-semibold tabular-nums text-brand">
+                          {String(i + 1).padStart(2, "0")}
+                        </span>
+                        <span className="truncate text-sm font-medium">{exercise.name}</span>
+                      </span>
+                      <span className="shrink-0 text-sm tabular-nums text-muted-foreground">
+                        {exercise.detail}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-sm text-muted-foreground">Treino registrado.</p>
+              )}
+            </div>
+          ))}
+        </div>
+      </SheetContent>
+    </Sheet>
+  )
 }
