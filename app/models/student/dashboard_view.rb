@@ -95,8 +95,22 @@ class Student
       def calendar_days
         by_date = window_sessions.group_by { |session| session_date(session) }
         (window_start..window_end).map do |date|
-          { date: date.iso8601, trained: by_date.key?(date), is_future: date > today }
+          sessions = by_date[date] || []
+          {
+            date: date.iso8601,
+            trained: sessions.any?,
+            is_future: date > today,
+            sessions: sessions.map { |session| session_summary(session) }
+          }
         end
+      end
+
+      def session_summary(session)
+        {
+          id: session.id,
+          workout_name: session.workout_name_snapshot,
+          exercises: exercises_in(session.blocks_snapshot)
+        }
       end
 
       def window_end
