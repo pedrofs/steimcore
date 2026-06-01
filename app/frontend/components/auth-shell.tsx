@@ -43,7 +43,7 @@ export function AuthShell({
           aria-label="Página inicial"
           className="rounded-md outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
         >
-          <BrandLockup size="lg" showTagline animate />
+          <BrandLockup size="lg" animate />
         </Link>
 
         <motion.div
