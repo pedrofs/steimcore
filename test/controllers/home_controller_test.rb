@@ -3,10 +3,11 @@ require "test_helper"
 class HomeControllerTest < ActionDispatch::IntegrationTest
   setup { @user = users(:one) }
 
-  test "redirects unauthenticated visitors to sign in" do
+  test "renders the landing page for unauthenticated visitors" do
     get root_path
 
-    assert_redirected_to new_session_path
+    assert_response :success
+    assert_equal "home/landing", inertia.component
   end
 
   test "renders the home page for a signed-in trainer" do

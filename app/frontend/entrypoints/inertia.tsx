@@ -16,6 +16,7 @@ if ("serviceWorker" in navigator) {
 }
 
 const isUnchromed = (name: string) =>
+  name === "home/landing" ||
   name.startsWith("sessions/") ||
   name.startsWith("passwords/") ||
   name.startsWith("prototypes/") ||

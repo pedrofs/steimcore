@@ -89,7 +89,9 @@ class Student::SessionsControllerTest < ActionDispatch::IntegrationTest
   test "a StudentIdentity session cookie is rejected on a trainer-side controller" do
     sign_in_as(@identity)
 
-    get root_path
+    # root_path is now public (renders the landing chooser), so probe an
+    # auth-gated trainer page to assert the student cookie is rejected.
+    get students_path
 
     assert_redirected_to new_session_path
   end

@@ -22,7 +22,7 @@ export default function NewStudentPassword({ emailAddress }: Props) {
     <>
       <Head title="Redefinir senha" />
       <div className="flex min-h-dvh flex-col items-center justify-center gap-6 bg-muted/40 p-4">
-        <BrandLockup size="lg" showTagline animate />
+        <BrandLockup size="lg" animate />
         <motion.form
           onSubmit={submit}
           initial={{ opacity: 0, y: 12 }}
