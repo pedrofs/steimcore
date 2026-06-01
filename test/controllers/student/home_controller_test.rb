@@ -17,7 +17,7 @@ class Student::HomeControllerTest < ActionDispatch::IntegrationTest
 
     assert_response :success
     assert_equal "student/home/show", inertia.component
-    assert_equal @student.name, inertia.props[:student_name]
+    assert_equal @student.name.split.first, inertia.props[:dashboard][:first_name]
     assert_equal organizations(:steimfit).name, inertia.props[:organization_name]
   end
 
