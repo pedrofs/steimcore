@@ -120,6 +120,64 @@ class Student::DashboardViewTest < ActiveSupport::TestCase
     assert_nil view[:progress]
   end
 
+  test "session_entry offers a start on a weekday with an eligible plan" do
+    build_active_plan!
+
+    travel_to Time.zone.local(2026, 6, 1, 10, 0, 0) do # Monday
+      entry = Student::DashboardView.new(@student.reload).to_h[:session_entry]
+
+      assert entry[:can_start]
+      assert_not entry[:rest_day]
+      assert_nil entry[:active_session]
+    end
+  end
+
+  test "session_entry withholds the start and flags rest_day on a weekend" do
+    build_active_plan!
+
+    travel_to Time.zone.local(2026, 6, 6, 10, 0, 0) do # Saturday
+      entry = Student::DashboardView.new(@student.reload).to_h[:session_entry]
+
+      assert_not entry[:can_start]
+      assert entry[:rest_day]
+    end
+  end
+
+  test "session_entry surfaces an active session as the resume target with its initiator" do
+    build_active_plan!
+
+    travel_to Time.zone.local(2026, 6, 1, 10, 0, 0) do # Monday
+      session = @student.reload.start_training_session!
+
+      entry = Student::DashboardView.new(@student).to_h[:session_entry]
+
+      assert_equal session.id, entry[:active_session][:id]
+      assert_equal "student", entry[:active_session][:initiator]
+    end
+  end
+
+  test "session_entry labels a trainer-initiated active session" do
+    plan = build_active_plan!
+
+    travel_to Time.zone.local(2026, 6, 1, 10, 0, 0) do # Monday
+      session = TrainingSession.start!(student: @student.reload, trainer: @trainer)
+
+      entry = Student::DashboardView.new(@student).to_h[:session_entry]
+
+      assert_equal session.id, entry[:active_session][:id]
+      assert_equal "trainer", entry[:active_session][:initiator]
+    end
+  end
+
+  test "session_entry has no start affordance without an eligible plan" do
+    travel_to Time.zone.local(2026, 6, 1, 10, 0, 0) do # Monday
+      entry = Student::DashboardView.new(@student).to_h[:session_entry]
+
+      assert_not entry[:can_start]
+      assert_nil entry[:active_session]
+    end
+  end
+
   private
     def finished_session_at(time, **opts)
       build_session(finished: true, created_at: time, **opts)

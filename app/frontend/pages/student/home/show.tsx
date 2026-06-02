@@ -1,5 +1,5 @@
-import { Head } from "@inertiajs/react"
-import { DumbbellIcon, Sparkles } from "lucide-react"
+import { Head, Link } from "@inertiajs/react"
+import { ChevronRight, DumbbellIcon, Play, Sparkles } from "lucide-react"
 import { motion, type Variants } from "motion/react"
 import { useState } from "react"
 
@@ -30,6 +30,18 @@ type Progress = {
   lengthWeeks: number
 }
 
+type ActiveSession = {
+  id: string
+  workoutName: string | null
+  initiator: "student" | "trainer"
+}
+
+type SessionEntry = {
+  activeSession: ActiveSession | null
+  canStart: boolean
+  restDay: boolean
+}
+
 type SessionSummary = { id: string; workoutName: string | null; exercises: Exercise[] }
 
 type CalendarDay = {
@@ -47,6 +59,7 @@ type Dashboard = {
   nextWorkout: NextWorkout | null
   progress: Progress | null
   calendar: { days: CalendarDay[] }
+  sessionEntry: SessionEntry
 }
 
 type Props = {
@@ -83,9 +96,18 @@ function isWeekend(iso: string) {
 }
 
 export default function StudentHome({ dashboard }: Props) {
-  const { firstName, today, trainedToday, todayWorkoutName, nextWorkout, progress, calendar } =
-    dashboard
+  const {
+    firstName,
+    today,
+    trainedToday,
+    todayWorkoutName,
+    nextWorkout,
+    progress,
+    calendar,
+    sessionEntry,
+  } = dashboard
   const [selectedDay, setSelectedDay] = useState<CalendarDay | null>(null)
+  const lead = sessionEntry.activeSession !== null || sessionEntry.canStart
 
   return (
     <>
@@ -109,8 +131,18 @@ export default function StudentHome({ dashboard }: Props) {
             transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
             className="relative z-10 -mt-9"
           >
-            <NextWorkoutCard nextWorkout={nextWorkout} />
+            {lead ? (
+              <StartCta entry={sessionEntry} />
+            ) : (
+              <NextWorkoutCard nextWorkout={nextWorkout} />
+            )}
           </motion.div>
+
+          {lead && (
+            <motion.div variants={section} transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}>
+              <NextWorkoutCard nextWorkout={nextWorkout} />
+            </motion.div>
+          )}
 
           {progress && (
             <motion.div variants={section} transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}>
@@ -167,6 +199,57 @@ function Hero({
             : `Hoje é ${formatWeekday(today)}, bora treinar? 💪`}
       </motion.h1>
     </section>
+  )
+}
+
+// Home session-entry CTA. Renders only when there's an active session to resume
+// or a fresh start is allowed today; the rest-day / plan-not-ready states are
+// handled by the hero copy and the NextWorkoutCard's empty state respectively.
+function StartCta({ entry }: { entry: SessionEntry }) {
+  const active = entry.activeSession
+
+  if (active) {
+    return (
+      <Link
+        href={`/student/training_sessions/${active.id}`}
+        className="flex items-center gap-4 rounded-2xl bg-brand p-5 text-brand-foreground shadow-lg shadow-brand/25 transition-transform motion-safe:active:scale-[0.98]"
+      >
+        <span className="grid size-12 shrink-0 place-items-center rounded-xl bg-white/15">
+          <Play className="size-6 fill-current" />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block text-[0.7rem] font-semibold uppercase tracking-[0.14em] text-brand-foreground/80">
+            {active.initiator === "trainer" ? "Sessão com seu treinador" : "Treino em andamento"}
+          </span>
+          <span className="mt-0.5 block truncate font-display text-xl font-extrabold tracking-tight">
+            Continuar {active.workoutName ?? "treino"}
+          </span>
+        </span>
+        <ChevronRight className="size-5 shrink-0 text-brand-foreground/70" />
+      </Link>
+    )
+  }
+
+  return (
+    <Link
+      href="/student/training_sessions"
+      method="post"
+      as="button"
+      className="flex w-full items-center gap-4 rounded-2xl bg-brand p-5 text-left text-brand-foreground shadow-lg shadow-brand/25 transition-transform motion-safe:active:scale-[0.98]"
+    >
+      <span className="grid size-12 shrink-0 place-items-center rounded-xl bg-white/15">
+        <Play className="size-6 fill-current" />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-[0.7rem] font-semibold uppercase tracking-[0.14em] text-brand-foreground/80">
+          Bora treinar
+        </span>
+        <span className="mt-0.5 block font-display text-xl font-extrabold tracking-tight">
+          Iniciar treino
+        </span>
+      </span>
+      <ChevronRight className="size-5 shrink-0 text-brand-foreground/70" />
+    </Link>
   )
 }
 

@@ -27,7 +27,8 @@ class Student
         today_workout_name: today_workout_name,
         next_workout: next_workout_payload,
         progress: progress_payload,
-        calendar: { days: calendar_days }
+        calendar: { days: calendar_days },
+        session_entry: session_entry_payload
       }
     end
 
@@ -75,6 +76,30 @@ class Student
             []
           end
         end
+      end
+
+      # Collapses the home's "resume / start / rest-day / plan-not-ready" states
+      # into one payload the front end renders from:
+      #   * active_session — the resume target (id + workout + initiator), or nil
+      #   * can_start       — whether to offer a fresh self-start today
+      #   * rest_day        — whether today is a weekend (drives rest-day copy)
+      def session_entry_payload
+        {
+          active_session: active_session_payload,
+          can_start: @student.self_start_allowed_today?,
+          rest_day: Student::RestDay.today?
+        }
+      end
+
+      def active_session_payload
+        session = @student.active_training_session
+        return nil if session.nil?
+
+        {
+          id: session.id,
+          workout_name: session.workout_name_snapshot,
+          initiator: session.trainer_id.nil? ? "student" : "trainer"
+        }
       end
 
       def progress_payload

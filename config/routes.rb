@@ -29,6 +29,7 @@ Rails.application.routes.draw do
     resource :profile_selection, only: [ :new, :create ]
     resource :no_profile, only: :show
     resource :home, only: :show, controller: "home"
+    resources :training_sessions, only: [ :create, :show ]
   end
 
   resources :periodization_versions, only: [ :show, :destroy ] do
