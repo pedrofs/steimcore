@@ -95,6 +95,31 @@ class TrainingSessionsControllerTest < ActionDispatch::IntegrationTest
     assert_equal @user.email_address.split("@").first, payload[:trainer_name]
   end
 
+  test "index org scope renders a trainer-less session with null trainer fields and no error" do
+    make_eligible(@alice, workout_count: 1)
+    self_serve = TrainingSession.start!(student: @alice)
+
+    sign_in_as(@user)
+    get training_sessions_path, params: { scope: "org" }
+
+    assert_response :success
+    payload = inertia.props[:training_sessions].find { |s| s[:id] == self_serve.id }
+    assert_not_nil payload
+    assert_nil payload[:trainer_id]
+    assert_nil payload[:trainer_name]
+  end
+
+  test "trainer scope excludes trainer-less self-serve sessions" do
+    make_eligible(@alice, workout_count: 1)
+    self_serve = TrainingSession.start!(student: @alice)
+
+    sign_in_as(@user)
+    get training_sessions_path
+
+    ids = inertia.props[:training_sessions].map { |s| s[:id] }
+    assert_not_includes ids, self_serve.id
+  end
+
   test "active_session_count shared prop always reflects the current trainer regardless of scope" do
     make_eligible(@alice, workout_count: 1)
     make_eligible(@bob, workout_count: 1)

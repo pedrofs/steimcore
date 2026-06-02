@@ -15,6 +15,21 @@ class Student::ApplicationController < InertiaController
       student_push_subscription_path
     end
 
+    # Pages that act on the Selected profile require one to be set. When the
+    # selection is missing or no longer reachable (e.g. the trainer destroyed
+    # that Student mid-session), bounce to the Profile chooser if any profiles
+    # remain, or to the "Nenhum perfil disponível" page if none do. The session
+    # itself stays alive — the identity is still authenticated. See PRD #108.
+    def require_selected_profile
+      return if Current.student
+
+      if Current.student_identity.students.exists?
+        redirect_to new_student_profile_selection_path
+      else
+        redirect_to student_no_profile_path
+      end
+    end
+
     # Three-branch routing shared by sign-in (`Student::SessionsController`) and
     # setup acceptance (`Student::SetupAcceptancesController`): zero profiles →
     # the "Nenhum perfil disponível" page; exactly one → auto-select it and land

@@ -1,0 +1,246 @@
+require "test_helper"
+
+class Student::TrainingSessionsControllerTest < ActionDispatch::IntegrationTest
+  setup do
+    @identity = student_identities(:confirmed)
+    @student = @identity.students.create!(
+      name: "Connie Confirmed",
+      organization: organizations(:steimfit),
+      email: @identity.email_address
+    )
+    build_active_plan!
+  end
+
+  test "create on a weekday starts a trainer-less session and lands on the live screen" do
+    sign_in_with_selected_profile(@identity, @student)
+
+    travel_to monday do
+      post student_training_sessions_path
+
+      session = @student.training_sessions.active.sole
+      assert_nil session.trainer_id
+      assert_redirected_to student_training_session_path(session)
+    end
+  end
+
+  test "create starts the session on an explicitly chosen workout" do
+    sign_in_with_selected_profile(@identity, @student)
+    chosen = @student.active_periodization.current_version.workouts.create!(
+      name: "Treino B", position: 2, blocks: [
+        { "kind" => "exercise", "name" => "Agachamento", "prescription" => "4x8" }
+      ]
+    )
+
+    travel_to monday do
+      post student_training_sessions_path, params: { workout_id: chosen.id }
+
+      session = @student.training_sessions.active.sole
+      assert_equal chosen.id, session.workout_id
+      assert_equal "Treino B", session.workout_name_snapshot
+      assert_redirected_to student_training_session_path(session)
+    end
+  end
+
+  test "create without a workout_id starts on the suggested workout" do
+    sign_in_with_selected_profile(@identity, @student)
+
+    travel_to monday do
+      post student_training_sessions_path
+
+      assert_equal "Treino A", @student.training_sessions.active.sole.workout_name_snapshot
+    end
+  end
+
+  test "create ignores a workout_id from another periodization and falls back to the suggestion" do
+    sign_in_with_selected_profile(@identity, @student)
+    other = organizations(:steimfit).students.create!(name: "Other", email: "other-choose@example.com")
+    foreign = build_active_plan_for!(other).workouts.first
+
+    travel_to monday do
+      post student_training_sessions_path, params: { workout_id: foreign.id }
+
+      session = @student.training_sessions.active.sole
+      assert_equal "Treino A", session.workout_name_snapshot
+      assert_not_equal foreign.id, session.workout_id
+    end
+  end
+
+  test "create on a weekend is rejected server-side and redirects home with an alert" do
+    sign_in_with_selected_profile(@identity, @student)
+
+    travel_to saturday do
+      assert_no_difference -> { @student.training_sessions.count } do
+        post student_training_sessions_path
+      end
+
+      assert_redirected_to student_home_path
+      assert_match(/descanso/i, flash[:alert])
+    end
+  end
+
+  test "create resolves a duplicate active session to the existing one instead of erroring" do
+    sign_in_with_selected_profile(@identity, @student)
+
+    travel_to monday do
+      existing = TrainingSession.start!(student: @student, trainer: users(:one))
+
+      post student_training_sessions_path
+
+      assert_equal 1, @student.training_sessions.active.count
+      assert_redirected_to student_training_session_path(existing)
+    end
+  end
+
+  test "show renders the live screen for the student's session" do
+    sign_in_with_selected_profile(@identity, @student)
+
+    travel_to monday do
+      session = @student.start_training_session!
+
+      get student_training_session_path(session)
+
+      assert_response :success
+      assert_equal "student/training_sessions/show", inertia.component
+      assert_equal session.id, inertia.props[:session][:id]
+      assert_equal "student", inertia.props[:session][:initiator]
+    end
+  end
+
+  test "show cannot reach another student's session" do
+    sign_in_with_selected_profile(@identity, @student)
+    other = organizations(:steimfit).students.create!(name: "Other", email: "other@example.com")
+    other_plan_version = build_active_plan_for!(other)
+    other_session = TrainingSession.start!(student: other, trainer: users(:one), workout: other_plan_version.workouts.first)
+
+    get student_training_session_path(other_session)
+
+    assert_response :not_found
+  end
+
+  test "create requires a selected profile" do
+    sign_in_as(@identity)
+
+    post student_training_sessions_path
+
+    assert_redirected_to new_student_profile_selection_path
+  end
+
+  test "destroy hard-deletes the student's own session and frees the slot" do
+    sign_in_with_selected_profile(@identity, @student)
+    session = TrainingSession.start!(student: @student)
+
+    assert_difference -> { @student.training_sessions.count }, -1 do
+      delete student_training_session_path(session)
+    end
+
+    assert_redirected_to student_home_path
+    assert_nil TrainingSession.find_by(id: session.id)
+    assert_empty @student.training_sessions.active
+  end
+
+  test "destroy does not delete a trainer-initiated session" do
+    sign_in_with_selected_profile(@identity, @student)
+    session = TrainingSession.start!(student: @student, trainer: users(:one))
+
+    assert_no_difference -> { @student.training_sessions.count } do
+      delete student_training_session_path(session)
+    end
+
+    assert_redirected_to student_training_session_path(session)
+    assert_not_nil TrainingSession.find_by(id: session.id)
+  end
+
+  test "destroy cancels a student-initiated session on a weekend (rest-day blocks only starting)" do
+    sign_in_with_selected_profile(@identity, @student)
+    session = TrainingSession.start!(student: @student)
+
+    travel_to saturday do
+      assert_difference -> { @student.training_sessions.count }, -1 do
+        delete student_training_session_path(session)
+      end
+    end
+
+    assert_redirected_to student_home_path
+    assert_nil TrainingSession.find_by(id: session.id)
+  end
+
+  test "show resumes a session on a weekend" do
+    sign_in_with_selected_profile(@identity, @student)
+    session = TrainingSession.start!(student: @student, trainer: users(:one))
+
+    travel_to saturday do
+      get student_training_session_path(session)
+    end
+
+    assert_response :success
+    assert_equal "student/training_sessions/show", inertia.component
+  end
+
+  # End-to-end on the student side: a trainer starts a session, the student
+  # resumes it (show), toggles a block, finishes it, and is never able to cancel
+  # it (destroy is refused) — the trainer's record is theirs to keep. Covers the
+  # #142 resume + trainer-led interaction rules at the request layer.
+  test "student resumes, toggles, and finishes a trainer-initiated session but cannot cancel it" do
+    sign_in_with_selected_profile(@identity, @student)
+    session = users(:one).training_sessions.start_for!(@student)
+
+    get student_training_session_path(session)
+    assert_response :success
+    assert_equal "trainer", inertia.props[:session][:initiator]
+
+    post student_training_session_block_completions_path(session), params: { block_index: "0" }
+    assert_equal [ "0" ], session.reload.progress
+
+    delete student_training_session_path(session)
+    assert_redirected_to student_training_session_path(session)
+    assert_not_nil TrainingSession.find_by(id: session.id), "cancel must not delete a trainer-led session"
+
+    post student_training_session_completion_path(session)
+    assert_not_nil session.reload.finished_at
+  end
+
+  test "destroy cannot reach another student's session" do
+    sign_in_with_selected_profile(@identity, @student)
+    other = organizations(:steimfit).students.create!(name: "Other", email: "other@example.com")
+    other_version = build_active_plan_for!(other)
+    other_session = TrainingSession.start!(student: other, workout: other_version.workouts.first)
+
+    assert_no_difference -> { TrainingSession.count } do
+      delete student_training_session_path(other_session)
+    end
+
+    assert_response :not_found
+    assert_not_nil TrainingSession.find_by(id: other_session.id)
+  end
+
+  private
+    def monday
+      Time.zone.local(2026, 6, 1, 10, 0, 0)
+    end
+
+    def saturday
+      Time.zone.local(2026, 6, 6, 10, 0, 0)
+    end
+
+    def sign_in_with_selected_profile(identity, student)
+      sign_in_as(identity)
+      identity.sessions.sole.update!(selected_student: student)
+    end
+
+    def build_active_plan!
+      build_active_plan_for!(@student)
+    end
+
+    def build_active_plan_for!(student)
+      periodization = student.periodizations.create!
+      version = periodization.versions.create!(
+        trainer: users(:one), status: "completed", periodization_length_weeks: 8
+      )
+      version.workouts.create!(name: "Treino A", position: 1, blocks: [
+        { "kind" => "exercise", "name" => "Supino", "prescription" => "4x10" }
+      ])
+      periodization.set_current_version!(version)
+      student.update!(active_periodization: periodization)
+      version
+    end
+end

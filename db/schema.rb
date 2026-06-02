@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.2].define(version: 2026_05_31_173022) do
+ActiveRecord::Schema[8.2].define(version: 2026_06_02_120000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -228,7 +228,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_05_31_173022) do
     t.uuid "periodization_version_id"
     t.jsonb "progress", default: [], null: false
     t.uuid "student_id", null: false
-    t.bigint "trainer_id", null: false
+    t.bigint "trainer_id"
     t.datetime "updated_at", null: false
     t.uuid "workout_id"
     t.string "workout_name_snapshot", null: false

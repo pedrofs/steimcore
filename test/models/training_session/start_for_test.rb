@@ -82,6 +82,14 @@ class TrainingSession::StartForTest < ActiveSupport::TestCase
     assert_raises(ActiveRecord::RecordNotUnique) { @trainer.training_sessions.start_for!(@alice) }
   end
 
+  test "start_for! raises RecordNotUnique when the student already has a self-started active session" do
+    make_eligible(@alice, workout_count: 1)
+    student_started = TrainingSession.start!(student: @alice)
+    assert_nil student_started.trainer_id, "self-started sessions have no trainer"
+
+    assert_raises(ActiveRecord::RecordNotUnique) { @trainer.training_sessions.start_for!(@alice) }
+  end
+
   test "DB partial unique index blocks a second active session for the same student" do
     make_eligible(@alice, workout_count: 1)
     @trainer.training_sessions.start_for!(@alice)

@@ -72,8 +72,8 @@ type TrainingSessionRow = {
   finishedAt: string | null
   createdAt: string
   stale: boolean
-  trainerId: number
-  trainerName: string
+  trainerId: number | null
+  trainerName: string | null
   swapOptions: SwapOption[]
 }
 
@@ -526,7 +526,9 @@ function FocusedView({
             <p className="text-sm text-muted-foreground">{session.workoutName}</p>
             {showAttribution && (
               <p className="text-xs text-muted-foreground">
-                Iniciado por {session.trainerName}
+                {session.trainerName
+                  ? `Iniciado por ${session.trainerName}`
+                  : "Iniciado pelo aluno"}
               </p>
             )}
             <p className="text-xs text-muted-foreground">

@@ -41,7 +41,9 @@ class SessionsControllerTest < ActionDispatch::IntegrationTest
       cookies["session_id"] = cookie_jar[:session_id]
     end
 
-    get root_path
+    # root_path is now public (renders the landing chooser), so probe an
+    # auth-gated trainer page to assert the mismatched cookie is rejected.
+    get students_path
 
     assert_redirected_to new_session_path
   end

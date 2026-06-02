@@ -7,14 +7,20 @@ class TrainingSessionTest < ActiveSupport::TestCase
     @trainer = users(:one)
   end
 
-  test "requires student, trainer, and snapshot fields" do
+  test "requires student and snapshot fields" do
     session = TrainingSession.new
 
     assert_not session.valid?
     assert_includes session.errors[:student], "must exist"
-    assert_includes session.errors[:trainer], "must exist"
     assert_includes session.errors[:workout_name_snapshot], "can't be blank"
     assert_includes session.errors[:workout_position_snapshot], "can't be blank"
+  end
+
+  test "trainer is optional (student-initiated sessions have no trainer)" do
+    session = build_valid_session(trainer: nil)
+
+    assert session.valid?, session.errors.full_messages.inspect
+    assert_empty session.errors[:trainer]
   end
 
   test "workout is optional" do
