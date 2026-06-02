@@ -27,7 +27,8 @@ const isUnchromed = (name: string) =>
 // Student auth/onboarding pages (sign in, password reset, profile selection,
 // no-profile) are full-screen centered and stay chrome-less. Neither should
 // ever render the trainer's AppSidebar.
-const isStudentApp = (name: string) => name === "student/home/show"
+const isStudentApp = (name: string) =>
+  name === "student/home/show" || name === "student/workouts/index"
 
 const resolveLayout = (name: string) => {
   if (isStudentApp(name)) return StudentLayout

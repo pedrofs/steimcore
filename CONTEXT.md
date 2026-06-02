@@ -30,6 +30,23 @@ _Note_: There is no `promoted_at` column today. When a "when did this go live" s
 A version that another version was forked from (via `start_edit!` setting `parent_version`). Becomes locked history rather than an in-review draft.
 _Avoid_: old version, deprecated version.
 
+### Workouts and sessions
+
+**Workout** (`Workout`):
+A single training day's prescription inside a **Periodization version** — a `name`, a `position` (order within the version), and an ordered list of **Blocks**. Lives at `current_version.workouts`. Effectively immutable: a trainer edit produces a new **Periodization version** rather than mutating a Workout in place. Surfaced to students in Portuguese as "Treino" (e.g. "Treino A").
+_Avoid_: session (that's a **Training session**), routine, day.
+
+**Block**:
+One unit inside a **Workout**'s `blocks` JSONB array — a discriminated union of three `kind`s: `exercise` (one movement + prescription, optional rest/notes), `group` (a labelled set of items, e.g. a superset, optional rounds), and `freeform` (a Markdown note). Rendered everywhere by the shared `BlocksRenderer` (`app/frontend/components/blocks-renderer.tsx`), which carries presentation variants (`dense` for print; a `student` variant for the brand-styled student tab).
+
+**Training session** (`TrainingSession`):
+A record that a **Student** performed a **Workout** on a given day. Snapshots the workout's name/position/blocks at the time, tracks per-block progress, and is finished when `finished_at` is set. Started by the **trainer** (`TrainingSession.start!`), not the student. Colloquially also "treino" in the UI (the home hero's "Treino copado hoje") — which is exactly why the distinction matters: a **Workout** is the *prescription*; a **Training session** is a *performance* of one.
+_Avoid_: workout (that's the prescription), log, visit.
+
+**Treinos (student tab)**:
+The student-app bottom-nav entry and screen (`/student/workouts`, `Student::WorkoutsController#index`) listing the **Workouts** of the student's **Active periodization**'s **Current version** — read-only, position-ordered, rendered as accordion sections that all start collapsed. It shows only the promoted **Current version**; generating, draft, and failed versions stay invisible to the student. It carries **no Training session history** and no session-derived "next workout" emphasis — "what's next" stays on the home dashboard; "the whole plan" is here. When there is no readable plan (no Active periodization, no Current version, or zero workouts), it renders a single "plan not ready" empty state mirroring the home "Próximo treino" copy.
+_Avoid_: workouts history, training log.
+
 ### Periodization progress
 
 **Periodization length**:
@@ -70,4 +87,6 @@ A named attention signal applied to a **Student** by the **Dashboard queue**. Ea
 
 - A **Student** has one optional **Active periodization**.
 - A **Periodization** has many **Periodization versions** and points to at most one **Current version**.
+- A **Periodization version** has many ordered **Workouts**; a **Workout** has many **Blocks**.
+- A **Training session** is a student's performance of one **Workout**; the **Treinos (student tab)** shows **Workouts**, never **Training sessions**.
 - The **Dashboard queue** is the only cohort on the home page.

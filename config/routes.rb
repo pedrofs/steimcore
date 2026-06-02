@@ -29,6 +29,7 @@ Rails.application.routes.draw do
     resource :profile_selection, only: [ :new, :create ]
     resource :no_profile, only: :show
     resource :home, only: :show, controller: "home"
+    resources :workouts, only: :index, controller: "workouts"
     resources :training_sessions, only: [ :create, :show, :destroy ] do
       resources :block_completions, only: [ :create, :destroy ], module: :training_sessions
       resource  :completion,        only: :create,               module: :training_sessions
