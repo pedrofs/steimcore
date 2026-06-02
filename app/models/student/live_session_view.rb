@@ -17,7 +17,7 @@ class Student
         blocks: @session.blocks_snapshot,
         completed_block_indices: @session.progress,
         finished_at: @session.finished_at,
-        initiator: @session.trainer_id.nil? ? "student" : "trainer"
+        initiator: @session.student_initiated? ? "student" : "trainer"
       }
     end
   end

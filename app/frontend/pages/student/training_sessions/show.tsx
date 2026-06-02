@@ -101,6 +101,11 @@ export default function StudentLiveSession({ session }: Props) {
     router.post(`/student/training_sessions/${session.id}/completion`, {})
   }
 
+  function cancel() {
+    if (!window.confirm("Cancelar este treino? Nada será registrado.")) return
+    router.delete(`/student/training_sessions/${session.id}`)
+  }
+
   const doneCount = session.blocks.reduce(
     (count, _block, index) => (isBlockDone(index) ? count + 1 : count),
     0,
@@ -170,14 +175,26 @@ export default function StudentLiveSession({ session }: Props) {
 
       {!finished && (
         <div className="fixed inset-x-0 bottom-0 border-t bg-background/95 px-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] pt-3 backdrop-blur">
-          <Button
-            onClick={finish}
-            size="lg"
-            className="mx-auto flex w-full max-w-md"
-            variant={allDone ? "default" : "outline"}
-          >
-            Concluir treino
-          </Button>
+          <div className="mx-auto flex w-full max-w-md flex-col items-center gap-2">
+            <Button
+              onClick={finish}
+              size="lg"
+              className="flex w-full"
+              variant={allDone ? "default" : "outline"}
+            >
+              Concluir treino
+            </Button>
+
+            {session.initiator === "student" && (
+              <button
+                type="button"
+                onClick={cancel}
+                className="text-sm font-medium text-muted-foreground transition-colors hover:text-destructive"
+              >
+                Cancelar treino
+              </button>
+            )}
+          </div>
         </div>
       )}
     </div>

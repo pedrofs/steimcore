@@ -1,6 +1,7 @@
 class Student::TrainingSessionsController < Student::ApplicationController
   before_action :require_selected_profile
-  before_action :load_session, only: :show
+  before_action :load_session, only: [ :show, :destroy ]
+  before_action :ensure_student_initiated, only: :destroy
   rescue_from RuntimeError,                  with: :handle_ineligible
   rescue_from ActiveRecord::RecordNotUnique, with: :resume_active_session
 
@@ -15,9 +16,27 @@ class Student::TrainingSessionsController < Student::ApplicationController
     }
   end
 
+  # Cancel = hard delete: discards the session, recording nothing toward
+  # progress/frequency, and frees the one-active slot so the student can start
+  # again. Distinct from finishing (#completion stamps finished_at). Guarded to
+  # student-initiated sessions by +ensure_student_initiated+.
+  def destroy
+    @session.destroy!
+    redirect_to student_home_path, notice: "Sessão cancelada."
+  end
+
   private
     def load_session
       @session = Current.student.training_sessions.find(params[:id])
+    end
+
+    # A student may only cancel sessions they started themselves; a trainer-led
+    # session can be finished but never discarded by the student.
+    def ensure_student_initiated
+      return if @session.student_initiated?
+
+      redirect_to student_training_session_path(@session),
+                  alert: "Você só pode cancelar sessões que você iniciou."
     end
 
     # Rest-day lockout and the start! eligibility guards both raise plain

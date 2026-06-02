@@ -83,6 +83,45 @@ class Student::TrainingSessionsControllerTest < ActionDispatch::IntegrationTest
     assert_redirected_to new_student_profile_selection_path
   end
 
+  test "destroy hard-deletes the student's own session and frees the slot" do
+    sign_in_with_selected_profile(@identity, @student)
+    session = TrainingSession.start!(student: @student)
+
+    assert_difference -> { @student.training_sessions.count }, -1 do
+      delete student_training_session_path(session)
+    end
+
+    assert_redirected_to student_home_path
+    assert_nil TrainingSession.find_by(id: session.id)
+    assert_empty @student.training_sessions.active
+  end
+
+  test "destroy does not delete a trainer-initiated session" do
+    sign_in_with_selected_profile(@identity, @student)
+    session = TrainingSession.start!(student: @student, trainer: users(:one))
+
+    assert_no_difference -> { @student.training_sessions.count } do
+      delete student_training_session_path(session)
+    end
+
+    assert_redirected_to student_training_session_path(session)
+    assert_not_nil TrainingSession.find_by(id: session.id)
+  end
+
+  test "destroy cannot reach another student's session" do
+    sign_in_with_selected_profile(@identity, @student)
+    other = organizations(:steimfit).students.create!(name: "Other", email: "other@example.com")
+    other_version = build_active_plan_for!(other)
+    other_session = TrainingSession.start!(student: other, workout: other_version.workouts.first)
+
+    assert_no_difference -> { TrainingSession.count } do
+      delete student_training_session_path(other_session)
+    end
+
+    assert_response :not_found
+    assert_not_nil TrainingSession.find_by(id: other_session.id)
+  end
+
   private
     def monday
       Time.zone.local(2026, 6, 1, 10, 0, 0)

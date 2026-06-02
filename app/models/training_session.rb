@@ -12,6 +12,13 @@ class TrainingSession < ApplicationRecord
   validates :workout_position_snapshot, presence: true, numericality: { only_integer: true }
   validate :validate_blocks_snapshot_schema
 
+  # A student-initiated session has no trainer attached (ADR-0005). Only these
+  # are cancelable by the student; trainer-initiated ones can be finished but
+  # not discarded.
+  def student_initiated?
+    trainer_id.nil?
+  end
+
   # Begins a new active session for the student, optionally under a trainer.
   # When no +trainer+ is given the session is student-initiated (trainer_id
   # null); when no +workout+ is given it defaults to the auto-picked
