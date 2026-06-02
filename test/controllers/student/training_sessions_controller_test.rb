@@ -150,6 +150,55 @@ class Student::TrainingSessionsControllerTest < ActionDispatch::IntegrationTest
     assert_not_nil TrainingSession.find_by(id: session.id)
   end
 
+  test "destroy cancels a student-initiated session on a weekend (rest-day blocks only starting)" do
+    sign_in_with_selected_profile(@identity, @student)
+    session = TrainingSession.start!(student: @student)
+
+    travel_to saturday do
+      assert_difference -> { @student.training_sessions.count }, -1 do
+        delete student_training_session_path(session)
+      end
+    end
+
+    assert_redirected_to student_home_path
+    assert_nil TrainingSession.find_by(id: session.id)
+  end
+
+  test "show resumes a session on a weekend" do
+    sign_in_with_selected_profile(@identity, @student)
+    session = TrainingSession.start!(student: @student, trainer: users(:one))
+
+    travel_to saturday do
+      get student_training_session_path(session)
+    end
+
+    assert_response :success
+    assert_equal "student/training_sessions/show", inertia.component
+  end
+
+  # End-to-end on the student side: a trainer starts a session, the student
+  # resumes it (show), toggles a block, finishes it, and is never able to cancel
+  # it (destroy is refused) — the trainer's record is theirs to keep. Covers the
+  # #142 resume + trainer-led interaction rules at the request layer.
+  test "student resumes, toggles, and finishes a trainer-initiated session but cannot cancel it" do
+    sign_in_with_selected_profile(@identity, @student)
+    session = users(:one).training_sessions.start_for!(@student)
+
+    get student_training_session_path(session)
+    assert_response :success
+    assert_equal "trainer", inertia.props[:session][:initiator]
+
+    post student_training_session_block_completions_path(session), params: { block_index: "0" }
+    assert_equal [ "0" ], session.reload.progress
+
+    delete student_training_session_path(session)
+    assert_redirected_to student_training_session_path(session)
+    assert_not_nil TrainingSession.find_by(id: session.id), "cancel must not delete a trainer-led session"
+
+    post student_training_session_completion_path(session)
+    assert_not_nil session.reload.finished_at
+  end
+
   test "destroy cannot reach another student's session" do
     sign_in_with_selected_profile(@identity, @student)
     other = organizations(:steimfit).students.create!(name: "Other", email: "other@example.com")

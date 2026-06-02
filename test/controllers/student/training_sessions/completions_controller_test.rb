@@ -40,6 +40,18 @@ class Student::TrainingSessions::CompletionsControllerTest < ActionDispatch::Int
     assert_not_nil session.reload.finished_at
   end
 
+  test "create finishes a session on a weekend (the rest-day rule only blocks starting)" do
+    sign_in_with_selected_profile(@identity, @student)
+    session = TrainingSession.start!(student: @student)
+
+    travel_to saturday do
+      post student_training_session_completion_path(session)
+    end
+
+    assert_redirected_to student_home_path
+    assert_not_nil session.reload.finished_at
+  end
+
   test "finishing counts toward the home trained-today state" do
     sign_in_with_selected_profile(@identity, @student)
 
@@ -64,6 +76,10 @@ class Student::TrainingSessions::CompletionsControllerTest < ActionDispatch::Int
   end
 
   private
+    def saturday
+      Time.zone.local(2026, 6, 6, 10, 0, 0)
+    end
+
     def sign_in_with_selected_profile(identity, student)
       sign_in_as(identity)
       identity.sessions.sole.update!(selected_student: student)
