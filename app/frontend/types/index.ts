@@ -31,6 +31,7 @@ export type SharedProps = {
   activeSessionCount: number
   features: Features
   canSwitchProfile?: boolean
+  unseenMedalsCount?: number
 }
 
 export type DashboardTag =

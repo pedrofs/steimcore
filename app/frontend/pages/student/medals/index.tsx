@@ -1,7 +1,7 @@
-import { Head } from "@inertiajs/react"
+import { Head, router } from "@inertiajs/react"
 import { Lock } from "lucide-react"
-import { motion, type Variants } from "motion/react"
-import { useState } from "react"
+import { AnimatePresence, motion, useReducedMotion, type Variants } from "motion/react"
+import { useEffect, useRef, useState } from "react"
 
 import { BrandMonogram } from "@/components/brand"
 import { Medal, metalForTierIndex } from "@/components/medal"
@@ -29,7 +29,18 @@ type Family = {
   tiers: Tier[]
 }
 
-type Props = { families: Family[] }
+type UnseenMedal = {
+  id: string
+  family: string
+  name: string
+  color: string
+  unit: string
+  count: number
+  tierIndex: number
+  tierCount: number
+}
+
+type Props = { families: Family[]; unseenMedals: UnseenMedal[] }
 
 const section: Variants = {
   hidden: { opacity: 0, y: 16 },
@@ -53,13 +64,14 @@ function gridTier(family: Family): { value: number; index: number; locked: boole
   return { value: family.tiers[0]?.value ?? 1, index: 0, locked: true }
 }
 
-export default function StudentMedals({ families }: Props) {
+export default function StudentMedals({ families, unseenMedals }: Props) {
   const [selected, setSelected] = useState<Family | null>(null)
   const earnedCount = families.filter((f) => !f.locked).length
 
   return (
     <>
       <Head title="Medalhas" />
+      <CelebrationSequence medals={unseenMedals} />
       <div className="mx-auto w-full max-w-md">
         <Header earnedCount={earnedCount} />
 
@@ -83,6 +95,128 @@ export default function StudentMedals({ families }: Props) {
 
       <FamilySheet family={selected} onClose={() => setSelected(null)} />
     </>
+  )
+}
+
+// Plays a full celebration for each unseen medal, one after another, in the
+// server-provided earned_at order (PRD #145, slice 4). The queue is captured
+// once on mount so prop reloads from marking medals seen don't disturb the
+// in-flight sequence. Each medal is marked seen via the `seen` sub-resource
+// only as its celebration finishes — advancing on the POST's onFinish keeps the
+// requests strictly sequential (no Inertia visit cancellation) and shrinks the
+// nav dot live. Interrupting the page leaves the remainder unseen to replay
+// next visit. Honors prefers-reduced-motion: no cutscene, but still marks seen.
+function CelebrationSequence({ medals }: { medals: UnseenMedal[] }) {
+  const reduceMotion = useReducedMotion()
+  const queue = useRef(medals).current
+  const [step, setStep] = useState(0)
+  const advancingId = useRef<string | null>(null)
+  const current = step < queue.length ? queue[step] : null
+
+  function finish(medal: UnseenMedal) {
+    if (advancingId.current === medal.id) return
+    advancingId.current = medal.id
+    router.post(
+      `/student/medals/${medal.id}/seen`,
+      {},
+      { preserveState: true, preserveScroll: true, onFinish: () => setStep((s) => s + 1) },
+    )
+  }
+
+  useEffect(() => {
+    if (!current) return
+    advancingId.current = null
+    const timer = setTimeout(() => finish(current), reduceMotion ? 0 : 2400)
+    return () => clearTimeout(timer)
+    // `finish` is stable enough for this effect; it only reads refs + setStep.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [current, reduceMotion])
+
+  if (reduceMotion || !current) return null
+
+  return (
+    <AnimatePresence mode="wait">
+      <CelebrationOverlay
+        key={current.id}
+        medal={current}
+        index={step + 1}
+        total={queue.length}
+        onSkip={() => finish(current)}
+      />
+    </AnimatePresence>
+  )
+}
+
+function CelebrationOverlay({
+  medal,
+  index,
+  total,
+  onSkip,
+}: {
+  medal: UnseenMedal
+  index: number
+  total: number
+  onSkip: () => void
+}) {
+  const metal = metalForTierIndex(medal.tierIndex, medal.tierCount)
+
+  return (
+    <motion.div
+      role="dialog"
+      aria-label={`Nova conquista: ${medal.name} nível ${medal.count}`}
+      className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-6 bg-foreground/85 px-8 text-center backdrop-blur-sm"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.3 }}
+      onClick={onSkip}
+    >
+      <motion.p
+        className="text-sm font-semibold uppercase tracking-[0.28em] text-background/80"
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.15, duration: 0.4 }}
+      >
+        Nova conquista
+      </motion.p>
+
+      <div className="relative">
+        <motion.div
+          className="absolute inset-0 -z-10 rounded-full"
+          style={{ background: `radial-gradient(circle, ${medal.color}66 0%, transparent 70%)` }}
+          initial={{ scale: 0.4, opacity: 0 }}
+          animate={{ scale: 1.6, opacity: 1 }}
+          transition={{ delay: 0.1, duration: 0.6, ease: "easeOut" }}
+        />
+        <motion.div
+          initial={{ scale: 0.3, rotate: -12, opacity: 0 }}
+          animate={{ scale: 1, rotate: 0, opacity: 1 }}
+          transition={{ type: "spring", stiffness: 220, damping: 14, delay: 0.1 }}
+        >
+          <Medal color={medal.color} count={medal.count} metal={metal} className="w-40" />
+        </motion.div>
+      </div>
+
+      <motion.div
+        className="space-y-1"
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.35, duration: 0.4 }}
+      >
+        <h2 className="font-display text-3xl font-extrabold uppercase tracking-tight text-background">
+          {medal.name}
+        </h2>
+        <p className="text-base font-medium text-background/80">
+          {medal.count} {medal.unit}
+        </p>
+      </motion.div>
+
+      {total > 1 && (
+        <p className="text-xs font-medium tracking-wide text-background/60">
+          {index} de {total}
+        </p>
+      )}
+    </motion.div>
   )
 }
 

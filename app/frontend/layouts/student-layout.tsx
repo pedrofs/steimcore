@@ -39,10 +39,12 @@ export function StudentLayout({ children }: { children: ReactNode }) {
 }
 
 function StudentBottomNav({ currentUrl }: { currentUrl: string }) {
+  const { props } = usePage()
   const [accountOpen, setAccountOpen] = useState(false)
   const homeActive = currentUrl.startsWith("/student/home")
   const workoutsActive = currentUrl.startsWith("/student/workouts")
   const medalsActive = currentUrl.startsWith("/student/medals")
+  const hasUnseenMedals = (props.unseenMedalsCount ?? 0) > 0
 
   return (
     <>
@@ -68,6 +70,7 @@ function StudentBottomNav({ currentUrl }: { currentUrl: string }) {
           <NavTab
             label="Medalhas"
             active={medalsActive}
+            dot={hasUnseenMedals}
             icon={<Medal className="size-[1.35rem]" strokeWidth={2.25} />}
             asLink
             href="/student/medals"
@@ -90,6 +93,7 @@ function NavTab({
   label,
   icon,
   active,
+  dot,
   href,
   asLink,
   onClick,
@@ -97,6 +101,7 @@ function NavTab({
   label: string
   icon: ReactNode
   active: boolean
+  dot?: boolean
   href?: string
   asLink?: boolean
   onClick?: () => void
@@ -115,6 +120,12 @@ function NavTab({
         )}
       >
         {icon}
+        {dot && (
+          <span
+            aria-label="Medalhas não vistas"
+            className="absolute -top-0.5 -right-1.5 size-2 rounded-full bg-brand ring-2 ring-background"
+          />
+        )}
         {active && (
           <span className="absolute -bottom-1.5 size-1 rounded-full bg-brand" />
         )}

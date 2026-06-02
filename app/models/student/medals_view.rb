@@ -1,17 +1,50 @@
 class Student
   # Props for the student-facing Medalhas page: one entry per Medal family,
   # collapsed to the student's highest Earned medal, plus the full tier ladder
-  # with each tier's earned/locked state. Read-only — never marks anything seen.
+  # with each tier's earned/locked state, and the ordered queue of unseen medals
+  # the page celebrates on load. Read-only — building the queue never marks
+  # anything seen (that happens per medal via the seen sub-resource).
   class MedalsView
     def initialize(student)
       @student = student
     end
 
     def to_h
-      { families: Medal.families.map { |family| family_payload(family) } }
+      {
+        families: Medal.families.map { |family| family_payload(family) },
+        unseen_medals: unseen_payload
+      }
     end
 
     private
+      # The celebration queue: every unseen medal, in earned_at order, with a
+      # fixed family order (registry order) then tier breaking same-instant ties
+      # so a backfill-style burst plays deterministically. Each entry carries the
+      # medal id (to mark it seen) plus everything the Medal component renders.
+      def unseen_payload
+        @student.student_medals.unseen
+          .sort_by { |medal| [ medal.earned_at, family_order.fetch(medal.family, family_order.size), medal.tier ] }
+          .map { |medal| celebration_entry(medal) }
+      end
+
+      def celebration_entry(medal)
+        family = Medal.find(medal.family)
+        {
+          id: medal.id,
+          family: family.key,
+          name: family.name,
+          color: family.color,
+          unit: family.unit,
+          count: medal.tier,
+          tier_index: family.tiers.index(medal.tier) || 0,
+          tier_count: family.tiers.length
+        }
+      end
+
+      def family_order
+        @family_order ||= Medal.families.each_with_index.to_h { |family, index| [ family.key, index ] }
+      end
+
       def family_payload(family)
         earned = earned_by_family[family.key] || []
         earned_by_tier = earned.index_by(&:tier)

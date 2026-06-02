@@ -6,6 +6,14 @@ class Student::ApplicationController < InertiaController
     identity.present? && identity.students.count >= 2
   }
 
+  # Drives the unseen dot on the Medalhas bottom-nav item (PRD #145, slice 4).
+  # Counts the selected profile's organic, not-yet-celebrated medals; clears to
+  # zero once every medal has been marked seen. Nil-safe for the chrome-less
+  # auth/onboarding pages where no profile is selected.
+  inertia_share unseen_medals_count: -> {
+    Current.student&.student_medals&.unseen&.count || 0
+  }
+
   private
     def unauthenticated_redirect_path
       new_student_session_path
