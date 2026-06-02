@@ -23,6 +23,48 @@ class Student::TrainingSessionsControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "create starts the session on an explicitly chosen workout" do
+    sign_in_with_selected_profile(@identity, @student)
+    chosen = @student.active_periodization.current_version.workouts.create!(
+      name: "Treino B", position: 2, blocks: [
+        { "kind" => "exercise", "name" => "Agachamento", "prescription" => "4x8" }
+      ]
+    )
+
+    travel_to monday do
+      post student_training_sessions_path, params: { workout_id: chosen.id }
+
+      session = @student.training_sessions.active.sole
+      assert_equal chosen.id, session.workout_id
+      assert_equal "Treino B", session.workout_name_snapshot
+      assert_redirected_to student_training_session_path(session)
+    end
+  end
+
+  test "create without a workout_id starts on the suggested workout" do
+    sign_in_with_selected_profile(@identity, @student)
+
+    travel_to monday do
+      post student_training_sessions_path
+
+      assert_equal "Treino A", @student.training_sessions.active.sole.workout_name_snapshot
+    end
+  end
+
+  test "create ignores a workout_id from another periodization and falls back to the suggestion" do
+    sign_in_with_selected_profile(@identity, @student)
+    other = organizations(:steimfit).students.create!(name: "Other", email: "other-choose@example.com")
+    foreign = build_active_plan_for!(other).workouts.first
+
+    travel_to monday do
+      post student_training_sessions_path, params: { workout_id: foreign.id }
+
+      session = @student.training_sessions.active.sole
+      assert_equal "Treino A", session.workout_name_snapshot
+      assert_not_equal foreign.id, session.workout_id
+    end
+  end
+
   test "create on a weekend is rejected server-side and redirects home with an alert" do
     sign_in_with_selected_profile(@identity, @student)
 

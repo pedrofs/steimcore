@@ -1,7 +1,7 @@
-import { Head, Link } from "@inertiajs/react"
-import { ChevronRight, DumbbellIcon, Play, Sparkles } from "lucide-react"
+import { Head, Link, router } from "@inertiajs/react"
+import { Check, ChevronRight, DumbbellIcon, Play, Sparkles } from "lucide-react"
 import { motion, type Variants } from "motion/react"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 
 import { BrandMonogram } from "@/components/brand"
 import {
@@ -36,10 +36,18 @@ type ActiveSession = {
   initiator: "student" | "trainer"
 }
 
+type WorkoutChoice = {
+  id: string
+  name: string
+  position: number
+  suggested: boolean
+}
+
 type SessionEntry = {
   activeSession: ActiveSession | null
   canStart: boolean
   restDay: boolean
+  workoutChoices: WorkoutChoice[]
 }
 
 type SessionSummary = { id: string; workoutName: string | null; exercises: Exercise[] }
@@ -207,6 +215,7 @@ function Hero({
 // handled by the hero copy and the NextWorkoutCard's empty state respectively.
 function StartCta({ entry }: { entry: SessionEntry }) {
   const active = entry.activeSession
+  const [chooserOpen, setChooserOpen] = useState(false)
 
   if (active) {
     return (
@@ -230,26 +239,129 @@ function StartCta({ entry }: { entry: SessionEntry }) {
     )
   }
 
+  // Choose-then-create: tapping opens a chooser; nothing persists until the
+  // student confirms "Começar". The chooser POSTs the chosen workout_id.
   return (
-    <Link
-      href="/student/training_sessions"
-      method="post"
-      as="button"
-      className="flex w-full items-center gap-4 rounded-2xl bg-brand p-5 text-left text-brand-foreground shadow-lg shadow-brand/25 transition-transform motion-safe:active:scale-[0.98]"
-    >
-      <span className="grid size-12 shrink-0 place-items-center rounded-xl bg-white/15">
-        <Play className="size-6 fill-current" />
-      </span>
-      <span className="min-w-0 flex-1">
-        <span className="block text-[0.7rem] font-semibold uppercase tracking-[0.14em] text-brand-foreground/80">
-          Bora treinar
+    <>
+      <button
+        type="button"
+        onClick={() => setChooserOpen(true)}
+        className="flex w-full items-center gap-4 rounded-2xl bg-brand p-5 text-left text-brand-foreground shadow-lg shadow-brand/25 transition-transform motion-safe:active:scale-[0.98]"
+      >
+        <span className="grid size-12 shrink-0 place-items-center rounded-xl bg-white/15">
+          <Play className="size-6 fill-current" />
         </span>
-        <span className="mt-0.5 block font-display text-xl font-extrabold tracking-tight">
-          Iniciar treino
+        <span className="min-w-0 flex-1">
+          <span className="block text-[0.7rem] font-semibold uppercase tracking-[0.14em] text-brand-foreground/80">
+            Bora treinar
+          </span>
+          <span className="mt-0.5 block font-display text-xl font-extrabold tracking-tight">
+            Iniciar treino
+          </span>
         </span>
-      </span>
-      <ChevronRight className="size-5 shrink-0 text-brand-foreground/70" />
-    </Link>
+        <ChevronRight className="size-5 shrink-0 text-brand-foreground/70" />
+      </button>
+
+      <WorkoutChooser
+        open={chooserOpen}
+        onOpenChange={setChooserOpen}
+        choices={entry.workoutChoices}
+      />
+    </>
+  )
+}
+
+// Bottom-sheet workout chooser for the home start affordance. Lists the current
+// version's workouts with the auto-suggested one pre-selected; confirming POSTs
+// the chosen workout_id (omitted when nothing is selected, so the server
+// defaults to the suggestion). Dismissing without confirming persists nothing.
+function WorkoutChooser({
+  open,
+  onOpenChange,
+  choices,
+}: {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  choices: WorkoutChoice[]
+}) {
+  const suggestedId = choices.find((c) => c.suggested)?.id ?? choices[0]?.id ?? null
+  const [selectedId, setSelectedId] = useState<string | null>(suggestedId)
+  const [submitting, setSubmitting] = useState(false)
+
+  // Reset to the suggestion each time the chooser opens, so backing out and
+  // reopening never carries a stale selection.
+  useEffect(() => {
+    if (open) setSelectedId(suggestedId)
+  }, [open, suggestedId])
+
+  function start() {
+    setSubmitting(true)
+    router.post(
+      "/student/training_sessions",
+      selectedId ? { workout_id: selectedId } : {},
+      { onFinish: () => setSubmitting(false) }
+    )
+  }
+
+  return (
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent
+        side="bottom"
+        className="max-h-[min(80vh,calc(100dvh-env(safe-area-inset-top)-1rem))] overflow-y-auto"
+      >
+        <SheetHeader>
+          <SheetTitle className="font-display text-2xl font-extrabold tracking-tight">
+            Escolher treino
+          </SheetTitle>
+          <SheetDescription>Comece pelo sugerido ou escolha outro do seu plano.</SheetDescription>
+        </SheetHeader>
+
+        <div className="flex flex-col gap-2 p-4 pt-0">
+          {choices.map((choice) => {
+            const selected = choice.id === selectedId
+            return (
+              <button
+                key={choice.id}
+                type="button"
+                onClick={() => setSelectedId(choice.id)}
+                aria-pressed={selected}
+                className={cn(
+                  "flex items-center justify-between gap-3 rounded-xl border p-4 text-left transition-colors",
+                  selected ? "border-brand bg-brand/5" : "border-border"
+                )}
+              >
+                <span className="min-w-0">
+                  <span className="block font-heading font-semibold">{choice.name}</span>
+                  {choice.suggested && (
+                    <span className="text-xs font-medium text-brand">Sugerido</span>
+                  )}
+                </span>
+                <span
+                  className={cn(
+                    "grid size-5 shrink-0 place-items-center rounded-full border",
+                    selected
+                      ? "border-brand bg-brand text-brand-foreground"
+                      : "border-muted-foreground/40"
+                  )}
+                >
+                  {selected && <Check className="size-3.5" />}
+                </span>
+              </button>
+            )
+          })}
+
+          <button
+            type="button"
+            onClick={start}
+            disabled={submitting || selectedId === null}
+            className="mt-2 flex w-full items-center justify-center gap-2 rounded-2xl bg-brand p-4 font-display text-lg font-extrabold tracking-tight text-brand-foreground shadow-lg shadow-brand/25 transition-transform disabled:opacity-60 motion-safe:active:scale-[0.98]"
+          >
+            <Play className="size-5 fill-current" />
+            Começar
+          </button>
+        </div>
+      </SheetContent>
+    </Sheet>
   )
 }
 

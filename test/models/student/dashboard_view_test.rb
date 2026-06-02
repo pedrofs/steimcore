@@ -178,6 +178,27 @@ class Student::DashboardViewTest < ActiveSupport::TestCase
     end
   end
 
+  test "session_entry lists workout_choices from the current version with the suggested one flagged" do
+    build_active_plan! # Treino A (pos 1), Treino B (pos 2)
+
+    travel_to Time.zone.local(2026, 6, 1, 10, 0, 0) do # Monday
+      choices = Student::DashboardView.new(@student.reload).to_h[:session_entry][:workout_choices]
+
+      assert_equal [ "Treino A", "Treino B" ], choices.map { |c| c[:name] }
+      assert_equal [ 1, 2 ], choices.map { |c| c[:position] }
+      # A fresh student (no finished sessions) is suggested the first workout.
+      assert_equal [ "Treino A" ], choices.select { |c| c[:suggested] }.map { |c| c[:name] }
+    end
+  end
+
+  test "session_entry workout_choices is empty without an eligible plan" do
+    travel_to Time.zone.local(2026, 6, 1, 10, 0, 0) do # Monday
+      choices = Student::DashboardView.new(@student).to_h[:session_entry][:workout_choices]
+
+      assert_empty choices
+    end
+  end
+
   private
     def finished_session_at(time, **opts)
       build_session(finished: true, created_at: time, **opts)

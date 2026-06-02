@@ -6,7 +6,7 @@ class Student::TrainingSessionsController < Student::ApplicationController
   rescue_from ActiveRecord::RecordNotUnique, with: :resume_active_session
 
   def create
-    session = Current.student.start_training_session!
+    session = Current.student.start_training_session!(workout: chosen_workout)
     redirect_to student_training_session_path(session)
   end
 
@@ -26,6 +26,16 @@ class Student::TrainingSessionsController < Student::ApplicationController
   end
 
   private
+    # The workout the student picked in the home chooser, scoped to their own
+    # current version so a forged id can't start a workout from another plan.
+    # Blank or unrecognized ids fall back to nil, which start! resolves to the
+    # auto-suggested next workout.
+    def chosen_workout
+      return if params[:workout_id].blank?
+
+      Current.student.active_periodization&.current_version&.workouts&.find_by(id: params[:workout_id])
+    end
+
     def load_session
       @session = Current.student.training_sessions.find(params[:id])
     end
