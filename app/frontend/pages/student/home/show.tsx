@@ -221,7 +221,7 @@ function StartCta({ entry }: { entry: SessionEntry }) {
     return (
       <Link
         href={`/student/training_sessions/${active.id}`}
-        className="flex items-center gap-4 rounded-2xl bg-brand p-5 text-brand-foreground shadow-lg shadow-brand/25 transition-transform motion-safe:active:scale-[0.98]"
+        className="flex items-center gap-4 rounded-2xl bg-brand-strong p-5 text-brand-foreground shadow-lg shadow-brand-strong/30 transition-transform motion-safe:active:scale-[0.98]"
       >
         <span className="grid size-12 shrink-0 place-items-center rounded-xl bg-white/15">
           <Play className="size-6 fill-current" />
@@ -246,7 +246,7 @@ function StartCta({ entry }: { entry: SessionEntry }) {
       <button
         type="button"
         onClick={() => setChooserOpen(true)}
-        className="flex w-full items-center gap-4 rounded-2xl bg-brand p-5 text-left text-brand-foreground shadow-lg shadow-brand/25 transition-transform motion-safe:active:scale-[0.98]"
+        className="flex w-full items-center gap-4 rounded-2xl bg-brand-strong p-5 text-left text-brand-foreground shadow-lg shadow-brand-strong/30 transition-transform motion-safe:active:scale-[0.98]"
       >
         <span className="grid size-12 shrink-0 place-items-center rounded-xl bg-white/15">
           <Play className="size-6 fill-current" />
