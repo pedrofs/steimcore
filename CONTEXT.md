@@ -83,6 +83,51 @@ The **Student**'s **Sessions remaining** is in `[0, 5)` — the planning runway 
 **Dashboard tag**:
 A named attention signal applied to a **Student** by the **Dashboard queue**. Each tag has a scope on `Student` and a within-tag sort. Tags are not mutually exclusive among themselves.
 
+### Medalhas (gamification)
+
+**Medal** (Medalha):
+A permanent achievement a **Student** earns by crossing a threshold on one of four metrics. Surfaced to the student on the **Medalhas** page and to the trainer on the student profile.
+_Peak, never current_: a Medal commemorates that the student **once reached** a threshold; it is **never revoked**. A broken streak, a `reopen!`, or a later `weekly_frequency` change can lower the *current* metric, but the Medal already earned stays forever. Engine consequence: evaluation only ever **inserts** earned records, never deletes — fully idempotent.
+_Avoid_: badge, trophy, conquista (the page is named **Medalhas**).
+
+**Medal family** (or **Family**):
+One of four metrics a **Student** progresses on. Each has a color, an English code key, and an ordered stack of **Tiers**. The four families (display name / code key / tiers / unit):
+
+| Display (pt-BR) | `family` key | Metric | Tiers (×N) | Unit |
+|---|---|---|---|---|
+| Treinos | `workouts` | finished **TrainingSession** count | 1, 5, 15, 25, 50, 100, 200, 250 | workouts |
+| Sequência semanal | `weekly_streak` | best-ever consecutive **Full week** streak (one-miss freeze) | 2, 4, 8, 12, 26, 52 | weeks |
+| Semanas cheias | `full_weeks` | lifetime count of **Full weeks** | 1, 2, 4, 8, 12, 26, 52 | weeks |
+| Periodizações | `periodizations` | count of **Completed periodizations** | 1, 2, 3, 4, 6, 8 | blocks |
+
+Only `workouts` is always live; the other three are cadence-dependent (see Cadence rules below).
+
+**Tier**:
+A threshold within a **Family**, rendered as **"×N"** on the medal face (the unit — workouts/weeks/blocks — appears only in the detail sheet/tooltip). Tier unlocks track the **peak metric ever reached**, never the current value.
+
+**Earned medal** (`StudentMedal`):
+A unique `(Student, family, tier)` the student has crossed. Carries `earned_at` (always `Time.current` at evaluation — no historical reconstruction), `seen_at`, and a `value_snapshot`. The ledger is insert-only (see _Peak, never current_).
+
+**Highest tier**:
+The display collapses each **Family** to the student's max **Earned medal** — one medal icon per family on the **Medalhas** page. The detail sheet lists every Tier with its earned/locked state. A family with no earned medals (or no cadence set) renders **locked / grayscale**.
+
+**Medal week**:
+The unit two of the families are built on. Reuses the **FrequencyView** convention: Monday→Sunday in `America/Sao_Paulo`, a **TrainingSession** belongs to the week of its `created_at` (so backdated `log_past!` sessions land in the week they're dated into).
+
+**Full week**:
+A **Medal week** in which the **Student**'s finished session count `≥ weekly_frequency`. Overshooting still counts as exactly one Full week. The current in-progress week is **pending** — it never counts as a miss, but counts as Full the moment it crosses the threshold.
+
+**Completed periodization** *(Medal sense)*:
+A **Periodization** whose **Sessions remaining** `≤ 0` — the full prescribed dose was trained. Counts both the **Active periodization** and archived ones; excludes blocks archived before the dose was delivered (remaining `> 0`) and blocks whose **Current version** has no `periodization_length_weeks`. The *Periodizações* family counts these per **Student**.
+_Note_: `≤ 0` includes the exact-dose boundary the **Dashboard queue** calls `periodization_due` (`= 0`), not just `periodization_overdue` (`< 0`) — the dashboard tag is about trainer action, the Medal about student accomplishment.
+
+_Cadence rules (shared by all cadence-dependent families — Sequência semanal, Semanas cheias, Periodizações)_:
+- **No fallback.** They require an explicit `weekly_frequency > 0` (following the **Dashboard queue**, not the show page's fallback-of-5). With no cadence set, "Full week"/**Periodization target** is undefined and these Medals stay locked.
+- **Judged live, no history.** There is no per-week cadence history; every week is re-judged against the *current* `weekly_frequency`. Changing it shifts the *current* metric (and can retroactively make past weeks Full or not-Full), but never revokes an already-earned Medal.
+
+**Seen / Celebration**:
+Each earned Medal carries a nullable `seen_at`. Organic earns land **unseen** → a dot on the **Medalhas** nav item. Opening the page plays a full celebration **sequentially** for each unseen Medal (in `earned_at` order, then fixed family order for ties), marking each **seen as its celebration finishes** (so an interrupted sequence replays the remainder next visit). The trainer profile view never celebrates and never marks seen. The **launch backfill** stamps `seen_at` so pre-existing achievements appear in the grid without a celebration storm — celebrations are reserved for post-launch earns.
+
 ## Relationships
 
 - A **Student** has one optional **Active periodization**.
