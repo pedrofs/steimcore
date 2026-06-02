@@ -1,17 +1,19 @@
 import { Head, router } from "@inertiajs/react"
-import { Lock } from "lucide-react"
+import { Lock, X } from "lucide-react"
 import { AnimatePresence, motion, useReducedMotion, type Variants } from "motion/react"
 import { useEffect, useRef, useState } from "react"
 
 import { BrandMonogram } from "@/components/brand"
 import { Medal, metalForTierIndex } from "@/components/medal"
+import { Button } from "@/components/ui/button"
 import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet"
+  Drawer,
+  DrawerClose,
+  DrawerContent,
+  DrawerDescription,
+  DrawerHeader,
+  DrawerTitle,
+} from "@/components/ui/drawer"
 import { cn } from "@/lib/utils"
 
 type Tier = { value: number; earned: boolean; earnedAt: string | null }
@@ -93,7 +95,7 @@ export default function StudentMedals({ families, unseenMedals }: Props) {
         </motion.div>
       </div>
 
-      <FamilySheet family={selected} onClose={() => setSelected(null)} />
+      <FamilyDrawer family={selected} onClose={() => setSelected(null)} />
     </>
   )
 }
@@ -278,30 +280,34 @@ function FamilyCard({ family, onSelect }: { family: Family; onSelect: () => void
   )
 }
 
-function FamilySheet({ family, onClose }: { family: Family | null; onClose: () => void }) {
+function FamilyDrawer({ family, onClose }: { family: Family | null; onClose: () => void }) {
   return (
-    <Sheet open={family !== null} onOpenChange={(open) => !open && onClose()}>
-      <SheetContent
-        side="bottom"
-        className="max-h-[min(85vh,calc(100dvh-env(safe-area-inset-top)-1rem))] overflow-y-auto"
-      >
+    <Drawer open={family !== null} onOpenChange={(open) => !open && onClose()}>
+      <DrawerContent className="max-h-[min(85vh,calc(100dvh-env(safe-area-inset-top)-1rem))]">
         {family && <FamilyDetail family={family} />}
-      </SheetContent>
-    </Sheet>
+      </DrawerContent>
+    </Drawer>
   )
 }
 
 function FamilyDetail({ family }: { family: Family }) {
   return (
     <>
-      <SheetHeader>
-        <SheetTitle className="font-display text-2xl font-extrabold tracking-tight">
-          {family.name}
-        </SheetTitle>
-        <SheetDescription>{family.explanation}</SheetDescription>
-      </SheetHeader>
+      <DrawerClose asChild>
+        <Button variant="ghost" size="icon-sm" className="absolute right-4 top-4">
+          <X />
+          <span className="sr-only">Fechar</span>
+        </Button>
+      </DrawerClose>
 
-      <div className="flex flex-col gap-5 p-4 pt-0">
+      <DrawerHeader>
+        <DrawerTitle className="font-display text-2xl font-extrabold tracking-tight">
+          {family.name}
+        </DrawerTitle>
+        <DrawerDescription>{family.explanation}</DrawerDescription>
+      </DrawerHeader>
+
+      <div className="flex min-h-0 flex-col gap-5 overflow-y-auto overscroll-contain p-4 pt-0">
         <Stats family={family} />
         <TierLadder family={family} />
       </div>
