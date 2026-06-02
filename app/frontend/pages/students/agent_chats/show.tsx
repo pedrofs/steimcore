@@ -153,6 +153,11 @@ type ArtifactRef =
 
 const MAX_ATTACHMENT_COUNT = 5
 const MAX_ATTACHMENT_BYTES = 20 * 1024 * 1024
+// Claude's vision model downsizes anything past ~1568px on the long edge, so
+// uploading full-resolution phone photos just wastes bandwidth and stalls the
+// POST. Cap the long edge and re-encode as JPEG before upload.
+const MAX_IMAGE_EDGE = 1600
+const IMAGE_JPEG_QUALITY = 0.8
 
 export default function AgentChatShow({
   student,
@@ -1134,6 +1139,54 @@ function classifyFile(file: File): AttachmentKind {
   return "file"
 }
 
+// Downscale + re-encode raster photos before upload so sending several at once
+// doesn't time out. PDFs, audio, and animated/vector images pass through
+// untouched; on any failure we fall back to the original file.
+async function prepareForUpload(file: File): Promise<File> {
+  if (!file.type.startsWith("image/")) return file
+  if (file.type === "image/gif" || file.type === "image/svg+xml") return file
+
+  try {
+    const bitmap = await createImageBitmap(file)
+    const { width, height } = bitmap
+    const longEdge = Math.max(width, height)
+    const scale = longEdge > MAX_IMAGE_EDGE ? MAX_IMAGE_EDGE / longEdge : 1
+
+    // Small enough already (dimensions and bytes) — don't re-encode needlessly.
+    if (scale === 1 && file.size <= 1024 * 1024) {
+      bitmap.close()
+      return file
+    }
+
+    const targetW = Math.round(width * scale)
+    const targetH = Math.round(height * scale)
+    const canvas = document.createElement("canvas")
+    canvas.width = targetW
+    canvas.height = targetH
+    const ctx = canvas.getContext("2d")
+    if (!ctx) {
+      bitmap.close()
+      return file
+    }
+    ctx.drawImage(bitmap, 0, 0, targetW, targetH)
+    bitmap.close()
+
+    const blob = await new Promise<Blob | null>((resolve) =>
+      canvas.toBlob(resolve, "image/jpeg", IMAGE_JPEG_QUALITY),
+    )
+    // Keep the original if re-encoding gained us nothing.
+    if (!blob || blob.size >= file.size) return file
+
+    const name = file.name.replace(/\.[^.]+$/, "") + ".jpg"
+    return new File([ blob ], name, {
+      type: "image/jpeg",
+      lastModified: file.lastModified,
+    })
+  } catch {
+    return file
+  }
+}
+
 function preferredAudioMimeType(): string {
   const candidates = [
     "audio/webm;codecs=opus",
@@ -1199,22 +1252,32 @@ function Composer({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  function addFiles(files: FileList | File[]) {
-    const incoming = Array.from(files)
+  async function addFiles(files: FileList | File[]) {
+    const room = MAX_ATTACHMENT_COUNT - pending.length
+    if (room <= 0) return
+
+    const accepted: PendingAttachment[] = []
+    for (const original of Array.from(files).slice(0, room)) {
+      const file = await prepareForUpload(original)
+      if (file.size > MAX_ATTACHMENT_BYTES) continue
+      accepted.push({
+        uid: cryptoRandomId(),
+        file,
+        kind: classifyFile(file),
+        previewUrl: URL.createObjectURL(file),
+      })
+    }
+    if (accepted.length === 0) return
+
     setPending((prev) => {
-      const room = MAX_ATTACHMENT_COUNT - prev.length
-      if (room <= 0) return prev
-      const accepted: PendingAttachment[] = []
-      for (const file of incoming.slice(0, room)) {
-        if (file.size > MAX_ATTACHMENT_BYTES) continue
-        accepted.push({
-          uid: cryptoRandomId(),
-          file,
-          kind: classifyFile(file),
-          previewUrl: URL.createObjectURL(file),
-        })
+      const room2 = MAX_ATTACHMENT_COUNT - prev.length
+      if (room2 <= 0) {
+        accepted.forEach((p) => URL.revokeObjectURL(p.previewUrl))
+        return prev
       }
-      return [ ...prev, ...accepted ]
+      const kept = accepted.slice(0, room2)
+      accepted.slice(room2).forEach((p) => URL.revokeObjectURL(p.previewUrl))
+      return [ ...prev, ...kept ]
     })
   }
 
