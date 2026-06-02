@@ -9,6 +9,18 @@ class Student
   module Awardable
     extend ActiveSupport::Concern
 
+    class_methods do
+      # One-off launch backfill (PRD #145, slice 6). Awards every historical
+      # medal across all students and stamps seen_at on the results, so
+      # pre-existing achievements appear in full color without a first-visit
+      # celebration storm — celebrations stay reserved for post-launch organic
+      # earns. Idempotent: evaluate_medals! is insert-only, so re-running awards
+      # nothing new and therefore never resets seen_at.
+      def backfill_medals!
+        find_each { |student| student.evaluate_medals!.each(&:mark_seen!) }
+      end
+    end
+
     # Awards newly-crossed tiers across all families and returns the records
     # created this pass (empty when nothing new was earned).
     def evaluate_medals!

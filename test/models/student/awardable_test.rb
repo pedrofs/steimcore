@@ -97,6 +97,35 @@ class Student::AwardableTest < ActiveSupport::TestCase
     assert_equal [ 1, 2 ], earned_tiers("full_weeks"), "raising the cadence keeps the earned medals"
   end
 
+  test "backfill awards every historical medal across all students" do
+    finish_sessions(5)
+
+    Student.backfill_medals!
+
+    assert_equal [ 1, 5 ], earned_tiers("workouts")
+  end
+
+  test "backfilled medals are stamped seen so they never celebrate on first visit" do
+    finish_sessions(5)
+
+    Student.backfill_medals!
+
+    assert @student.student_medals.any?, "expected the backfill to award medals"
+    assert_empty @student.student_medals.unseen, "backfilled medals must be seen"
+  end
+
+  test "backfill is idempotent — re-running awards nothing and never churns seen_at" do
+    finish_sessions(5)
+    Student.backfill_medals!
+    seen_timestamps = @student.student_medals.order(:tier).pluck(:seen_at)
+
+    assert_no_difference -> { StudentMedal.count } do
+      Student.backfill_medals!
+    end
+    assert_equal seen_timestamps, @student.student_medals.order(:tier).pluck(:seen_at),
+      "re-running must not reset seen_at"
+  end
+
   private
     def finish_sessions(count)
       count.times do
