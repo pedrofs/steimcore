@@ -34,6 +34,37 @@ class Student::DashboardViewTest < ActiveSupport::TestCase
     end
   end
 
+  test "trained days carry a session summary with the workout name and flattened exercises" do
+    travel_to Time.zone.local(2026, 5, 13, 10, 0, 0) do
+      build_session(finished: true, created_at: Time.zone.local(2026, 5, 11, 9, 0, 0),
+                    workout_name: "Treino B", blocks: [
+                      { "kind" => "exercise", "name" => "Agachamento", "prescription" => "4x8" },
+                      { "kind" => "group", "label" => "Circuito", "items" => [
+                        { "name" => "Flexão", "prescription" => "3x12" },
+                        { "name" => "Prancha", "prescription" => "60s" }
+                      ] },
+                      { "kind" => "freeform", "text_md" => "Alongar bem" }
+                    ])
+
+      days = Student::DashboardView.new(@student).to_h[:calendar][:days].index_by { |d| d[:date] }
+      trained = days[Date.new(2026, 5, 11).iso8601]
+
+      assert_equal 1, trained[:sessions].length
+      summary = trained[:sessions].first
+      assert_equal "Treino B", summary[:workout_name]
+      assert_equal [ "Agachamento", "Flexão", "Prancha" ], summary[:exercises].map { |e| e[:name] }
+      assert_equal "4x8", summary[:exercises].first[:detail]
+    end
+  end
+
+  test "untrained days carry an empty sessions array" do
+    travel_to Time.zone.local(2026, 5, 13, 10, 0, 0) do
+      days = Student::DashboardView.new(@student).to_h[:calendar][:days]
+
+      assert days.all? { |d| d[:sessions] == [] }
+    end
+  end
+
   test "trained_today and today_workout_name reflect a finished session created today" do
     travel_to Time.zone.local(2026, 5, 13, 10, 0, 0) do
       build_session(finished: true, created_at: Time.zone.local(2026, 5, 13, 8, 0, 0), workout_name: "Treino C")
@@ -89,12 +120,91 @@ class Student::DashboardViewTest < ActiveSupport::TestCase
     assert_nil view[:progress]
   end
 
+  test "session_entry offers a start on a weekday with an eligible plan" do
+    build_active_plan!
+
+    travel_to Time.zone.local(2026, 6, 1, 10, 0, 0) do # Monday
+      entry = Student::DashboardView.new(@student.reload).to_h[:session_entry]
+
+      assert entry[:can_start]
+      assert_not entry[:rest_day]
+      assert_nil entry[:active_session]
+    end
+  end
+
+  test "session_entry withholds the start and flags rest_day on a weekend" do
+    build_active_plan!
+
+    travel_to Time.zone.local(2026, 6, 6, 10, 0, 0) do # Saturday
+      entry = Student::DashboardView.new(@student.reload).to_h[:session_entry]
+
+      assert_not entry[:can_start]
+      assert entry[:rest_day]
+    end
+  end
+
+  test "session_entry surfaces an active session as the resume target with its initiator" do
+    build_active_plan!
+
+    travel_to Time.zone.local(2026, 6, 1, 10, 0, 0) do # Monday
+      session = @student.reload.start_training_session!
+
+      entry = Student::DashboardView.new(@student).to_h[:session_entry]
+
+      assert_equal session.id, entry[:active_session][:id]
+      assert_equal "student", entry[:active_session][:initiator]
+    end
+  end
+
+  test "session_entry labels a trainer-initiated active session" do
+    plan = build_active_plan!
+
+    travel_to Time.zone.local(2026, 6, 1, 10, 0, 0) do # Monday
+      session = TrainingSession.start!(student: @student.reload, trainer: @trainer)
+
+      entry = Student::DashboardView.new(@student).to_h[:session_entry]
+
+      assert_equal session.id, entry[:active_session][:id]
+      assert_equal "trainer", entry[:active_session][:initiator]
+    end
+  end
+
+  test "session_entry has no start affordance without an eligible plan" do
+    travel_to Time.zone.local(2026, 6, 1, 10, 0, 0) do # Monday
+      entry = Student::DashboardView.new(@student).to_h[:session_entry]
+
+      assert_not entry[:can_start]
+      assert_nil entry[:active_session]
+    end
+  end
+
+  test "session_entry lists workout_choices from the current version with the suggested one flagged" do
+    build_active_plan! # Treino A (pos 1), Treino B (pos 2)
+
+    travel_to Time.zone.local(2026, 6, 1, 10, 0, 0) do # Monday
+      choices = Student::DashboardView.new(@student.reload).to_h[:session_entry][:workout_choices]
+
+      assert_equal [ "Treino A", "Treino B" ], choices.map { |c| c[:name] }
+      assert_equal [ 1, 2 ], choices.map { |c| c[:position] }
+      # A fresh student (no finished sessions) is suggested the first workout.
+      assert_equal [ "Treino A" ], choices.select { |c| c[:suggested] }.map { |c| c[:name] }
+    end
+  end
+
+  test "session_entry workout_choices is empty without an eligible plan" do
+    travel_to Time.zone.local(2026, 6, 1, 10, 0, 0) do # Monday
+      choices = Student::DashboardView.new(@student).to_h[:session_entry][:workout_choices]
+
+      assert_empty choices
+    end
+  end
+
   private
     def finished_session_at(time, **opts)
       build_session(finished: true, created_at: time, **opts)
     end
 
-    def build_session(finished:, created_at:, workout_name: "Treino A", position: 1, version: :auto, student: @student)
+    def build_session(finished:, created_at:, workout_name: "Treino A", position: 1, version: :auto, blocks: [], student: @student)
       resolved = version == :auto ? build_version : version
       session = TrainingSession.create!(
         student: student,
@@ -102,7 +212,7 @@ class Student::DashboardViewTest < ActiveSupport::TestCase
         periodization_version: resolved,
         workout_name_snapshot: workout_name,
         workout_position_snapshot: position,
-        blocks_snapshot: [],
+        blocks_snapshot: blocks,
         progress: []
       )
       session.update_columns(created_at: created_at, finished_at: finished ? created_at + 1.hour : nil)

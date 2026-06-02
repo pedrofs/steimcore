@@ -135,7 +135,7 @@ class TrainingSessionsController < InertiaController
         created_at: session.created_at,
         stale: session.created_at < stale_cutoff,
         trainer_id: session.trainer_id,
-        trainer_name: session.trainer.email_address.split("@").first,
+        trainer_name: session.trainer&.email_address&.split("@")&.first,
         swap_options: session.eligible_swap_workouts.map { |w| { id: w.id, name: w.name, position: w.position } }
       }
     end

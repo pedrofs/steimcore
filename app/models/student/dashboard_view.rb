@@ -27,7 +27,8 @@ class Student
         today_workout_name: today_workout_name,
         next_workout: next_workout_payload,
         progress: progress_payload,
-        calendar: { days: calendar_days }
+        calendar: { days: calendar_days },
+        session_entry: session_entry_payload
       }
     end
 
@@ -77,6 +78,53 @@ class Student
         end
       end
 
+      # Collapses the home's "resume / start / rest-day / plan-not-ready" states
+      # into one payload the front end renders from:
+      #   * active_session  — the resume target (id + workout + initiator), or nil
+      #   * can_start       — whether to offer a fresh self-start today
+      #   * rest_day        — whether today is a weekend (drives rest-day copy)
+      #   * workout_choices — the current version's workouts for the start chooser,
+      #                       with the auto-suggested one flagged (empty when no
+      #                       eligible plan)
+      def session_entry_payload
+        {
+          active_session: active_session_payload,
+          can_start: @student.self_start_allowed_today?,
+          rest_day: Student::RestDay.today?,
+          workout_choices: workout_choices_payload
+        }
+      end
+
+      # Candidates for the home start chooser: every Workout in the active
+      # periodization's current version, ordered as prescribed, with the
+      # auto-picked next workout flagged so the chooser can pre-select it.
+      # Empty when there is no eligible plan (next_workout_for returns nil for
+      # no active periodization, no current version, or zero workouts).
+      def workout_choices_payload
+        suggested = TrainingSession.next_workout_for(@student)
+        return [] if suggested.nil?
+
+        @student.active_periodization.current_version.workouts.order(:position).map do |workout|
+          {
+            id: workout.id,
+            name: workout.name,
+            position: workout.position,
+            suggested: workout.id == suggested.id
+          }
+        end
+      end
+
+      def active_session_payload
+        session = @student.active_training_session
+        return nil if session.nil?
+
+        {
+          id: session.id,
+          workout_name: session.workout_name_snapshot,
+          initiator: session.trainer_id.nil? ? "student" : "trainer"
+        }
+      end
+
       def progress_payload
         progress = Student::PeriodizationProgress.new(@student)
         return nil unless progress.applicable?
@@ -95,8 +143,22 @@ class Student
       def calendar_days
         by_date = window_sessions.group_by { |session| session_date(session) }
         (window_start..window_end).map do |date|
-          { date: date.iso8601, trained: by_date.key?(date), is_future: date > today }
+          sessions = by_date[date] || []
+          {
+            date: date.iso8601,
+            trained: sessions.any?,
+            is_future: date > today,
+            sessions: sessions.map { |session| session_summary(session) }
+          }
         end
+      end
+
+      def session_summary(session)
+        {
+          id: session.id,
+          workout_name: session.workout_name_snapshot,
+          exercises: exercises_in(session.blocks_snapshot)
+        }
       end
 
       def window_end

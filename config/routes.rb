@@ -30,6 +30,10 @@ Rails.application.routes.draw do
     resource :no_profile, only: :show
     resource :home, only: :show, controller: "home"
     resources :workouts, only: :index, controller: "workouts"
+    resources :training_sessions, only: [ :create, :show, :destroy ] do
+      resources :block_completions, only: [ :create, :destroy ], module: :training_sessions
+      resource  :completion,        only: :create,               module: :training_sessions
+    end
   end
 
   resources :periodization_versions, only: [ :show, :destroy ] do

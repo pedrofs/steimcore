@@ -1,5 +1,6 @@
 class Student < ApplicationRecord
   include Archivable
+  include SelfServeTrainable
 
   belongs_to :organization
   belongs_to :student_identity, optional: true

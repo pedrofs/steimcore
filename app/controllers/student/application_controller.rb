@@ -11,12 +11,11 @@ class Student::ApplicationController < InertiaController
       new_student_session_path
     end
 
-    # Guard for authenticated student app pages that need a Selected profile.
-    # When the selection is missing or no longer reachable (e.g. the trainer
-    # destroyed that Student mid-session), bounce to the Profile chooser if any
-    # profiles remain, or to the "Nenhum perfil disponível" page if none do. The
-    # session itself stays alive — the identity is still authenticated. Shared by
-    # Student::HomeController and Student::WorkoutsController. See PRD #108.
+    # Pages that act on the Selected profile require one to be set. When the
+    # selection is missing or no longer reachable (e.g. the trainer destroyed
+    # that Student mid-session), bounce to the Profile chooser if any profiles
+    # remain, or to the "Nenhum perfil disponível" page if none do. The session
+    # itself stays alive — the identity is still authenticated. See PRD #108.
     def require_selected_profile
       return if Current.student
 

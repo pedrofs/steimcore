@@ -4,7 +4,7 @@ class TrainingSession < ApplicationRecord
   include Swappable
 
   belongs_to :student
-  belongs_to :trainer, class_name: "User"
+  belongs_to :trainer, class_name: "User", optional: true
   belongs_to :workout, optional: true
   belongs_to :periodization_version, optional: true
 
@@ -12,12 +12,22 @@ class TrainingSession < ApplicationRecord
   validates :workout_position_snapshot, presence: true, numericality: { only_integer: true }
   validate :validate_blocks_snapshot_schema
 
-  # Begins a new active session for the student under the given trainer. Snapshots
-  # the auto-picked workout (name, position, blocks) onto the session and assigns
-  # the trainer/student/workout associations in a single transaction. Raises if
-  # the student is ineligible (archived, no active periodization, current version
-  # not completed, no workouts, or already has an active session).
-  def self.start!(trainer:, student:)
+  # A student-initiated session has no trainer attached (ADR-0005). Only these
+  # are cancelable by the student; trainer-initiated ones can be finished but
+  # not discarded.
+  def student_initiated?
+    trainer_id.nil?
+  end
+
+  # Begins a new active session for the student, optionally under a trainer.
+  # When no +trainer+ is given the session is student-initiated (trainer_id
+  # null); when no +workout+ is given it defaults to the auto-picked
+  # +next_workout_for+. Snapshots the workout (name, position, blocks) onto the
+  # session and assigns the trainer/student/workout associations in a single
+  # transaction. Raises if the student is ineligible (archived, no active
+  # periodization, current version not completed, no workouts, or already has an
+  # active session).
+  def self.start!(student:, trainer: nil, workout: nil)
     raise "Aluno está arquivado" if student.archived?
 
     periodization = student.active_periodization
@@ -26,7 +36,7 @@ class TrainingSession < ApplicationRecord
     version = periodization.current_version
     raise "Periodização ainda não está pronta" if version.nil? || version.status != "completed"
 
-    workout = next_workout_for(student)
+    workout ||= next_workout_for(student)
     raise "Periodização não tem treinos" if workout.nil?
 
     transaction do
