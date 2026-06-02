@@ -26,7 +26,7 @@ class TrainingSessionsController < InertiaController
       redirect_back fallback_location: student_path(@student), notice: "Sessão registrada."
     else
       Current.user.training_sessions.start_for!(@student)
-      redirect_to training_sessions_path
+      redirect_back fallback_location: training_sessions_path
     end
   end
 
@@ -68,8 +68,8 @@ class TrainingSessionsController < InertiaController
     end
 
     def handle_duplicate_active(_exception)
-      redirect_to training_sessions_path,
-                  alert: "Aluno já está em sessão ativa. Ative 'Todas' para visualizar."
+      redirect_back fallback_location: training_sessions_path,
+                    alert: "Aluno já está em sessão ativa. Ative 'Todas' para visualizar."
     end
 
     def resolved_scope

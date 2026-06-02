@@ -23,6 +23,16 @@ class TrainingSessions::BlockCompletionsControllerTest < ActionDispatch::Integra
     assert_equal [ "1" ], @session.reload.progress
   end
 
+  test "create preserves the scope query param via the referer" do
+    sign_in_as(@user)
+
+    post training_session_block_completions_path(@session),
+         params: { block_index: "1" },
+         headers: { "HTTP_REFERER" => training_sessions_url(scope: "org") }
+
+    assert_redirected_to training_sessions_url(scope: "org")
+  end
+
   test "create is idempotent — marking twice keeps a single entry" do
     sign_in_as(@user)
 

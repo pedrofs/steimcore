@@ -7,7 +7,7 @@ class TrainingSessions::WorkoutSwapsController < InertiaController
 
   def create
     @session.swap_workout!(@target_workout)
-    redirect_to training_sessions_path
+    redirect_back fallback_location: training_sessions_path
   end
 
   private
@@ -22,6 +22,6 @@ class TrainingSessions::WorkoutSwapsController < InertiaController
     end
 
     def handle_invalid_swap(exception)
-      redirect_to training_sessions_path, alert: exception.message
+      redirect_back fallback_location: training_sessions_path, alert: exception.message
     end
 end

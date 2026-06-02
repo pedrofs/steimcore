@@ -5,12 +5,12 @@ class TrainingSessions::CompletionsController < InertiaController
 
   def create
     @session.finish!
-    redirect_to training_sessions_path
+    redirect_back fallback_location: training_sessions_path
   end
 
   def destroy
     @session.reopen!
-    redirect_to training_sessions_path
+    redirect_back fallback_location: training_sessions_path
   end
 
   private

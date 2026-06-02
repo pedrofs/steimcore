@@ -6,12 +6,12 @@ class TrainingSessions::BlockCompletionsController < InertiaController
 
   def create
     @session.mark_block_done!(params[:block_index].to_s)
-    redirect_to training_sessions_path
+    redirect_back fallback_location: training_sessions_path
   end
 
   def destroy
     @session.unmark_block!(params[:id].to_s)
-    redirect_to training_sessions_path
+    redirect_back fallback_location: training_sessions_path
   end
 
   private
@@ -22,6 +22,6 @@ class TrainingSessions::BlockCompletionsController < InertiaController
     end
 
     def handle_invalid_index(exception)
-      redirect_to training_sessions_path, alert: exception.message
+      redirect_back fallback_location: training_sessions_path, alert: exception.message
     end
 end
