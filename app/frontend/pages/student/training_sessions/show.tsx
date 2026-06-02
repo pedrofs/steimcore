@@ -1,8 +1,10 @@
-import { Head, Link } from "@inertiajs/react"
-import { ChevronLeft, DumbbellIcon } from "lucide-react"
+import { Head, Link, router } from "@inertiajs/react"
+import { CheckIcon, ChevronLeft, DumbbellIcon } from "lucide-react"
 import { motion } from "motion/react"
+import { useCallback, useState } from "react"
 
 import { BrandMonogram } from "@/components/brand"
+import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 
 type ExerciseBlock = {
@@ -47,7 +49,64 @@ type Props = {
   session: LiveSession
 }
 
+const TOGGLE_RELOAD = { preserveScroll: true, only: ["session"] }
+
 export default function StudentLiveSession({ session }: Props) {
+  const finished = session.finishedAt != null
+  const [pendingToggles, setPendingToggles] = useState<Map<string, boolean>>(
+    new Map(),
+  )
+
+  const isBlockDone = useCallback(
+    (index: number) => {
+      const indexStr = String(index)
+      if (pendingToggles.has(indexStr)) return pendingToggles.get(indexStr) as boolean
+      return session.completedBlockIndices.includes(indexStr)
+    },
+    [pendingToggles, session.completedBlockIndices],
+  )
+
+  const toggleBlock = useCallback(
+    (index: number) => {
+      if (finished) return
+      const indexStr = String(index)
+      const nextDone = !isBlockDone(index)
+
+      setPendingToggles((prev) => new Map(prev).set(indexStr, nextDone))
+
+      const clear = () =>
+        setPendingToggles((prev) => {
+          const next = new Map(prev)
+          next.delete(indexStr)
+          return next
+        })
+
+      if (nextDone) {
+        router.post(
+          `/student/training_sessions/${session.id}/block_completions`,
+          { block_index: indexStr },
+          { onSuccess: clear, ...TOGGLE_RELOAD },
+        )
+      } else {
+        router.delete(
+          `/student/training_sessions/${session.id}/block_completions/${indexStr}`,
+          { onSuccess: clear, ...TOGGLE_RELOAD },
+        )
+      }
+    },
+    [finished, isBlockDone, session.id],
+  )
+
+  function finish() {
+    router.post(`/student/training_sessions/${session.id}/completion`, {})
+  }
+
+  const doneCount = session.blocks.reduce(
+    (count, _block, index) => (isBlockDone(index) ? count + 1 : count),
+    0,
+  )
+  const allDone = session.blocks.length > 0 && doneCount === session.blocks.length
+
   return (
     <div className="min-h-dvh bg-background">
       <Head title={session.workoutName} />
@@ -73,10 +132,16 @@ export default function StudentLiveSession({ session }: Props) {
           <DumbbellIcon className="size-6 shrink-0" />
           {session.workoutName}
         </h1>
+
+        {session.blocks.length > 0 && (
+          <p className="mt-3 text-sm font-medium tabular-nums text-brand-foreground/85">
+            {doneCount} de {session.blocks.length} blocos concluídos
+          </p>
+        )}
       </header>
 
       <motion.ol
-        className="mx-auto w-full max-w-md space-y-3 px-4 pb-[calc(env(safe-area-inset-bottom)+2rem)] pt-5"
+        className="mx-auto w-full max-w-md space-y-3 px-4 pb-[calc(env(safe-area-inset-bottom)+7rem)] pt-5"
         initial="hidden"
         animate="show"
         transition={{ staggerChildren: 0.06, delayChildren: 0.05 }}
@@ -87,7 +152,12 @@ export default function StudentLiveSession({ session }: Props) {
             variants={{ hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0 } }}
             transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
           >
-            <BlockCard block={block} index={index} />
+            <BlockCard
+              block={block}
+              done={isBlockDone(index)}
+              disabled={finished}
+              onToggle={() => toggleBlock(index)}
+            />
           </motion.li>
         ))}
 
@@ -97,24 +167,62 @@ export default function StudentLiveSession({ session }: Props) {
           </li>
         )}
       </motion.ol>
+
+      {!finished && (
+        <div className="fixed inset-x-0 bottom-0 border-t bg-background/95 px-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] pt-3 backdrop-blur">
+          <Button
+            onClick={finish}
+            size="lg"
+            className="mx-auto flex w-full max-w-md"
+            variant={allDone ? "default" : "outline"}
+          >
+            Concluir treino
+          </Button>
+        </div>
+      )}
     </div>
   )
 }
 
-function BlockCard({ block, index }: { block: Block; index: number }) {
+function BlockCard({
+  block,
+  done,
+  disabled,
+  onToggle,
+}: {
+  block: Block
+  done: boolean
+  disabled: boolean
+  onToggle: () => void
+}) {
   return (
-    <div className="rounded-2xl border bg-card p-4 shadow-sm shadow-brand/5">
-      <div className="flex items-baseline gap-2.5">
-        <span className="font-display text-sm font-bold tabular-nums text-brand">
-          {String(index + 1).padStart(2, "0")}
-        </span>
-        <div className="min-w-0 flex-1">
-          {block.kind === "exercise" && <ExerciseBody block={block} />}
-          {block.kind === "group" && <GroupBody block={block} />}
-          {block.kind === "freeform" && <FreeformBody block={block} />}
-        </div>
+    <button
+      type="button"
+      onClick={onToggle}
+      disabled={disabled}
+      aria-pressed={done}
+      className={cn(
+        "flex w-full items-start gap-3 rounded-2xl border bg-card p-4 text-left shadow-sm shadow-brand/5 transition-colors",
+        done && "border-brand/40 bg-brand/5",
+        disabled && "cursor-default",
+        !disabled && "active:bg-muted/50",
+      )}
+    >
+      <span
+        className={cn(
+          "mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full border-2 transition-colors",
+          done ? "border-brand bg-brand text-brand-foreground" : "border-muted-foreground/30",
+        )}
+      >
+        {done && <CheckIcon className="size-4" />}
+      </span>
+
+      <div className={cn("min-w-0 flex-1", done && "opacity-60")}>
+        {block.kind === "exercise" && <ExerciseBody block={block} />}
+        {block.kind === "group" && <GroupBody block={block} />}
+        {block.kind === "freeform" && <FreeformBody block={block} />}
       </div>
-    </div>
+    </button>
   )
 }
 
