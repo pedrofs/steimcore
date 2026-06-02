@@ -45,7 +45,8 @@ class StudentsController < InertiaController
     render inertia: "students/show", props: {
       student: student_props(student),
       frequency: frequency_props(student),
-      invitation: invitation_props(student)
+      invitation: invitation_props(student),
+      medals: medals_props(student)
     }
   end
 
@@ -201,6 +202,30 @@ class StudentsController < InertiaController
     def frequency_props(student)
       return nil if student.archived?
       Student::FrequencyView.new(student).to_h
+    end
+
+    # The student's Earned medals as a passive, read-only list for the trainer
+    # profile (PRD #145, slice 5) — newest achievement first. Reading never
+    # touches seen_at and never celebrates; the seen lifecycle belongs solely to
+    # the student's own Medalhas page. Each entry carries what the Medal
+    # component needs to render plus the earned date.
+    def medals_props(student)
+      student.student_medals.order(earned_at: :desc, id: :desc).filter_map do |medal|
+        family = Medal.find(medal.family)
+        next if family.nil?
+
+        {
+          id: medal.id,
+          family: family.key,
+          name: family.name,
+          color: family.color,
+          unit: family.unit,
+          count: medal.tier,
+          tier_index: family.tiers.index(medal.tier) || 0,
+          tier_count: family.tiers.length,
+          earned_at: medal.earned_at&.iso8601
+        }
+      end
     end
 
     def active_plan_props(student)

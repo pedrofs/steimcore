@@ -464,6 +464,47 @@ class StudentsControllerTest < ActionDispatch::IntegrationTest
     assert_equal false, props[:archived]
   end
 
+  test "show exposes the student's earned medals as a passive list" do
+    student = @organization.students.create!(name: "Medalhista")
+    student.student_medals.create!(family: "workouts", tier: 1, value_snapshot: 1, earned_at: 2.days.ago)
+    student.student_medals.create!(family: "workouts", tier: 5, value_snapshot: 6, earned_at: 1.hour.ago)
+    sign_in_as(@user)
+
+    get student_path(student)
+
+    assert_response :success
+    medals = inertia.props[:medals]
+    # Most recently earned first.
+    assert_equal [ 5, 1 ], medals.map { |m| m[:count] }
+    top = medals.first
+    assert_equal "workouts", top[:family]
+    assert_equal "Treinos", top[:name]
+    assert_equal 1, top[:tier_index]
+    assert_equal 8, top[:tier_count]
+    assert_not_nil top[:earned_at]
+  end
+
+  test "show returns an empty medals list for a student with no medals" do
+    student = @organization.students.create!(name: "Sem medalhas")
+    sign_in_as(@user)
+
+    get student_path(student)
+
+    assert_response :success
+    assert_equal [], inertia.props[:medals]
+  end
+
+  test "show never marks the student's medals seen" do
+    student = @organization.students.create!(name: "Não vista")
+    medal = student.student_medals.create!(family: "workouts", tier: 1, value_snapshot: 1, earned_at: Time.current)
+    sign_in_as(@user)
+
+    get student_path(student)
+
+    assert_response :success
+    assert_nil medal.reload.seen_at
+  end
+
   test "show allows opening archived students for inspection" do
     student = students(:archived_carol)
     sign_in_as(@user)

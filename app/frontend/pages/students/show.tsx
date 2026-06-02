@@ -16,6 +16,7 @@ import {
 import { motion } from "motion/react"
 
 import { Markdown } from "@/components/markdown"
+import { Medal, metalForTierIndex } from "@/components/medal"
 import { ArchiveStudentDialog } from "@/components/students/archive-student-dialog"
 import {
   AlertDialog,
@@ -115,13 +116,29 @@ type Invitation = {
   cooldownAvailableAt: string | null
 }
 
+// One Earned medal as shown on the trainer profile: enough to render the Medal
+// component plus the family label and the date it was earned. Passive/read-only
+// — the trainer view never celebrates and never marks anything seen.
+type EarnedMedal = {
+  id: string
+  family: string
+  name: string
+  color: string
+  unit: string
+  count: number
+  tierIndex: number
+  tierCount: number
+  earnedAt: string | null
+}
+
 type Props = {
   student: Student
   frequency: Frequency | null
   invitation: Invitation | null
+  medals: EarnedMedal[]
 }
 
-export default function Show({ student, frequency, invitation }: Props) {
+export default function Show({ student, frequency, invitation, medals }: Props) {
   return (
     <>
       <StudentIdentity student={student} invitation={invitation} />
@@ -147,6 +164,8 @@ export default function Show({ student, frequency, invitation }: Props) {
         {!student.archived && frequency && (
           <FrequencySection frequency={frequency} studentId={student.id} />
         )}
+
+        <MedalsSection medals={medals} />
 
         <motion.section
           className="flex flex-col gap-2"
@@ -299,6 +318,66 @@ function formatArchivedDate(iso: string | null): string | null {
   return new Intl.DateTimeFormat("pt-BR", {
     day: "2-digit",
     month: "short",
+    year: "numeric",
+  }).format(date)
+}
+
+// Passive, read-only list of the student's Earned medals on the trainer profile
+// (PRD #145, slice 5). No celebration, no detail sheet, no seen lifecycle —
+// rendering it never modifies anything server-side.
+function MedalsSection({ medals }: { medals: EarnedMedal[] }) {
+  return (
+    <motion.section
+      className="flex flex-col gap-2"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.4, delay: 0.14, ease: "easeOut" }}
+    >
+      <h2 className="text-lg font-medium">Medalhas</h2>
+      {medals.length === 0 ? (
+        <p className="rounded-xl border border-dashed bg-muted/30 p-4 text-sm text-muted-foreground">
+          Nenhuma medalha conquistada ainda.
+        </p>
+      ) : (
+        <ul className="flex flex-col gap-2">
+          {medals.map((medal) => (
+            <MedalRow key={medal.id} medal={medal} />
+          ))}
+        </ul>
+      )}
+    </motion.section>
+  )
+}
+
+function MedalRow({ medal }: { medal: EarnedMedal }) {
+  const metal = metalForTierIndex(medal.tierIndex, medal.tierCount)
+  const earnedLabel = medal.earnedAt ? formatMedalDate(medal.earnedAt) : null
+
+  return (
+    <li className="flex items-center gap-3 rounded-xl border bg-card p-3">
+      <Medal
+        color={medal.color}
+        count={medal.count}
+        metal={metal}
+        className="w-11 shrink-0"
+      />
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-semibold">{medal.name}</p>
+        <p className="mt-0.5 text-xs text-muted-foreground">
+          {medal.count} {medal.unit}
+          {earnedLabel && ` · Conquistada em ${earnedLabel}`}
+        </p>
+      </div>
+    </li>
+  )
+}
+
+function formatMedalDate(iso: string): string | null {
+  const date = new Date(iso)
+  if (Number.isNaN(date.getTime())) return null
+  return new Intl.DateTimeFormat("pt-BR", {
+    day: "numeric",
+    month: "long",
     year: "numeric",
   }).format(date)
 }
