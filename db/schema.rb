@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.2].define(version: 2026_06_02_120000) do
+ActiveRecord::Schema[8.2].define(version: 2026_06_02_130000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -163,6 +163,19 @@ ActiveRecord::Schema[8.2].define(version: 2026_06_02_120000) do
     t.index ["student_id"], name: "index_periodizations_on_student_id"
   end
 
+  create_table "push_subscriptions", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
+    t.string "authenticatable_type", null: false
+    t.string "authenticatable_id", null: false
+    t.string "endpoint", null: false
+    t.string "p256dh_key", null: false
+    t.string "auth_key", null: false
+    t.string "user_agent"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["authenticatable_type", "authenticatable_id"], name: "index_push_subscriptions_on_authenticatable"
+    t.index ["endpoint"], name: "index_push_subscriptions_on_endpoint", unique: true
+  end
+
   create_table "sessions", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.string "ip_address"
@@ -182,6 +195,19 @@ ActiveRecord::Schema[8.2].define(version: 2026_06_02_120000) do
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.index ["email_address"], name: "index_student_identities_on_email_address", unique: true
+  end
+
+  create_table "student_medals", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
+    t.uuid "student_id", null: false
+    t.string "family", null: false
+    t.integer "tier", null: false
+    t.integer "value_snapshot", null: false
+    t.datetime "earned_at", null: false
+    t.datetime "seen_at"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["student_id", "family", "tier"], name: "index_student_medals_on_student_id_and_family_and_tier", unique: true
+    t.index ["student_id"], name: "index_student_medals_on_student_id"
   end
 
   create_table "students", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
@@ -266,6 +292,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_06_02_120000) do
   add_foreign_key "periodizations", "periodization_versions", column: "current_version_id", name: "fk_rails_periodizations_current_version_id", deferrable: :deferred
   add_foreign_key "periodizations", "students"
   add_foreign_key "sessions", "students", column: "selected_student_id", on_delete: :nullify
+  add_foreign_key "student_medals", "students"
   add_foreign_key "students", "organizations"
   add_foreign_key "students", "periodizations", column: "active_periodization_id", name: "fk_rails_students_active_periodization_id", deferrable: :deferred
   add_foreign_key "students", "student_identities"

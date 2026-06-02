@@ -12,6 +12,12 @@ class TrainingSession < ApplicationRecord
   validates :workout_position_snapshot, presence: true, numericality: { only_integer: true }
   validate :validate_blocks_snapshot_schema
 
+  # Award Medals when a session becomes finished — covering both finish! and a
+  # backdated log_past! (finished_at goes nil → present), and naturally skipping
+  # reopen! (present → nil) since we guard on finished_at being present
+  # (ADR-0005). The job re-evaluates the whole student idempotently.
+  after_commit :enqueue_medal_evaluation, on: [ :create, :update ]
+
   # A student-initiated session has no trainer attached (ADR-0005). Only these
   # are cancelable by the student; trainer-initiated ones can be finished but
   # not discarded.
@@ -112,6 +118,12 @@ class TrainingSession < ApplicationRecord
   end
 
   private
+    def enqueue_medal_evaluation
+      return unless saved_change_to_finished_at? && finished_at.present?
+
+      MedalEvaluationJob.perform_later(student)
+    end
+
     def validate_blocks_snapshot_schema
       Workout::Blocks.errors_for(blocks_snapshot).each { |message| errors.add(:blocks_snapshot, message) }
     end

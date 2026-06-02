@@ -94,6 +94,30 @@ class TrainingSessionTest < ActiveSupport::TestCase
     assert_nothing_raised { second.save! }
   end
 
+  test "finishing a session enqueues medal evaluation for the student" do
+    session = build_valid_session
+    session.save!
+
+    assert_enqueued_with(job: MedalEvaluationJob, args: [ @student ]) do
+      session.finish!
+    end
+  end
+
+  test "creating an already-finished (backdated) session enqueues medal evaluation" do
+    assert_enqueued_with(job: MedalEvaluationJob, args: [ @student ]) do
+      build_valid_session(finished_at: Time.current).save!
+    end
+  end
+
+  test "reopening a finished session does not enqueue medal evaluation" do
+    session = build_valid_session(finished_at: Time.current)
+    session.save!
+
+    assert_no_enqueued_jobs only: MedalEvaluationJob do
+      session.reopen!
+    end
+  end
+
   private
     def build_valid_session(**overrides)
       defaults = {

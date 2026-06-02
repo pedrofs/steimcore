@@ -1,5 +1,5 @@
 import { Head, Link, router, usePage } from "@inertiajs/react"
-import { DumbbellIcon, HomeIcon, LogOut, Repeat2, UserRound } from "lucide-react"
+import { DumbbellIcon, HomeIcon, LogOut, Medal, Repeat2, UserRound } from "lucide-react"
 import { type ReactNode, useState } from "react"
 
 import { BrandMark } from "@/components/brand"
@@ -42,6 +42,7 @@ function StudentBottomNav({ currentUrl }: { currentUrl: string }) {
   const [accountOpen, setAccountOpen] = useState(false)
   const homeActive = currentUrl.startsWith("/student/home")
   const workoutsActive = currentUrl.startsWith("/student/workouts")
+  const medalsActive = currentUrl.startsWith("/student/medals")
 
   return (
     <>
@@ -49,7 +50,7 @@ function StudentBottomNav({ currentUrl }: { currentUrl: string }) {
         aria-label="Navegação"
         className="fixed inset-x-0 bottom-0 z-40 border-t border-border/70 bg-background/85 backdrop-blur-lg"
       >
-        <div className="mx-auto grid max-w-md grid-cols-3 px-2 pt-1.5 pb-[calc(0.5rem+env(safe-area-inset-bottom))]">
+        <div className="mx-auto grid max-w-md grid-cols-4 px-2 pt-1.5 pb-[calc(0.5rem+env(safe-area-inset-bottom))]">
           <NavTab
             label="Início"
             active={homeActive}
@@ -63,6 +64,13 @@ function StudentBottomNav({ currentUrl }: { currentUrl: string }) {
             icon={<DumbbellIcon className="size-[1.35rem]" strokeWidth={2.25} />}
             asLink
             href="/student/workouts"
+          />
+          <NavTab
+            label="Medalhas"
+            active={medalsActive}
+            icon={<Medal className="size-[1.35rem]" strokeWidth={2.25} />}
+            asLink
+            href="/student/medals"
           />
           <NavTab
             label="Conta"

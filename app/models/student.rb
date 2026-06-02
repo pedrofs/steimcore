@@ -1,15 +1,22 @@
 class Student < ApplicationRecord
   include Archivable
   include SelfServeTrainable
+  include Awardable
 
   belongs_to :organization
   belongs_to :student_identity, optional: true
   belongs_to :active_periodization, class_name: "Periodization", optional: true
   has_many :periodizations, dependent: :destroy
   has_many :training_sessions, dependent: :destroy
+  has_many :student_medals, dependent: :destroy
   has_one :agent_chat, class_name: "Agent::Chat", as: :chattable, dependent: :destroy
 
   validates :name, presence: true
+
+  # Lowering a cadence can retroactively unlock cadence-dependent Medals
+  # (ADR-0005). Re-evaluate after the change commits; `workouts` is unaffected,
+  # but the trigger is harmless and needed by the later cadence families.
+  after_update_commit :enqueue_medal_evaluation, if: :saved_change_to_weekly_frequency?
 
   # Keep the cross-organization StudentIdentity link in sync with the per-org
   # contact email. When the email is present, find-or-create the identity keyed
@@ -214,6 +221,10 @@ class Student < ApplicationRecord
   end
 
   private
+    def enqueue_medal_evaluation
+      MedalEvaluationJob.perform_later(self)
+    end
+
     # Resync whenever the email changed, or when an email is present but the FK
     # is still missing (covers rows created before identities existed).
     def sync_student_identity?

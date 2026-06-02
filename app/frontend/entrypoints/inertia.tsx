@@ -28,7 +28,9 @@ const isUnchromed = (name: string) =>
 // no-profile) are full-screen centered and stay chrome-less. Neither should
 // ever render the trainer's AppSidebar.
 const isStudentApp = (name: string) =>
-  name === "student/home/show" || name === "student/workouts/index"
+  name === "student/home/show" ||
+  name === "student/workouts/index" ||
+  name === "student/medals/index"
 
 const resolveLayout = (name: string) => {
   if (isStudentApp(name)) return StudentLayout
