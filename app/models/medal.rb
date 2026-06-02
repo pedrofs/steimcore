@@ -4,19 +4,37 @@
 # (Student::Awardable) reads `tiers` and `metric`; the Medalhas page reads the
 # display fields. The stored `key` is English; `name` is the pt-BR label.
 #
-# Only `workouts` has a working metric in this slice (#147). The three
-# cadence-dependent families (`weekly_streak`, `full_weeks`, `periodizations`)
-# are listed so the page can render them locked; their `metric` returns nil
-# until their slices land, and a nil metric awards nothing and renders grayscale.
+# `workouts` (always live) and the two weekly families (`weekly_streak`,
+# `full_weeks`, fed by Student::WeeklyHistory) have working metrics; the weekly
+# pair returns nil — and renders locked — until an explicit cadence is set (no
+# fallback, ADR-0005). `periodizations` still has no metric until its slice
+# lands. A nil metric awards nothing and renders the family grayscale.
 module Medal
   Family = Data.define(:key, :name, :color, :unit, :tiers, :explanation) do
-    # The student's live value for this family, or nil when the family has no
-    # working metric yet (or, once implemented, its cadence precondition isn't
-    # met). A nil metric awards nothing and renders the family locked.
+    # The peak metric used to award tiers (ADR-0005): the highest value the
+    # student has reached, e.g. the best-ever weekly streak. nil when the family
+    # has no working metric yet or its cadence precondition isn't met.
     def metric(student)
       case key
       when "workouts"
         student.training_sessions.finished.count
+      when "weekly_streak"
+        weekly_history(student)&.best_streak
+      when "full_weeks"
+        weekly_history(student)&.full_weeks_count
+      end
+    end
+
+    # The student's live "current" value for the detail sheet's Atual stat —
+    # which can sit below the peak +metric+ (ADR-0005). For weekly_streak this
+    # is the current ongoing streak versus the best-ever; otherwise it matches
+    # the awarding metric.
+    def current_metric(student)
+      case key
+      when "weekly_streak"
+        weekly_history(student)&.current_streak
+      else
+        metric(student)
       end
     end
 
@@ -25,6 +43,14 @@ module Medal
       return nil if value.nil?
       tiers.reverse_each.find { |tier| value >= tier }
     end
+
+    private
+      # The student's WeeklyHistory, or nil when no explicit cadence is set so
+      # the weekly families stay locked rather than fall back to a guess.
+      def weekly_history(student)
+        history = Student::WeeklyHistory.new(student)
+        history if history.cadence?
+      end
   end
 
   FAMILIES = [

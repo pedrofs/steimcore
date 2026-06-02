@@ -23,10 +23,42 @@ class MedalTest < ActiveSupport::TestCase
     assert_equal 1, Medal.find("workouts").metric(@student)
   end
 
-  test "cadence-dependent families have no metric yet" do
-    %w[weekly_streak full_weeks periodizations].each do |key|
-      assert_nil Medal.find(key).metric(@student), "#{key} should not have a working metric in this slice"
+  test "weekly families have a live metric gated on an explicit cadence" do
+    # No cadence -> nil, so the families stay locked (no fallback, ADR-0005).
+    assert_nil Medal.find("weekly_streak").metric(@student)
+    assert_nil Medal.find("full_weeks").metric(@student)
+
+    @student.update!(weekly_frequency: 1)
+    @student.training_sessions.create!(
+      workout_name_snapshot: "Treino", workout_position_snapshot: 1,
+      blocks_snapshot: [], progress: [], finished_at: Time.current
+    )
+
+    assert_equal 1, Medal.find("weekly_streak").metric(@student)
+    assert_equal 1, Medal.find("full_weeks").metric(@student)
+  end
+
+  test "weekly_streak current_metric tracks the current streak, distinct from the best-ever peak" do
+    @student.update!(weekly_frequency: 2)
+    current_week = Time.zone.today.beginning_of_week
+    # Two Full weeks then two consecutive misses: best 2, current 0.
+    [ 4, 3 ].each do |weeks_ago|
+      timestamp = (current_week - weeks_ago.weeks).in_time_zone + 2.days
+      2.times do
+        @student.training_sessions.create!(
+          workout_name_snapshot: "Treino", workout_position_snapshot: 1,
+          blocks_snapshot: [], progress: [], created_at: timestamp, finished_at: timestamp
+        )
+      end
     end
+
+    weekly_streak = Medal.find("weekly_streak")
+    assert_equal 2, weekly_streak.metric(@student)
+    assert_equal 0, weekly_streak.current_metric(@student)
+  end
+
+  test "periodizations has no metric yet" do
+    assert_nil Medal.find("periodizations").metric(@student)
   end
 
   test "highest_reached_tier returns the top tier at or below the value" do
