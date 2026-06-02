@@ -69,6 +69,28 @@ _Avoid_: sessions left (use **Sessions remaining**), training sessions left.
 A chrome-free, screen-only rendering of a **Student**'s **Active periodization** — a single page with the header plus workouts — that auto-fires the browser's native print dialog on load (`Students::Periodizations::PrintablesController#show`). Printing is a **last resort**: the product is fully digital, so there is no tracked print state. Opening or printing the view records nothing.
 _Avoid_: **Printed** state, **Print confirmation**, **Print queue** — all removed when the product went fully digital (see [ADR-0004](docs/adr/0004-remove-print-queue-and-printed-state.md)).
 
+### Live training sessions
+
+**Training session** (`TrainingSession`):
+A single in-progress or completed workout for a **Student**, snapshotting the workout's name, position, and blocks at start time so later edits to the plan don't rewrite history. Active while `finished_at IS NULL`; finished once stamped. A **Student** has **at most one active** training session at a time (enforced by a unique partial index).
+_Avoid_: live session (UI label only), workout log.
+
+**Trainer-initiated** vs **Student-initiated session**:
+A training session can be started two ways. **Trainer-initiated**: a trainer starts it for a student from the live-sessions board (`trainer_id` set). **Student-initiated**: the student starts it themselves from their home screen (`trainer_id` null — there is no trainer associated). Same record, same lifecycle (blocks, progress, finish); the only difference is who started it, encoded by the presence/absence of `trainer_id`. See [ADR-0005](docs/adr/0005-student-initiated-sessions-via-nullable-trainer.md) for why this is overloaded onto one model rather than a separate concept.
+_Note_: "Check-in" is not a domain term and is not used in the student UI — it's just the student starting a training session.
+
+**Resuming**:
+Because a **Student** has at most one active session (whoever started it), the student's home reflects an in-progress session rather than offering to start a second. If an active session exists, the home routes the student **into** that live session (resume) — the same live screen whether it was **Trainer-** or **Student-initiated**. On either kind the student can **toggle blocks** and **finish** the session. The only difference: a **Student-initiated** session shows a **Cancel** action (hard-deletes the session, recording nothing — distinct from finishing); a **Trainer-initiated** session does not (the student cannot cancel a session they didn't start, but may still finish it). With no active session, the home offers to start one.
+_Avoid_: check-in state, resume token.
+
+**Rest days** *(Student-initiated only)*:
+Saturday and Sunday are rest days — a fixed rule, no per-student schedule. A **Student** **cannot self-start** a session on Sat/Sun; this is enforced server-side on the create path using the app's `Time.zone`, not merely hidden in the UI. The lockout applies only to student-initiated *starting*: **resuming**, finishing, and canceling an already-active session are unaffected, and **trainer-initiated** starts are never weekend-blocked (a trainer can run a Saturday in-person session). On weekends the student home shows the existing rest-day messaging in place of the start affordance.
+
+**Cancel** *(Student-initiated only)*:
+Hard-deletes the student's own active session, freeing the one-active slot and recording nothing toward progress/frequency. Not "finish" — a finished session stamps `finished_at` and counts; a canceled one vanishes. A student can only cancel sessions they started (`trainer_id` null), never a trainer's.
+
+_Trainer-side visibility_: a **Student-initiated** session has no `trainer_id`, so it does not appear in a trainer's own ("Meus") scope; it surfaces on the live-sessions board only under the **"Todos"** (org-wide) filter, rendered with a **self-serve marker** ("Iniciado pelo aluno") in place of a trainer name/avatar. The existing duplicate-active guard already stops a trainer from starting a second session for a student who is mid-session. _(A future PR will let a trainer assign herself to a student-initiated session — out of scope here.)_
+
 ### Trainer attention model
 
 **Dashboard queue**:
