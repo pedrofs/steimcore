@@ -4,11 +4,11 @@
 # (Student::Awardable) reads `tiers` and `metric`; the Medalhas page reads the
 # display fields. The stored `key` is English; `name` is the pt-BR label.
 #
-# `workouts` (always live) and the two weekly families (`weekly_streak`,
-# `full_weeks`, fed by Student::WeeklyHistory) have working metrics; the weekly
-# pair returns nil — and renders locked — until an explicit cadence is set (no
-# fallback, ADR-0005). `periodizations` still has no metric until its slice
-# lands. A nil metric awards nothing and renders the family grayscale.
+# `workouts` is always live. The two weekly families (`weekly_streak`,
+# `full_weeks`, fed by Student::WeeklyHistory) and `periodizations` (the count of
+# Completed periodizations, via Student#completed_periodizations_count) return
+# nil — and render locked — until an explicit cadence is set (no fallback,
+# ADR-0005). A nil metric awards nothing and renders the family grayscale.
 module Medal
   Family = Data.define(:key, :name, :color, :unit, :tiers, :explanation) do
     # The peak metric used to award tiers (ADR-0005): the highest value the
@@ -22,6 +22,8 @@ module Medal
         weekly_history(student)&.best_streak
       when "full_weeks"
         weekly_history(student)&.full_weeks_count
+      when "periodizations"
+        student.completed_periodizations_count
       end
     end
 

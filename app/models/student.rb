@@ -191,6 +191,25 @@ class Student < ApplicationRecord
     PeriodizationProgress.new(self).sessions_remaining
   end
 
+  # Number of Periodizations the student has trained to completion — the full
+  # prescribed dose delivered (Sessions remaining <= 0), counting both the
+  # Active block and archived ones. Reuses Student::PeriodizationProgress for the
+  # per-block Sessions-remaining math (ADR-0002): a block whose Current version
+  # carries no periodization_length_weeks (not applicable?) and a block scrapped
+  # early before the dose landed (remaining > 0) are both excluded. Feeds the
+  # `periodizations` Medal family (ADR-0005); returns nil — leaving the family
+  # locked — without an explicit weekly_frequency, matching the no-fallback
+  # cadence rule of the dashboard scopes. Because we gate on a positive cadence
+  # here, PeriodizationProgress's DAYS_PER_WEEK fallback is never reached.
+  def completed_periodizations_count
+    return nil unless weekly_frequency.to_i.positive?
+
+    periodizations.count do |periodization|
+      progress = PeriodizationProgress.new(self, periodization: periodization)
+      progress.applicable? && !progress.sessions_remaining.positive?
+    end
+  end
+
   def age(today: Date.current)
     return nil if birthday.nil?
     age = today.year - birthday.year

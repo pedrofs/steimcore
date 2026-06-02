@@ -57,7 +57,9 @@ class MedalTest < ActiveSupport::TestCase
     assert_equal 0, weekly_streak.current_metric(@student)
   end
 
-  test "periodizations has no metric yet" do
+  test "periodizations metric is gated on an explicit cadence (no fallback)" do
+    # Covered in depth by Medal::PeriodizationsMetricTest; here we only assert
+    # the family stays locked (nil) until an explicit cadence is set.
     assert_nil Medal.find("periodizations").metric(@student)
   end
 
