@@ -36,6 +36,7 @@ Rails.application.routes.draw do
     end
     resources :training_sessions, only: [ :create, :show, :destroy ] do
       resources :block_completions, only: [ :create, :destroy ], module: :training_sessions
+      resources :exercise_loads,    only: :create,               module: :training_sessions
       resource  :completion,        only: :create,               module: :training_sessions
     end
   end
@@ -51,6 +52,7 @@ Rails.application.routes.draw do
 
   resources :training_sessions, only: [ :index, :create, :destroy ] do
     resources :block_completions, only: [ :create, :destroy ], module: :training_sessions
+    resources :exercise_loads,    only: :create,               module: :training_sessions
     resource  :completion,        only: [ :create, :destroy ], module: :training_sessions
     resource  :workout_swap,      only: :create,               module: :training_sessions
   end

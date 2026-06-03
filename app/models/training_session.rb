@@ -2,6 +2,7 @@ class TrainingSession < ApplicationRecord
   include Blockable
   include Finishable
   include Swappable
+  include ExerciseLoadable
 
   belongs_to :student
   belongs_to :trainer, class_name: "User", optional: true

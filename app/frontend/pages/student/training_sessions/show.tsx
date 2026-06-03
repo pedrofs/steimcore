@@ -5,6 +5,7 @@ import { useCallback, useState } from "react"
 
 import { BrandMonogram } from "@/components/brand"
 import { Button } from "@/components/ui/button"
+import { WeightControl } from "@/components/weight-control"
 import { cn } from "@/lib/utils"
 
 type ExerciseBlock = {
@@ -13,12 +14,14 @@ type ExerciseBlock = {
   prescription: string
   restS?: number
   notes?: string
+  weight?: string | null
 }
 
 type GroupItem = {
   name: string
   prescription: string
   notes?: string
+  weight?: string | null
 }
 
 type GroupBlock = {
@@ -97,6 +100,17 @@ export default function StudentLiveSession({ session }: Props) {
     [finished, isBlockDone, session.id],
   )
 
+  const setLoad = useCallback(
+    (exerciseName: string, value: string) => {
+      router.post(
+        `/student/training_sessions/${session.id}/exercise_loads`,
+        { exerciseName, value },
+        { preserveScroll: true, only: ["session"] },
+      )
+    },
+    [session.id],
+  )
+
   function finish() {
     router.post(`/student/training_sessions/${session.id}/completion`, {})
   }
@@ -162,6 +176,7 @@ export default function StudentLiveSession({ session }: Props) {
               done={isBlockDone(index)}
               disabled={finished}
               onToggle={() => toggleBlock(index)}
+              onSetLoad={setLoad}
             />
           </motion.li>
         ))}
@@ -206,11 +221,13 @@ function BlockCard({
   done,
   disabled,
   onToggle,
+  onSetLoad,
 }: {
   block: Block
   done: boolean
   disabled: boolean
   onToggle: () => void
+  onSetLoad: (exerciseName: string, value: string) => void
 }) {
   return (
     <button
@@ -219,7 +236,7 @@ function BlockCard({
       disabled={disabled}
       aria-pressed={done}
       className={cn(
-        "flex w-full items-start gap-3 rounded-2xl border bg-card p-4 text-left shadow-sm shadow-brand/5 transition-colors",
+        "flex w-full items-stretch gap-3 rounded-2xl border bg-card p-4 text-left shadow-sm shadow-brand/5 transition-colors",
         done && "border-brand/40 bg-brand/5",
         disabled && "cursor-default",
         !disabled && "active:bg-muted/50",
@@ -234,11 +251,23 @@ function BlockCard({
         {done && <CheckIcon className="size-4" />}
       </span>
 
-      <div className={cn("min-w-0 flex-1", done && "opacity-60")}>
+      <div className={cn("flex min-w-0 flex-1 flex-col justify-center", done && "opacity-60")}>
         {block.kind === "exercise" && <ExerciseBody block={block} />}
-        {block.kind === "group" && <GroupBody block={block} />}
+        {block.kind === "group" && (
+          <GroupBody block={block} disabled={disabled} onSetLoad={onSetLoad} />
+        )}
         {block.kind === "freeform" && <FreeformBody block={block} />}
       </div>
+
+      {block.kind === "exercise" && (
+        <WeightControl
+          variant="cell"
+          exerciseName={block.name}
+          weight={block.weight}
+          disabled={disabled}
+          onSubmit={(value) => onSetLoad(block.name, value)}
+        />
+      )}
     </button>
   )
 }
@@ -254,7 +283,15 @@ function ExerciseBody({ block }: { block: ExerciseBlock }) {
   )
 }
 
-function GroupBody({ block }: { block: GroupBlock }) {
+function GroupBody({
+  block,
+  disabled,
+  onSetLoad,
+}: {
+  block: GroupBlock
+  disabled: boolean
+  onSetLoad: (exerciseName: string, value: string) => void
+}) {
   return (
     <div>
       <div className="flex items-baseline justify-between gap-3">
@@ -267,11 +304,20 @@ function GroupBody({ block }: { block: GroupBlock }) {
       </div>
       <ul className="mt-2 space-y-1.5 border-l-2 border-brand/15 pl-3">
         {block.items.map((item, i) => (
-          <li key={i} className="flex items-baseline justify-between gap-3">
-            <span className="truncate text-sm font-medium">{item.name}</span>
-            <span className="shrink-0 text-sm tabular-nums text-muted-foreground">
-              {item.prescription}
-            </span>
+          <li key={i} className="flex items-stretch justify-between gap-2">
+            <div className="flex min-w-0 flex-1 items-baseline justify-between gap-3 self-center">
+              <span className="truncate text-sm font-medium">{item.name}</span>
+              <span className="shrink-0 text-sm tabular-nums text-muted-foreground">
+                {item.prescription}
+              </span>
+            </div>
+            <WeightControl
+              variant="cell"
+              exerciseName={item.name}
+              weight={item.weight}
+              disabled={disabled}
+              onSubmit={(value) => onSetLoad(item.name, value)}
+            />
           </li>
         ))}
       </ul>
