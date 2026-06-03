@@ -119,6 +119,25 @@ class Agent::Chat::MessageSelectionTest < ActiveSupport::TestCase
       "the full history is still persisted"
   end
 
+  test "keeps the persisted system prompt first, even when it isn't the oldest row and windowing drops old turns" do
+    # The gem persists the system prompt as a role: :system row AFTER the first
+    # user message (and keeps its created_at on later turns), so chronologically
+    # it sits second — and in a long chat it would fall outside the window. The
+    # partition must pull it out and prepend it regardless of position.
+    @chat.messages.create!(role: :system, content: "INSTRUÇÕES DO SISTEMA")
+    30.times do |i|
+      @chat.messages.create!(role: :assistant, content: "a#{i}")
+      @chat.messages.create!(role: :user, content: "u#{i}", trainer: @user)
+    end
+
+    selection = @chat.messages_for_llm
+    assert_equal "system", selection.first.role.to_s, "system prompt must lead the payload"
+    assert_equal "INSTRUÇÕES DO SISTEMA", selection.first.content
+    assert_equal 1, selection.count { |m| m.role.to_s == "system" }
+    assert_equal "user", selection[1].role.to_s, "the conversation must still start on a user turn"
+    assert_operator selection.size, :<=, Agent::Chat::MessageSelection::MESSAGE_WINDOW + 1
+  end
+
   test "drops leading non-user rows so the payload always starts with a user turn" do
     # A history that somehow begins with an assistant row (e.g. the very first
     # user message was empty debris and got dropped).
