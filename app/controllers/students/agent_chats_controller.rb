@@ -99,8 +99,13 @@ class Students::AgentChatsController < InertiaController
       }
     end
 
+    # Skip crash debris (empty rows a failed turn left behind). These are kept
+    # in the DB but carry nothing to render — the same rows are dropped from the
+    # LLM payload by `Agent::Chat::MessageSelection`.
     def messages_props(chat)
-      chat.messages.order(:created_at).map { |message| message_props(message) }
+      chat.messages.order(:created_at)
+          .reject(&:empty_payload?)
+          .map { |message| message_props(message) }
     end
 
     def message_props(message)

@@ -14,4 +14,7 @@ class Agent::Chat < ApplicationRecord
   enum :state, { idle: "idle", running: "running" }, validate: true
 
   include Agent::Chat::Runnable
+  # Must come after `acts_as_chat` so the `order_messages_for_llm` override
+  # wins method lookup over the gem's default.
+  include Agent::Chat::MessageSelection
 end
