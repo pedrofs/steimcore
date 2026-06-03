@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.2].define(version: 2026_06_02_130000) do
+ActiveRecord::Schema[8.2].define(version: 2026_06_03_120000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -113,6 +113,19 @@ ActiveRecord::Schema[8.2].define(version: 2026_06_02_130000) do
     t.index ["message_id"], name: "index_agent_tool_calls_on_message_id"
     t.index ["name"], name: "index_agent_tool_calls_on_name"
     t.index ["tool_call_id"], name: "index_agent_tool_calls_on_tool_call_id", unique: true
+  end
+
+  create_table "exercise_loads", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
+    t.uuid "student_id", null: false
+    t.uuid "training_session_id"
+    t.string "exercise_key", null: false
+    t.string "exercise_name", null: false
+    t.string "value", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["student_id", "exercise_key", "id"], name: "index_exercise_loads_on_student_key_id", order: { id: :desc }
+    t.index ["student_id"], name: "index_exercise_loads_on_student_id"
+    t.index ["training_session_id"], name: "index_exercise_loads_on_training_session_id"
   end
 
   create_table "invitations", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
@@ -283,6 +296,8 @@ ActiveRecord::Schema[8.2].define(version: 2026_06_02_130000) do
   add_foreign_key "agent_messages", "agent_tool_calls", column: "tool_call_id"
   add_foreign_key "agent_messages", "users", column: "trainer_id"
   add_foreign_key "agent_tool_calls", "agent_messages", column: "message_id"
+  add_foreign_key "exercise_loads", "students"
+  add_foreign_key "exercise_loads", "training_sessions", on_delete: :nullify
   add_foreign_key "invitations", "organizations"
   add_foreign_key "invitations", "users", column: "invited_by_id"
   add_foreign_key "periodization_versions", "agent_tool_calls"

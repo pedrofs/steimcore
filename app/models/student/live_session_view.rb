@@ -14,7 +14,7 @@ class Student
         id: @session.id,
         workout_name: @session.workout_name_snapshot,
         workout_position: @session.workout_position_snapshot,
-        blocks: @session.blocks_snapshot,
+        blocks: @session.blocks_with_loads,
         completed_block_indices: @session.progress,
         finished_at: @session.finished_at,
         initiator: @session.student_initiated? ? "student" : "trainer"

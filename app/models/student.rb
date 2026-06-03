@@ -2,6 +2,7 @@ class Student < ApplicationRecord
   include Archivable
   include SelfServeTrainable
   include Awardable
+  include ExerciseLoadable
 
   belongs_to :organization
   belongs_to :student_identity, optional: true

@@ -22,6 +22,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet"
+import { WeightControl } from "@/components/weight-control"
 import { cn } from "@/lib/utils"
 
 import { initials, paletteColorFor } from "./avatar"
@@ -39,12 +40,14 @@ type ExerciseBlock = {
   prescription: string
   rest_s?: number
   notes?: string
+  weight?: string | null
 }
 
 type GroupItem = {
   name: string
   prescription: string
   notes?: string
+  weight?: string | null
 }
 
 type GroupBlock = {
@@ -226,6 +229,17 @@ export default function TrainingSessionsIndex({
     [isBlockDone],
   )
 
+  const setLoad = useCallback(
+    (session: TrainingSessionRow, exerciseName: string, value: string) => {
+      router.post(
+        `/training_sessions/${session.id}/exercise_loads`,
+        { exerciseName, value },
+        TOGGLE_RELOAD,
+      )
+    },
+    [],
+  )
+
   function addStudent(studentId: string) {
     setPickerOpen(false)
     router.post(
@@ -303,6 +317,7 @@ export default function TrainingSessionsIndex({
                 doneCount={doneCountFor(focused)}
                 isBlockDone={(i) => isBlockDone(focused, i)}
                 onToggleBlock={(i) => toggleBlock(focused, i)}
+                onSetLoad={(name, value) => setLoad(focused, name, value)}
                 onFinish={finishFocused}
                 onRemove={removeFocused}
                 onSwap={() => setSwapOpen(true)}
@@ -482,6 +497,7 @@ function FocusedView({
   doneCount,
   isBlockDone,
   onToggleBlock,
+  onSetLoad,
   onFinish,
   onRemove,
   onSwap,
@@ -491,6 +507,7 @@ function FocusedView({
   doneCount: number
   isBlockDone: (index: number) => boolean
   onToggleBlock: (index: number) => void
+  onSetLoad: (exerciseName: string, value: string) => void
   onFinish: () => void
   onRemove: () => void
   onSwap: () => void
@@ -619,6 +636,7 @@ function FocusedView({
               block={block}
               done={isBlockDone(index)}
               onToggle={() => onToggleBlock(index)}
+              onSetLoad={onSetLoad}
             />
           ))}
         </div>
@@ -664,10 +682,12 @@ function BlockCard({
   block,
   done,
   onToggle,
+  onSetLoad,
 }: {
   block: Block
   done: boolean
   onToggle: () => void
+  onSetLoad: (exerciseName: string, value: string) => void
 }) {
   return (
     <button
@@ -683,19 +703,38 @@ function BlockCard({
           : "border-border bg-card text-foreground hover:border-foreground/20",
       )}
     >
-      {block.kind === "exercise" && <ExerciseCard block={block} done={done} />}
-      {block.kind === "group" && <GroupCard block={block} done={done} />}
+      {block.kind === "exercise" && (
+        <ExerciseCard block={block} done={done} onSetLoad={onSetLoad} />
+      )}
+      {block.kind === "group" && (
+        <GroupCard block={block} done={done} onSetLoad={onSetLoad} />
+      )}
       {block.kind === "freeform" && <FreeformCard block={block} done={done} />}
     </button>
   )
 }
 
-function ExerciseCard({ block, done }: { block: ExerciseBlock; done: boolean }) {
+function ExerciseCard({
+  block,
+  done,
+  onSetLoad,
+}: {
+  block: ExerciseBlock
+  done: boolean
+  onSetLoad: (exerciseName: string, value: string) => void
+}) {
   const muted = done ? "text-white/85" : "text-foreground/80"
   const fine = done ? "text-white/70" : "text-muted-foreground"
   return (
     <div className="flex flex-col gap-1">
-      <div className="text-base font-medium">{block.name}</div>
+      <div className="flex items-start justify-between gap-2">
+        <div className="text-base font-medium">{block.name}</div>
+        <WeightControl
+          exerciseName={block.name}
+          weight={block.weight}
+          onSubmit={(value) => onSetLoad(block.name, value)}
+        />
+      </div>
       <div className={cn("text-sm", muted)}>{block.prescription}</div>
       {typeof block.rest_s === "number" && (
         <div className={cn("text-xs", fine)}>Descanso: {block.rest_s}s</div>
@@ -705,7 +744,15 @@ function ExerciseCard({ block, done }: { block: ExerciseBlock; done: boolean }) 
   )
 }
 
-function GroupCard({ block, done }: { block: GroupBlock; done: boolean }) {
+function GroupCard({
+  block,
+  done,
+  onSetLoad,
+}: {
+  block: GroupBlock
+  done: boolean
+  onSetLoad: (exerciseName: string, value: string) => void
+}) {
   const label = block.label?.trim() || "Grupo"
   const muted = done ? "text-white/85" : "text-foreground/80"
   const fine = done ? "text-white/70" : "text-muted-foreground"
@@ -719,11 +766,18 @@ function GroupCard({ block, done }: { block: GroupBlock; done: boolean }) {
           </div>
         )}
       </div>
-      <ul className="flex flex-col gap-1 pl-3">
+      <ul className="flex flex-col gap-1.5 pl-3">
         {block.items.map((item, idx) => (
-          <li key={idx} className={cn("text-sm", muted)}>
-            <span className="font-medium">{item.name}</span>
-            <span className={cn(fine)}> · {item.prescription}</span>
+          <li key={idx} className="flex items-start justify-between gap-2">
+            <span className={cn("text-sm", muted)}>
+              <span className="font-medium">{item.name}</span>
+              <span className={cn(fine)}> · {item.prescription}</span>
+            </span>
+            <WeightControl
+              exerciseName={item.name}
+              weight={item.weight}
+              onSubmit={(value) => onSetLoad(item.name, value)}
+            />
           </li>
         ))}
       </ul>

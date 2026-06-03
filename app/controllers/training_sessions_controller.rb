@@ -129,7 +129,7 @@ class TrainingSessionsController < InertiaController
         workout_id: session.workout_id,
         workout_name: session.workout_name_snapshot,
         workout_position: session.workout_position_snapshot,
-        blocks: session.blocks_snapshot,
+        blocks: session.blocks_with_loads,
         completed_block_indices: session.progress,
         finished_at: session.finished_at,
         created_at: session.created_at,
