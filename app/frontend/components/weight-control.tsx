@@ -133,36 +133,47 @@ export function WeightControl({
     <>
       {trigger}
 
-      <Drawer open={open} onOpenChange={setOpen}>
-        <DrawerContent>
-          <DrawerHeader>
-            <DrawerTitle className="truncate">Carga · {exerciseName}</DrawerTitle>
-          </DrawerHeader>
-          <div className="px-4">
-            <Input
-              autoFocus
-              value={value}
-              onChange={(event) => setValue(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter") submit()
-              }}
-              placeholder="ex: 60kg, 20kg/lado, peso do corpo"
-              aria-label="Carga"
-            />
-            <p className="mt-2 text-xs text-muted-foreground">
-              Texto livre. Fica salvo para as próximas sessões.
-            </p>
-          </div>
-          <DrawerFooter>
-            <Button onClick={submit} disabled={!value.trim()}>
-              Salvar
-            </Button>
-            <DrawerClose asChild>
-              <Button variant="ghost">Cancelar</Button>
-            </DrawerClose>
-          </DrawerFooter>
-        </DrawerContent>
-      </Drawer>
+      {/* The drawer is portaled to <body>, but React events still bubble
+          through the component tree to the surrounding "block done" card
+          button. This `display: contents` wrapper (no layout box) swallows the
+          press so interacting with the drawer — including the dismiss overlay —
+          never toggles the row. */}
+      <span
+        className="contents"
+        onClick={(event) => event.stopPropagation()}
+        onPointerDown={(event) => event.stopPropagation()}
+      >
+        <Drawer open={open} onOpenChange={setOpen}>
+          <DrawerContent>
+            <DrawerHeader>
+              <DrawerTitle className="truncate">Carga · {exerciseName}</DrawerTitle>
+            </DrawerHeader>
+            <div className="px-4">
+              <Input
+                autoFocus
+                value={value}
+                onChange={(event) => setValue(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") submit()
+                }}
+                placeholder="ex: 60kg, 20kg/lado, peso do corpo"
+                aria-label="Carga"
+              />
+              <p className="mt-2 text-xs text-muted-foreground">
+                Texto livre. Fica salvo para as próximas sessões.
+              </p>
+            </div>
+            <DrawerFooter>
+              <Button onClick={submit} disabled={!value.trim()}>
+                Salvar
+              </Button>
+              <DrawerClose asChild>
+                <Button variant="ghost">Cancelar</Button>
+              </DrawerClose>
+            </DrawerFooter>
+          </DrawerContent>
+        </Drawer>
+      </span>
     </>
   )
 }
