@@ -11,9 +11,6 @@ class Students::AgentChatsController < InertiaController
 
   def show
     @title = "Chat — #{@student.name}"
-    add_breadcrumb(label: "Alunos", path: students_path)
-    add_breadcrumb(label: @student.name, path: student_path(@student))
-    add_breadcrumb(label: "Chat", path: student_agent_chat_path(@student))
 
     render inertia: "students/agent_chats/show", props: {
       student: student_props(@student),
