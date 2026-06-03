@@ -13,19 +13,28 @@ class ApplicationMailerTest < ActionMailer::TestCase
     mail = PasswordsMailer.reset(User.take)
     html = mail.html_part.body.to_s
 
-    assert_match(/#a80038/i, html, "expected the wine-red brand color in the header")
-    assert_match(/>SteimFit</, html, "expected the SteimFit wordmark as plain HTML text")
-    assert_match(/Enviado por SteimFit/, html, "expected the muted SteimFit footer")
+    assert_match(/#a80038/i, html, "expected the wine-red brand color in the layout")
+    assert_match(/Enviado por <strong[^>]*>SteimFit/, html, "expected the muted SteimFit footer")
   end
 
-  test "branded HTML layout uses only inline styling — no images, no style tag, no SVG" do
+  test "branded HTML layout embeds the logo lockup as an inline attachment" do
     mail = PasswordsMailer.reset(User.take)
     html = mail.html_part.body.to_s
 
-    assert_no_match(/<img\b/i, html, "branded mailer must not include any <img> tags")
+    assert_match(/<img\b/i, html, "expected the brand logo as an <img> tag")
+
+    logo = mail.attachments.inline["steimfit-lockup.png"]
+    assert_not_nil logo, "expected the logo lockup attached inline"
+    assert_equal "image/png", logo.mime_type
+    assert html.include?(logo.url), "expected the layout to reference the inline logo by its CID url"
+  end
+
+  test "branded HTML layout uses only inline styling — no <style> blocks, no inline SVG" do
+    mail = PasswordsMailer.reset(User.take)
+    html = mail.html_part.body.to_s
+
     assert_no_match(/<style\b/i, html, "branded mailer must not include any <style> blocks")
     assert_no_match(/<svg\b/i, html, "branded mailer must not include any inline SVG")
-    assert_empty mail.attachments, "branded mailer must not attach any images"
   end
 
   test "branded text layout ends with the SteimFit signature" do
