@@ -12,11 +12,16 @@ class ExerciseLoadTest < ActiveSupport::TestCase
     assert_equal "", ExerciseLoad.normalize_name("   ")
   end
 
-  test "validations require name, key and value" do
+  test "validations require name and key" do
     load = ExerciseLoad.new
     assert_not load.valid?
     assert load.errors[:exercise_name].any?
     assert load.errors[:exercise_key].any?
-    assert load.errors[:value].any?
+  end
+
+  test "a blank value is allowed as a clearance" do
+    student = students(:alice)
+    load = student.exercise_loads.build(exercise_name: "Supino", exercise_key: "supino", value: "")
+    assert load.valid?, load.errors.full_messages.inspect
   end
 end

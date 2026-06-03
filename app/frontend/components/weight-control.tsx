@@ -60,6 +60,13 @@ export function WeightControl({
     setOpen(false)
   }
 
+  // Clearing is a blank submit: the server records a clearance so the movement
+  // reads back with no current load.
+  function remove() {
+    onSubmit("")
+    setOpen(false)
+  }
+
   const trigger =
     variant === "cell" ? (
       <span
@@ -167,6 +174,15 @@ export function WeightControl({
               <Button onClick={submit} disabled={!value.trim()}>
                 Salvar
               </Button>
+              {weight && (
+                <Button
+                  variant="ghost"
+                  onClick={remove}
+                  className="text-destructive hover:text-destructive"
+                >
+                  Remover carga
+                </Button>
+              )}
               <DrawerClose asChild>
                 <Button variant="ghost">Cancelar</Button>
               </DrawerClose>

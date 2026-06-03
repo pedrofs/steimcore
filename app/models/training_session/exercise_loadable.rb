@@ -5,7 +5,9 @@ module TrainingSession::ExerciseLoadable
   extend ActiveSupport::Concern
 
   # Records (or re-records) the weight for a movement in this session. Each call
-  # appends a new ExerciseLoad; the most recent is what future sessions read.
+  # appends a new ExerciseLoad; the most recent is what future sessions read. A
+  # blank +value+ records a clearance — the movement reads back as having no
+  # current load.
   def record_load!(exercise_name:, value:)
     student.exercise_loads.create!(
       training_session: self,
@@ -37,6 +39,6 @@ module TrainingSession::ExerciseLoadable
 
   private
     def load_value(loads, name)
-      loads[ExerciseLoad.normalize_name(name)]&.value
+      loads[ExerciseLoad.normalize_name(name)]&.value.presence
     end
 end

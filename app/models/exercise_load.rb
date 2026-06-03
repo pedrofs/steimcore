@@ -13,7 +13,9 @@ class ExerciseLoad < ApplicationRecord
 
   validates :exercise_name, presence: true
   validates :exercise_key, presence: true
-  validates :value, presence: true
+  # +value+ is intentionally allowed to be blank: a blank entry is a *clearance*
+  # — the trainer/student removed the weight, so the latest (blank) value means
+  # "no current load". Reads treat a blank latest as nil (see ExerciseLoadable).
 
   # Folds a movement name to its matching key: accent-stripped, lowercased,
   # trimmed, whitespace-collapsed. Mirrors the client-side `normalizeForSearch`

@@ -17,8 +17,9 @@ module Student::ExerciseLoadable
       .index_by(&:exercise_key)
   end
 
-  # Current weight string for a single movement name, or nil if never set.
+  # Current weight string for a single movement name, or nil if never set or
+  # since cleared (a blank latest entry reads as nil).
   def current_load_for(exercise_name)
-    current_loads[ExerciseLoad.normalize_name(exercise_name)]&.value
+    current_loads[ExerciseLoad.normalize_name(exercise_name)]&.value.presence
   end
 end

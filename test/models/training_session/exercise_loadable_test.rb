@@ -34,6 +34,18 @@ class TrainingSession::ExerciseLoadableTest < ActiveSupport::TestCase
     assert_not enriched[3].key?("weight"), "freeform blocks are untouched"
   end
 
+  test "a blank value clears the movement — it reads back as no current load" do
+    session = build_session(blocks_snapshot: blocks)
+    session.save!
+    session.record_load!(exercise_name: "Supino Reto", value: "60kg")
+    assert_equal "60kg", @alice.current_load_for("Supino Reto")
+
+    session.record_load!(exercise_name: "Supino Reto", value: "")
+
+    assert_nil @alice.current_load_for("Supino Reto")
+    assert_nil session.blocks_with_loads[0]["weight"]
+  end
+
   test "blocks_with_loads reflects the most recent value per movement" do
     session = build_session(blocks_snapshot: blocks)
     session.save!

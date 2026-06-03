@@ -25,14 +25,15 @@ class TrainingSessions::ExerciseLoadsControllerTest < ActionDispatch::Integratio
     assert_equal "80kg", @alice.reload.current_load_for("Agachamento")
   end
 
-  test "create rejects a blank value with a flash alert" do
+  test "create with a blank value clears the weight" do
     sign_in_as(@user)
+    @session.record_load!(exercise_name: "Agachamento", value: "80kg")
 
     post training_session_exercise_loads_path(@session),
          params: { exercise_name: "Agachamento", value: "" }
 
     assert_redirected_to training_sessions_path
-    assert_equal 0, @alice.exercise_loads.count
+    assert_nil @alice.reload.current_load_for("Agachamento")
   end
 
   test "create allows another trainer in the same organization" do

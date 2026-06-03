@@ -31,15 +31,16 @@ class Student::TrainingSessions::ExerciseLoadsControllerTest < ActionDispatch::I
     assert_equal "60kg", @student.reload.current_load_for("Supino")
   end
 
-  test "create rejects a blank value with a flash alert" do
+  test "create with a blank value clears the weight" do
     sign_in_with_selected_profile(@identity, @student)
     session = TrainingSession.start!(student: @student, trainer: users(:one))
+    session.record_load!(exercise_name: "Supino", value: "60kg")
 
     post student_training_session_exercise_loads_path(session),
          params: { exercise_name: "Supino", value: "   " }
 
     assert_redirected_to student_training_session_path(session)
-    assert_equal 0, @student.exercise_loads.count
+    assert_nil @student.reload.current_load_for("Supino")
   end
 
   test "create cannot reach another student's session" do

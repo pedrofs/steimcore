@@ -2,8 +2,9 @@
 
 class TrainingSessions::ExerciseLoadsController < InertiaController
   before_action :load_session
-  before_action :ensure_exercise_load_present
+  before_action :ensure_exercise_present
 
+  # A blank +value+ clears the movement's weight (records a clearance).
   def create
     @session.record_load!(exercise_name: exercise_name, value: load_value)
     redirect_back fallback_location: training_sessions_path
@@ -24,9 +25,9 @@ class TrainingSessions::ExerciseLoadsController < InertiaController
       @load_value ||= params[:value].to_s.strip
     end
 
-    def ensure_exercise_load_present
-      return if exercise_name.present? && load_value.present?
+    def ensure_exercise_present
+      return if exercise_name.present?
 
-      redirect_back fallback_location: training_sessions_path, alert: "Informe a carga."
+      redirect_back fallback_location: training_sessions_path, alert: "Exercício não informado."
     end
 end
