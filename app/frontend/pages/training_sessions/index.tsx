@@ -726,20 +726,21 @@ function ExerciseCard({
   const muted = done ? "text-white/85" : "text-foreground/80"
   const fine = done ? "text-white/70" : "text-muted-foreground"
   return (
-    <div className="flex flex-col gap-1">
-      <div className="flex items-start justify-between gap-2">
+    <div className="flex items-stretch gap-3">
+      <div className="flex flex-1 flex-col gap-1">
         <div className="text-base font-medium">{block.name}</div>
-        <WeightControl
-          exerciseName={block.name}
-          weight={block.weight}
-          onSubmit={(value) => onSetLoad(block.name, value)}
-        />
+        <div className={cn("text-sm", muted)}>{block.prescription}</div>
+        {typeof block.rest_s === "number" && (
+          <div className={cn("text-xs", fine)}>Descanso: {block.rest_s}s</div>
+        )}
+        {block.notes && <div className={cn("text-xs", fine)}>{block.notes}</div>}
       </div>
-      <div className={cn("text-sm", muted)}>{block.prescription}</div>
-      {typeof block.rest_s === "number" && (
-        <div className={cn("text-xs", fine)}>Descanso: {block.rest_s}s</div>
-      )}
-      {block.notes && <div className={cn("text-xs", fine)}>{block.notes}</div>}
+      <WeightControl
+        variant="cell"
+        exerciseName={block.name}
+        weight={block.weight}
+        onSubmit={(value) => onSetLoad(block.name, value)}
+      />
     </div>
   )
 }
@@ -768,12 +769,13 @@ function GroupCard({
       </div>
       <ul className="flex flex-col gap-1.5 pl-3">
         {block.items.map((item, idx) => (
-          <li key={idx} className="flex items-start justify-between gap-2">
-            <span className={cn("text-sm", muted)}>
+          <li key={idx} className="flex items-stretch justify-between gap-2">
+            <span className={cn("self-center text-sm", muted)}>
               <span className="font-medium">{item.name}</span>
               <span className={cn(fine)}> · {item.prescription}</span>
             </span>
             <WeightControl
+              variant="cell"
               exerciseName={item.name}
               weight={item.weight}
               onSubmit={(value) => onSetLoad(item.name, value)}

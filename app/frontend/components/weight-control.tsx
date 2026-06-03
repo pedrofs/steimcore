@@ -28,6 +28,7 @@ export function WeightControl({
   onSubmit,
   open: openProp,
   onOpenChange,
+  variant = "pill",
   className,
 }: {
   exerciseName: string
@@ -36,6 +37,10 @@ export function WeightControl({
   onSubmit: (value: string) => void
   open?: boolean
   onOpenChange?: (next: boolean) => void
+  // "pill": compact inline chip. "cell": full-height right-edge column, a big
+  // touch target for mobile — stretches to its flex row, so it works the same
+  // for a standalone exercise card and for each item row inside a group.
+  variant?: "pill" | "cell"
   className?: string
 }) {
   const [internalOpen, setInternalOpen] = useState(false)
@@ -55,8 +60,42 @@ export function WeightControl({
     setOpen(false)
   }
 
-  return (
-    <>
+  const trigger =
+    variant === "cell" ? (
+      <span
+        role="button"
+        tabIndex={disabled ? -1 : 0}
+        aria-disabled={disabled}
+        aria-label={
+          weight ? `Carga: ${weight}. Editar.` : `Definir carga de ${exerciseName}`
+        }
+        onClick={(event) => {
+          event.stopPropagation()
+          if (!disabled) setOpen(true)
+        }}
+        onKeyDown={(event) => {
+          if (disabled) return
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault()
+            event.stopPropagation()
+            setOpen(true)
+          }
+        }}
+        className={cn(
+          "flex w-16 shrink-0 flex-col items-center justify-center gap-1 self-stretch rounded-xl border px-1 py-1 text-center transition-colors min-h-[2.75rem]",
+          weight
+            ? "border-brand/30 bg-brand/10 text-brand"
+            : "border-dashed border-muted-foreground/40 text-muted-foreground",
+          !disabled && "cursor-pointer hover:border-foreground/30",
+          className,
+        )}
+      >
+        <DumbbellIcon className="size-4 shrink-0" />
+        <span className="line-clamp-2 text-[0.7rem] font-medium leading-tight tabular-nums break-words">
+          {weight || "Carga"}
+        </span>
+      </span>
+    ) : (
       <span
         role="button"
         tabIndex={disabled ? -1 : 0}
@@ -88,6 +127,11 @@ export function WeightControl({
         <DumbbellIcon className="size-3" />
         {weight || "Carga"}
       </span>
+    )
+
+  return (
+    <>
+      {trigger}
 
       <Drawer open={open} onOpenChange={setOpen}>
         <DrawerContent>
