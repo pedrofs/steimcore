@@ -421,7 +421,10 @@ function ChatHeader({ student }: { student: Student }) {
     chips.push(`${student.weeklyFrequency}x/sem`)
 
   return (
-    <header className="sticky top-0 z-10 flex flex-col gap-2 border-b border-border/60 bg-background/95 px-4 py-3 backdrop-blur sm:px-6">
+    <header
+      className="sticky top-0 z-10 flex flex-col gap-2 border-b border-border/60 bg-background/95 px-4 py-3 backdrop-blur sm:px-6"
+      style={{ paddingTop: "max(0.75rem, env(safe-area-inset-top))" }}
+    >
       <div className="flex items-center gap-3">
         <Button
           asChild
