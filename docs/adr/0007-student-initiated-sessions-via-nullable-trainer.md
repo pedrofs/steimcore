@@ -1,4 +1,4 @@
-# 0005 — Student-initiated training sessions via a nullable trainer
+# 0007 — Student-initiated training sessions via a nullable trainer
 
 Date: 2026-06-02
 Status: Accepted.

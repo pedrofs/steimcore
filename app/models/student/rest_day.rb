@@ -3,7 +3,7 @@ class Student
   # Pure calendar logic evaluated against the app's Time.zone — there is no
   # per-student schedule. Trainer-initiated starts and resume/finish/cancel are
   # exempt; only a student self-start is blocked on weekends. See PRD #136 /
-  # slice #138 and ADR-0005.
+  # slice #138 and ADR-0007.
   module RestDay
     module_function
 

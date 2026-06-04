@@ -19,7 +19,7 @@ class TrainingSession < ApplicationRecord
   # (ADR-0005). The job re-evaluates the whole student idempotently.
   after_commit :enqueue_medal_evaluation, on: [ :create, :update ]
 
-  # A student-initiated session has no trainer attached (ADR-0005). Only these
+  # A student-initiated session has no trainer attached (ADR-0007). Only these
   # are cancelable by the student; trainer-initiated ones can be finished but
   # not discarded.
   def student_initiated?

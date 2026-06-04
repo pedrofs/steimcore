@@ -47,6 +47,49 @@ _Avoid_: workout (that's the prescription), log, visit.
 The student-app bottom-nav entry and screen (`/student/workouts`, `Student::WorkoutsController#index`) listing the **Workouts** of the student's **Active periodization**'s **Current version** — read-only, position-ordered, rendered as accordion sections that all start collapsed. It shows only the promoted **Current version**; generating, draft, and failed versions stay invisible to the student. It carries **no Training session history** and no session-derived "next workout" emphasis — "what's next" stays on the home dashboard; "the whole plan" is here. When there is no readable plan (no Active periodization, no Current version, or zero workouts), it renders a single "plan not ready" empty state mirroring the home "Próximo treino" copy.
 _Avoid_: workouts history, training log.
 
+### Exercise catalog *(design in progress — see [ADR-0006](docs/adr/0006-exercise-catalog-free-generation-and-linking.md))*
+
+**Exercise**:
+The canonical, globally-shared catalog row for a movement (e.g. "Supino reto com barra") — the entity that can carry media (photo/video), a **Muscle group**, and an **Exercise family**. Global across all organizations; never per-student or per-org. Free-text **Exercise names** written into **Blocks** resolve to an Exercise via an **Alias**.
+_Avoid_: movement, canonical exercise (just **Exercise**). Not to be confused with the Block `kind: "exercise"` (a JSON serialization tag, one layer below the domain) or `ExerciseLoad` (per-student weight history keyed by a normalized name).
+
+**Exercise name**:
+The free-text string the trainer/AI writes in a **Block**'s `name` (or a group item's `name`). A *prescription string*, not an **Exercise** — the AI generates these freely without consulting the catalog, and a name may or may not **resolve** to an Exercise via an **Alias**.
+_Avoid_: exercise (reserve that for the canonical **Exercise**).
+
+**Alias** (`Exercise::Alias`):
+A **Normalized key** that points to exactly one **Exercise**. Every Exercise owns its own canonical name as an Alias, so there is no separate "name" lookup — *all* **Resolution** goes through aliases. Aliases hold every reason two names mean the same movement (typo, equipment phrasing, true synonym) and double as the catalog's search corpus and its exact-match index.
+_Avoid_: synonym, variant.
+
+**Normalized key**:
+The shared identity of an **Exercise name** — accent-stripped, lowercased, whitespace-collapsed (the *same* normalization `ExerciseLoad` already uses for weight history). Unique across **Aliases**, so a normalized key maps to at most one **Exercise**: no name is ambiguous. Ties catalog resolution and per-student weight history to one identity.
+
+**Resolution**:
+The lookup `Exercise name → Normalized key → Alias → Exercise`. Purely additive: an **Unlinked** name renders exactly as today (no media).
+
+**Unlinked**:
+An **Exercise name** with no matching **Alias** yet. The default state until **Linking** runs; renders with no media, identical to pre-catalog behavior.
+
+**Linking**:
+The asynchronous process that takes the distinct **Exercise names** of a `completed` **Periodization version**, **Resolves** the ones it can, and for the rest either attaches a new **Alias** to an existing **Exercise** or mints a new **Unenriched** Exercise. Runs on **completion** of any version (not only the **promoted** one) — in a global catalog, exercise vocabulary is reusable whether or not the draft ships. Serialized to one worker so concurrent versions can't canonize the same movement twice (and so each run sees the prior run's new aliases).
+_Avoid_: matching, syncing.
+
+**Exercise family** (`Exercise::Family`):
+A taxonomy node that rolls up the variants of one movement (e.g. "Supino" over "Supino reto com barra", "Supino inclinado com halteres"). One per **Exercise** (`Exercise belongs_to :exercise_family`). A small lookup table with a **Normalized key**, fed to the **Linking** LLM as a controlled vocabulary so it picks an existing family or proposes a new one (find-or-created by the serialized worker). Firms up the taxonomy as the catalog grows.
+_Avoid_: bare **Family** (that's the **Medal family**), group, category.
+
+**Muscle group** (`Exercise::MuscleGroup`):
+The single primary muscle an **Exercise** targets (e.g. "Peitoral"). One per Exercise (`Exercise belongs_to :muscle_group`), chosen by the **Linking** LLM from a controlled-vocabulary lookup table — same pattern as **Exercise family**. v1 tracks the primary only; secondary muscles are a deliberate later addition (a join + role) that won't invalidate the primary. Enables weekly-volume-by-muscle analytics.
+_Avoid_: muscle, body part; secondary/synergist muscles (not modeled in v1).
+
+**Unenriched / Enriched** *(Exercise state)*:
+Whether an **Exercise** has human-curated media/content. **Linking** mints exercises **Unenriched** (a name + **Exercise family** + **Muscle group**, no media — renders exactly like today). A human later makes it **Enriched** by attaching media/curation. The catalog's value (photos/videos) lives entirely in the Enriched state; Unenriched is just a resolved identity.
+_Avoid_: draft (reserved for **Draft version**), published, complete.
+
+**Exercises admin**:
+The trainer-facing screen listing every **Exercise** for curation — **enriching** (attaching media → **Enriched**) and **consolidating** duplicate **Unenriched** exercises that **Linking**'s bias-to-split produced. Not student-facing. v1 has **no admin/staff role and no organization scope**: the app is SteimFit-internal, so every trainer can curate the **fully global** catalog. A dedicated internal-admin role is deferred until the product is sold to another organization.
+_Avoid_: exercise library (reads as student-facing), catalog management.
+
 ### Periodization progress
 
 **Periodization length**:
@@ -76,7 +119,7 @@ A single in-progress or completed workout for a **Student**, snapshotting the wo
 _Avoid_: live session (UI label only), workout log.
 
 **Trainer-initiated** vs **Student-initiated session**:
-A training session can be started two ways. **Trainer-initiated**: a trainer starts it for a student from the live-sessions board (`trainer_id` set). **Student-initiated**: the student starts it themselves from their home screen (`trainer_id` null — there is no trainer associated). Same record, same lifecycle (blocks, progress, finish); the only difference is who started it, encoded by the presence/absence of `trainer_id`. See [ADR-0005](docs/adr/0005-student-initiated-sessions-via-nullable-trainer.md) for why this is overloaded onto one model rather than a separate concept.
+A training session can be started two ways. **Trainer-initiated**: a trainer starts it for a student from the live-sessions board (`trainer_id` set). **Student-initiated**: the student starts it themselves from their home screen (`trainer_id` null — there is no trainer associated). Same record, same lifecycle (blocks, progress, finish); the only difference is who started it, encoded by the presence/absence of `trainer_id`. See [ADR-0007](docs/adr/0007-student-initiated-sessions-via-nullable-trainer.md) for why this is overloaded onto one model rather than a separate concept.
 _Note_: "Check-in" is not a domain term and is not used in the student UI — it's just the student starting a training session.
 
 **Resuming**:
@@ -112,8 +155,8 @@ A permanent achievement a **Student** earns by crossing a threshold on one of fo
 _Peak, never current_: a Medal commemorates that the student **once reached** a threshold; it is **never revoked**. A broken streak, a `reopen!`, or a later `weekly_frequency` change can lower the *current* metric, but the Medal already earned stays forever. Engine consequence: evaluation only ever **inserts** earned records, never deletes — fully idempotent.
 _Avoid_: badge, trophy, conquista (the page is named **Medalhas**).
 
-**Medal family** (or **Family**):
-One of four metrics a **Student** progresses on. Each has a color, an English code key, and an ordered stack of **Tiers**. The four families (display name / code key / tiers / unit):
+**Medal family**:
+One of four metrics a **Student** progresses on. Bare "Family" is reserved-by-qualification — the catalog has an **Exercise family**, so always qualify which. Each has a color, an English code key, and an ordered stack of **Tiers**. The four families (display name / code key / tiers / unit):
 
 | Display (pt-BR) | `family` key | Metric | Tiers (×N) | Unit |
 |---|---|---|---|---|
@@ -157,3 +200,12 @@ Each earned Medal carries a nullable `seen_at`. Organic earns land **unseen** �
 - A **Periodization version** has many ordered **Workouts**; a **Workout** has many **Blocks**.
 - A **Training session** is a student's performance of one **Workout**; the **Treinos (student tab)** shows **Workouts**, never **Training sessions**.
 - The **Dashboard queue** is the only cohort on the home page.
+- An **Exercise** belongs to one **Exercise family** and one **Muscle group**, and has many **Aliases**.
+- An **Alias** resolves one **Normalized key** to exactly one **Exercise**; every Exercise owns its own name as an Alias.
+- An **Exercise name** (a **Block** or group item `name`) **Resolves** to at most one **Exercise** via an Alias; **Unlinked** when none exists.
+
+## Flagged ambiguities
+
+- "exercise" was three-way overloaded — resolved: **Exercise** (canonical catalog row), **Exercise name** (free-text Block string), and Block `kind: "exercise"` (a JSON serialization tag, not a domain entity). `ExerciseLoad` keeps its own meaning (per-student weight history keyed by **Normalized key**).
+- "Family" was overloaded across subsystems — resolved by qualification: **Medal family** (gamification) vs **Exercise family** (catalog taxonomy, `Exercise::Family`). Never use bare "Family".
+- "draft" stays reserved for **Draft version**; the Exercise enrichment axis is **Unenriched / Enriched**, not "draft".

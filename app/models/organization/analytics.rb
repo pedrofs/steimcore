@@ -5,7 +5,7 @@ class Organization
   # with how the trainer experiences the calendar:
   #
   # - training_sessions: sessions started per day, split by who kicked them off
-  #   (trainer-led vs student-initiated — the ADR-0005 nullable-trainer axis).
+  #   (trainer-led vs student-initiated — the ADR-0007 nullable-trainer axis).
   # - periodizations: plans created per day.
   #
   # Built to grow: add sibling series here as the section gains metrics.

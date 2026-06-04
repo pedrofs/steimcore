@@ -13,7 +13,7 @@ module Student::SelfServeTrainable
   # server-side first — raising in the same string-message style start! uses, so
   # the controller can rescue it into a friendly redirect — then delegates to the
   # generalized TrainingSession.start!, which applies the remaining eligibility
-  # guards and the one-active-per-student index. See ADR-0005.
+  # guards and the one-active-per-student index. See ADR-0007.
   def start_training_session!(workout: nil)
     raise "Hoje é dia de descanso — bom treino na segunda! 🧘" if Student::RestDay.today?
 
