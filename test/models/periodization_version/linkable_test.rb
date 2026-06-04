@@ -107,6 +107,19 @@ class PeriodizationVersion::LinkableTest < ActiveSupport::TestCase
     assert_predicate Exercise.resolve("Movimento totalmente inédito"), :unenriched?
   end
 
+  test "a blind mint enqueues taxonomy enrichment for the new exercise" do
+    @version.workouts.create!(name: "A", position: 1, blocks: [
+      exercise("Movimento totalmente inédito", "3x10")
+    ])
+
+    assert_enqueued_jobs 1, only: EnrichExerciseJob do
+      @version.link_exercises!
+    end
+
+    minted = Exercise.resolve("Movimento totalmente inédito")
+    assert_enqueued_with(job: EnrichExerciseJob, args: [ minted ])
+  end
+
   test "a confident match attaches a new llm alias to the existing exercise" do
     supino = Exercise.create!(name: "Supino reto")
     @version.workouts.create!(name: "A", position: 1, blocks: [ exercise("Supino reto com barra", "4x8") ])

@@ -58,13 +58,15 @@ module PeriodizationVersion::Linkable
     end
 
     # The no-candidate path: trigram retrieval found nothing, so the name is novel
-    # by construction — mint without consulting the LLM.
+    # by construction — mint without consulting the LLM, then hand the blind-minted
+    # Exercise to the async enrichment pass to backfill its taxonomy (the
+    # Classifier never sees these names, so this is the only way they get one).
     def mint_unenriched(name)
       key = Exercise.normalize_name(name)
       return if key.blank?
       return if Exercise::Alias.exists?(normalized_key: key)
 
-      Exercise.create!(name: name)
+      EnrichExerciseJob.perform_later(Exercise.create!(name: name))
     rescue ActiveRecord::RecordNotUnique
       # A concurrent run minted this name's primary alias first; the
       # UNIQUE(normalized_key) backstop won — nothing to do.

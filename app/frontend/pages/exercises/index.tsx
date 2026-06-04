@@ -303,6 +303,7 @@ function PaginationBar({
               filters={filters}
               ariaLabel="Página anterior"
               disabled={pagination.prev == null}
+              size="default"
             >
               <ChevronLeftIcon data-icon="inline-start" />
               <span className="hidden sm:block">Anterior</span>
@@ -341,6 +342,7 @@ function PaginationBar({
               filters={filters}
               ariaLabel="Próxima página"
               disabled={pagination.next == null}
+              size="default"
             >
               <span className="hidden sm:block">Próxima</span>
               <ChevronRightIcon data-icon="inline-end" />
@@ -358,6 +360,7 @@ function PageButton({
   ariaLabel,
   isActive,
   disabled,
+  size = "icon",
   children,
 }: {
   page: number | null
@@ -365,6 +368,7 @@ function PageButton({
   ariaLabel: string
   isActive?: boolean
   disabled?: boolean
+  size?: "icon" | "default"
   children: React.ReactNode
 }) {
   if (disabled || page == null) {
@@ -372,7 +376,7 @@ function PageButton({
       <Button
         type="button"
         variant="ghost"
-        size="icon"
+        size={size}
         aria-label={ariaLabel}
         aria-disabled
         disabled
@@ -383,7 +387,7 @@ function PageButton({
   }
 
   return (
-    <Button asChild variant={isActive ? "outline" : "ghost"} size="icon">
+    <Button asChild variant={isActive ? "outline" : "ghost"} size={size}>
       <Link
         href={buildPageHref(page, filters)}
         aria-label={ariaLabel}

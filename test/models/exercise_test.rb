@@ -78,6 +78,81 @@ class ExerciseTest < ActiveSupport::TestCase
     assert_equal "Supino", exercise.exercise_family.name
   end
 
+  test "enrich_taxonomy! fills empty taxonomy slots from the Enricher and stays unenriched" do
+    exercise = Exercise.create!(name: "Cadeira extensora")
+
+    Exercise::Enricher.stub(:classify, { family: "Cadeira extensora", muscle_group: "Quadríceps" }) do
+      exercise.enrich_taxonomy!
+    end
+
+    exercise.reload
+    assert_equal "Cadeira extensora", exercise.exercise_family.name
+    assert_equal "Quadríceps", exercise.muscle_group.name
+    assert_predicate exercise, :unenriched?, "taxonomy alone must not flip the state"
+  end
+
+  test "enrich_taxonomy! reuses existing taxonomy nodes by normalized key" do
+    family = Exercise::Family.create!(name: "Agachamento", normalized_key: "agachamento")
+    muscle = Exercise::MuscleGroup.create!(name: "Quadríceps", normalized_key: "quadriceps")
+    exercise = Exercise.create!(name: "Agachamento livre")
+
+    Exercise::Enricher.stub(:classify, { family: "agachamento", muscle_group: "QUADRÍCEPS" }) do
+      exercise.enrich_taxonomy!
+    end
+
+    exercise.reload
+    assert_equal family, exercise.exercise_family
+    assert_equal muscle, exercise.muscle_group
+  end
+
+  test "enrich_taxonomy! is a no-op when both taxonomy slots are already set" do
+    exercise = Exercise.create!(name: "Supino reto",
+      exercise_family: Exercise::Family.for_name("Supino"),
+      muscle_group: Exercise::MuscleGroup.for_name("Peito"))
+
+    called = false
+    Exercise::Enricher.stub(:classify, ->(_ex) { called = true; {} }) do
+      exercise.enrich_taxonomy!
+    end
+
+    assert_not called, "Enricher must not run when taxonomy is already complete"
+  end
+
+  test "enrich_taxonomy! preserves an already-set slot and fills only the missing one" do
+    family = Exercise::Family.for_name("Supino")
+    exercise = Exercise.create!(name: "Supino reto", exercise_family: family)
+
+    Exercise::Enricher.stub(:classify, { family: "Outra family", muscle_group: "Peito" }) do
+      exercise.enrich_taxonomy!
+    end
+
+    exercise.reload
+    assert_equal family, exercise.exercise_family, "an already-set slot must not be clobbered"
+    assert_equal "Peito", exercise.muscle_group.name
+  end
+
+  test "unclassified selects only unenriched exercises with an empty taxonomy slot" do
+    Exercise.create!(name: "Supino reto",
+      exercise_family: Exercise::Family.for_name("Supino"),
+      muscle_group: Exercise::MuscleGroup.for_name("Peito")) # fully classified — excluded
+    missing_muscle = Exercise.create!(name: "Agachamento", exercise_family: Exercise::Family.for_name("Agachamento"))
+    blank = Exercise.create!(name: "Stiff")
+
+    assert_equal [ blank.id, missing_muscle.id ].sort, Exercise.unclassified.pluck(:id).sort
+  end
+
+  test "enrich_unclassified_later enqueues one job per unclassified exercise" do
+    Exercise.create!(name: "Supino reto",
+      exercise_family: Exercise::Family.for_name("Supino"),
+      muscle_group: Exercise::MuscleGroup.for_name("Peito")) # fully classified — skipped
+    Exercise.create!(name: "Agachamento", exercise_family: Exercise::Family.for_name("Agachamento"))
+    Exercise.create!(name: "Stiff")
+
+    assert_enqueued_jobs 2, only: EnrichExerciseJob do
+      Exercise.enrich_unclassified_later
+    end
+  end
+
   test "merge_into! repoints the loser's aliases onto the target and records merged_into" do
     survivor = Exercise.create!(name: "Supino reto")
     loser = Exercise.create!(name: "Supino reto com barra")
