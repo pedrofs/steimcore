@@ -246,7 +246,65 @@ class PeriodizationVersion::LinkableTest < ActiveSupport::TestCase
     end
   end
 
+  # ---- re-linking after edits to an already-completed version ---------------
+  # A completed version's exercise content can change without any status
+  # transition: the trainer inline-edits a workout's blocks, or the agent
+  # mutates an editable draft in place via apply_patch!. The names change but
+  # `saved_change_to_status?` stays false, so the status-only trigger misses
+  # these. Linking must re-run whenever a completed version's blocks change.
+
+  test "editing a completed version's workout blocks re-enqueues the linker" do
+    version = completed_version_with_workout
+    workout = version.workouts.first
+
+    assert_enqueued_with(job: LinkExercisesJob, args: [ version ]) do
+      workout.update!(blocks: [ exercise("Crucifixo", "3x12") ])
+    end
+  end
+
+  test "apply_patch! on a completed draft re-enqueues the linker" do
+    version = completed_version_with_workout
+    patch = {
+      body_md: "Plano revisado",
+      periodization_length_weeks: 8,
+      workouts: [ { name: "A", position: 1, blocks: [ exercise("Crucifixo", "3x12") ] } ]
+    }
+
+    assert_enqueued_with(job: LinkExercisesJob, args: [ version ]) do
+      version.apply_patch!(scope: :periodization, patch: patch, trainer: @trainer)
+    end
+  end
+
+  test "editing a workout without touching blocks does not enqueue the linker" do
+    version = completed_version_with_workout
+    workout = version.workouts.first
+
+    assert_no_enqueued_jobs(only: LinkExercisesJob) do
+      workout.update!(name: "Treino renomeado")
+    end
+  end
+
+  test "editing blocks on a version that is not completed does not enqueue the linker" do
+    version = @periodization.versions.create!(trainer: @trainer)
+    workout = version.workouts.create!(name: "A", position: 1, blocks: [ exercise("Supino reto", "4x8") ])
+
+    assert_no_enqueued_jobs(only: LinkExercisesJob) do
+      workout.update!(blocks: [ exercise("Crucifixo", "3x12") ])
+    end
+  end
+
   private
+    # A version that has reached `completed` carrying one workout. The workout
+    # is built while still pending so creating it doesn't itself stand in for
+    # the edit under test.
+    def completed_version_with_workout
+      version = @periodization.versions.create!(trainer: @trainer, periodization_length_weeks: 8)
+      version.workouts.create!(name: "A", position: 1, blocks: [ exercise("Supino reto", "4x8") ])
+      version.transition_to!(:generating)
+      version.complete!
+      version
+    end
+
     def exercise(name, prescription)
       { "kind" => "exercise", "name" => name, "prescription" => prescription }
     end
