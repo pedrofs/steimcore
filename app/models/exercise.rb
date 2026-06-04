@@ -10,6 +10,7 @@
 class Exercise < ApplicationRecord
   include Normalizable
   include Enrichable
+  include Mergeable
 
   # An Exercise is Unenriched on mint (just a name + taxonomy) and becomes
   # Enriched once a trainer attaches media in the Exercises admin.

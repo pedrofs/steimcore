@@ -118,6 +118,21 @@ class ExercisesControllerTest < ActionDispatch::IntegrationTest
     assert_equal "Remada curvada", inertia.props[:exercise][:aliases].first[:raw_name]
   end
 
+  test "show offers every other live exercise as a merge target" do
+    exercise = Exercise.create!(name: "Remada curvada")
+    other = Exercise.create!(name: "Puxada alta")
+    merged = Exercise.create!(name: "Remada baixa")
+    merged.merge_into!(other)
+
+    sign_in_as(@user)
+    get exercise_path(exercise)
+
+    names = inertia.props[:merge_targets].map { |t| t[:name] }
+    assert_includes names, "Puxada alta"
+    assert_not_includes names, "Remada curvada" # never itself
+    assert_not_includes names, "Remada baixa"   # already merged away
+  end
+
   test "edit renders the enrichment form" do
     exercise = Exercise.create!(name: "Remada curvada")
 

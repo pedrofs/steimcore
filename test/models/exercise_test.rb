@@ -77,4 +77,56 @@ class ExerciseTest < ActiveSupport::TestCase
     assert_predicate exercise.reload, :enriched?
     assert_equal "Supino", exercise.exercise_family.name
   end
+
+  test "merge_into! repoints the loser's aliases onto the target and records merged_into" do
+    survivor = Exercise.create!(name: "Supino reto")
+    loser = Exercise.create!(name: "Supino reto com barra")
+    loser.aliases.create!(raw_name: "supino barra", normalized_key: "supino barra", source: "llm")
+
+    loser.merge_into!(survivor)
+
+    assert_equal survivor, loser.reload.merged_into
+    assert_empty loser.aliases.reload
+    repointed = survivor.aliases.reload.map(&:normalized_key)
+    assert_includes repointed, "supino reto com barra"
+    assert_includes repointed, "supino barra"
+  end
+
+  test "after merge_into! names that resolved to the loser resolve to the survivor" do
+    survivor = Exercise.create!(name: "Supino reto")
+    loser = Exercise.create!(name: "Supino reto com barra")
+
+    loser.merge_into!(survivor)
+
+    assert_equal survivor, Exercise.resolve("Supino reto com barra")
+    assert_equal survivor, Exercise.resolve("supíno reto") # survivor's own name still resolves
+  end
+
+  test "merge_into! preserves the alias unique key — no duplicate-key violation" do
+    survivor = Exercise.create!(name: "Supino reto")
+    loser = Exercise.create!(name: "Supino inclinado")
+
+    assert_nothing_raised { loser.merge_into!(survivor) }
+    keys = survivor.aliases.reload.map(&:normalized_key)
+    assert_equal keys.uniq, keys
+  end
+
+  test "merge_into! refuses to merge an exercise into itself" do
+    exercise = Exercise.create!(name: "Supino reto")
+
+    assert_raises(ArgumentError) { exercise.merge_into!(exercise) }
+    assert_nil exercise.reload.merged_into
+  end
+
+  test "merge_into! flattens chains — merging the survivor again repoints inherited aliases" do
+    a = Exercise.create!(name: "Supino reto")
+    b = Exercise.create!(name: "Supino reto com barra")
+    c = Exercise.create!(name: "Supino")
+
+    b.merge_into!(a)
+    a.merge_into!(c)
+
+    assert_equal c, Exercise.resolve("Supino reto com barra")
+    assert_equal c, Exercise.resolve("Supino reto")
+  end
 end

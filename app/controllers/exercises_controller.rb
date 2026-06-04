@@ -31,7 +31,10 @@ class ExercisesController < InertiaController
     @title = @exercise.name
     add_breadcrumb(label: @exercise.name, path: exercise_path(@exercise))
 
-    render inertia: "exercises/show", props: { exercise: exercise_props(@exercise) }
+    render inertia: "exercises/show", props: {
+      exercise: exercise_props(@exercise),
+      merge_targets: merge_targets(@exercise)
+    }
   end
 
   def edit
@@ -94,6 +97,15 @@ class ExercisesController < InertiaController
         state: exercise.state,
         has_media: exercise.media.attached?
       }
+    end
+
+    # Every other live Exercise is a candidate survivor to fold this one into.
+    # The catalog is SteimFit-internal and bounded, so the full list is fine as a
+    # prop; the merge picker on the detail page selects from it.
+    def merge_targets(exercise)
+      catalog.where.not(id: exercise.id).order(:name).pluck(:id, :name).map do |id, name|
+        { id:, name: }
+      end
     end
 
     def exercise_props(exercise)

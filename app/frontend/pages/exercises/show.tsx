@@ -1,9 +1,10 @@
-import { Link } from "@inertiajs/react"
-import { ImageIcon, PencilIcon } from "lucide-react"
+import { Form, Link } from "@inertiajs/react"
+import { GitMergeIcon, ImageIcon, PencilIcon } from "lucide-react"
 
 import { PageHeader } from "@/components/page-header"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Label } from "@/components/ui/label"
 
 type Media = {
   id: string
@@ -23,11 +24,17 @@ type Exercise = {
   media: Media[]
 }
 
-type Props = {
-  exercise: Exercise
+type MergeTarget = {
+  id: string
+  name: string
 }
 
-export default function Show({ exercise }: Props) {
+type Props = {
+  exercise: Exercise
+  mergeTargets: MergeTarget[]
+}
+
+export default function Show({ exercise, mergeTargets }: Props) {
   return (
     <>
       <PageHeader
@@ -104,7 +111,71 @@ export default function Show({ exercise }: Props) {
           ))}
         </ul>
       </section>
+
+      <MergeSection exerciseId={exercise.id} targets={mergeTargets} />
     </>
+  )
+}
+
+function MergeSection({
+  exerciseId,
+  targets,
+}: {
+  exerciseId: string
+  targets: MergeTarget[]
+}) {
+  if (targets.length === 0) return null
+
+  return (
+    <section className="flex flex-col gap-3 rounded-xl border border-dashed p-4">
+      <div className="flex items-center gap-2">
+        <GitMergeIcon className="size-4 text-muted-foreground" />
+        <h2 className="text-sm font-medium text-muted-foreground">
+          Consolidar duplicata
+        </h2>
+      </div>
+      <p className="text-sm text-muted-foreground">
+        Mescle este exercício em outro. Os nomes deste passam a resolver para o
+        exercício escolhido.
+      </p>
+      <Form
+        method="post"
+        action={`/exercises/${exerciseId}/merges`}
+        className="flex flex-col gap-3 sm:flex-row sm:items-end"
+      >
+        {({ processing }) => (
+          <>
+            <div className="flex flex-1 flex-col gap-2">
+              <Label htmlFor="target_id">Mesclar em</Label>
+              <select
+                id="target_id"
+                name="target_id"
+                required
+                defaultValue=""
+                className="h-11 rounded-md border border-input bg-transparent px-3 text-sm shadow-xs focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none sm:h-10"
+              >
+                <option value="" disabled>
+                  Selecione um exercício...
+                </option>
+                {targets.map((target) => (
+                  <option key={target.id} value={target.id}>
+                    {target.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <Button
+              type="submit"
+              variant="outline"
+              disabled={processing}
+              className="h-11 sm:h-10"
+            >
+              {processing ? "Consolidando..." : "Consolidar"}
+            </Button>
+          </>
+        )}
+      </Form>
+    </section>
   )
 }
 
