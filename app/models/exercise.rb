@@ -9,6 +9,7 @@
 # resolution is read-time (ADR-0006).
 class Exercise < ApplicationRecord
   include Normalizable
+  include Enrichable
 
   # An Exercise is Unenriched on mint (just a name + taxonomy) and becomes
   # Enriched once a trainer attaches media in the Exercises admin.

@@ -1,6 +1,6 @@
 import * as React from "react"
 import { Link, router, usePage } from "@inertiajs/react"
-import { Activity, BarChart3, ChevronsUpDown, DumbbellIcon, HomeIcon, LogOut, UsersIcon } from "lucide-react"
+import { Activity, BarChart3, ChevronsUpDown, DumbbellIcon, HomeIcon, LibraryBig, LogOut, UsersIcon } from "lucide-react"
 
 import { BrandLockup, BrandMark } from "@/components/brand"
 import { InstallAppMenuItem } from "@/components/install-app"
@@ -102,6 +102,19 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                 <Link href="/students" onClick={closeOnMobile}>
                   <UsersIcon />
                   <span>Alunos</span>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                asChild
+                tooltip="Exercícios"
+                isActive={url.startsWith("/exercises")}
+                className="h-11 md:h-8"
+              >
+                <Link href="/exercises" onClick={closeOnMobile}>
+                  <LibraryBig />
+                  <span>Exercícios</span>
                 </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>

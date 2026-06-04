@@ -46,4 +46,35 @@ class ExerciseTest < ActiveSupport::TestCase
     assert_nil exercise.exercise_family
     assert_nil exercise.muscle_group
   end
+
+  test "enrich attaches media and flips the exercise to enriched" do
+    exercise = Exercise.create!(name: "Supino reto")
+
+    exercise.enrich(media: [ { io: StringIO.new("png"), filename: "a.png", content_type: "image/png" } ])
+
+    assert_predicate exercise.reload, :enriched?
+    assert exercise.media.attached?
+  end
+
+  test "enrich without media stores taxonomy but leaves the exercise unenriched" do
+    family = Exercise::Family.create!(name: "Supino", normalized_key: "supino")
+    muscle = Exercise::MuscleGroup.create!(name: "Peito", normalized_key: "peito")
+    exercise = Exercise.create!(name: "Supino reto")
+
+    exercise.enrich(exercise_family: family, muscle_group: muscle)
+
+    assert_predicate exercise.reload, :unenriched?
+    assert_equal family, exercise.exercise_family
+    assert_equal muscle, exercise.muscle_group
+  end
+
+  test "enrich keeps an already-enriched exercise enriched when only taxonomy changes" do
+    exercise = Exercise.create!(name: "Supino reto")
+    exercise.enrich(media: [ { io: StringIO.new("png"), filename: "a.png", content_type: "image/png" } ])
+
+    exercise.enrich(exercise_family: Exercise::Family.for_name("Supino"))
+
+    assert_predicate exercise.reload, :enriched?
+    assert_equal "Supino", exercise.exercise_family.name
+  end
 end
