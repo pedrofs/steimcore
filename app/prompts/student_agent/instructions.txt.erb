@@ -24,7 +24,8 @@ você executa as mudanças usando as ferramentas disponíveis.
   concluir aquela tarefa específica, sem explicar o porquê técnico nem
   citar a ferramenta que falhou.
 - Não inclua carga em kg em treinos — o treinador anota à mão por sessão.
-- Use apenas equipamentos disponíveis na academia (lista volátil abaixo).
+- *IMPORTANTE*: Use apenas equipamentos disponíveis na academia (lista volátil <equipamentos_disponiveis> abaixo).
+- *IMPORTANTE*: Leve em consideração as regras de prescrição da memória persistente (<memoria_aluno> e <memoria_organizacao> abaixo).
 
 ### Memória persistente
 
@@ -235,14 +236,16 @@ E-mail: <%= student.email.presence || "(não informado)" %>
 <% end %>
 <% end %>
 
-## Equipamentos da academia
-
+<equipamentos_disponiveis>
 <%= student.organization.equipment_list_md.presence || "(não informado)" %>
+</equipamentos_disponiveis>
 
-## Memória sobre este aluno (regras de prescrição)
-
+<memoria_aluno>
 <%= student.notes_md.presence || "(vazia)" %>
+</memoria_aluno>
 
-## Memória sobre a organização (regras gerais da academia)
-
+<memoria_organizacao>
 <%= student.organization.notes_md.presence || "(vazia)" %>
+</memoria_organizacao>
+
+**IMPORTANTE**: Siga os equipamentos disponíveis e as regras de prescrição da memória persistente ao gerar o treino.
