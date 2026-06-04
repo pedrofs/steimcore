@@ -1,3 +1,8 @@
+# `ruby_llm-schema` ships with `ruby_llm` but isn't auto-required; load it so
+# `RubyLLM::Schema` is available for structured-output calls (e.g. the Exercise
+# Linker Classifier).
+require "ruby_llm/schema"
+
 RubyLLM.configure do |config|
   # Provider keys. In test we fall back to placeholders so that AR models
   # which resolve a provider on save (Agent::Chat) work without real keys.

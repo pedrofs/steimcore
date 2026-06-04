@@ -89,6 +89,144 @@ class PeriodizationVersion::LinkableTest < ActiveSupport::TestCase
     assert_equal 1, Exercise.where(name: "Movimento inédito").count
   end
 
+  # ---- #link_exercises! with candidates (LLM Classifier, stubbed) -----------
+
+  test "a name with no retrieval candidates mints without invoking the Classifier" do
+    @version.workouts.create!(name: "A", position: 1, blocks: [
+      exercise("Movimento totalmente inédito", "3x10")
+    ])
+
+    called = false
+    Exercise::Linker::Classifier.stub(:classify, ->(_items) { called = true; [] }) do
+      assert_difference -> { Exercise.count }, 1 do
+        @version.link_exercises!
+      end
+    end
+
+    assert_not called, "Classifier must not run when trigram retrieval found no candidates"
+    assert_predicate Exercise.resolve("Movimento totalmente inédito"), :unenriched?
+  end
+
+  test "a confident match attaches a new llm alias to the existing exercise" do
+    supino = Exercise.create!(name: "Supino reto")
+    @version.workouts.create!(name: "A", position: 1, blocks: [ exercise("Supino reto com barra", "4x8") ])
+
+    decisions = ->(items) do
+      items.map { |i| { id: i[:id], decision: "match", exercise_id: supino.id, confidence: 0.95 } }
+    end
+
+    assert_no_difference -> { Exercise.count } do
+      Exercise::Linker::Classifier.stub(:classify, decisions) { @version.link_exercises! }
+    end
+
+    assert_equal supino, Exercise.resolve("Supino reto com barra")
+    row = Exercise::Alias.find_by(normalized_key: Exercise.normalize_name("Supino reto com barra"))
+    assert_equal "llm", row.source
+    assert_in_delta 0.95, row.confidence, 0.001
+  end
+
+  test "a new decision mints an exercise with its family and muscle group" do
+    Exercise.create!(name: "Supino reto") # surfaces as a candidate, routing the name to the Classifier
+    @version.workouts.create!(name: "A", position: 1, blocks: [ exercise("Supino reto com halteres", "4x10") ])
+
+    decisions = ->(items) do
+      items.map do |i|
+        { id: i[:id], decision: "new", display_name: "Supino reto com halteres",
+          family: { new: "Supino" }, muscle_group: { new: "Peito" }, confidence: 0.4 }
+      end
+    end
+
+    Exercise::Linker::Classifier.stub(:classify, decisions) { @version.link_exercises! }
+
+    minted = Exercise.resolve("Supino reto com halteres")
+    assert_not_nil minted
+    assert_equal "Supino", minted.exercise_family.name
+    assert_equal "Peito", minted.muscle_group.name
+  end
+
+  test "a new decision reuses an existing taxonomy node chosen by id" do
+    family = Exercise::Family.create!(name: "Supino", normalized_key: Exercise.normalize_name("Supino"))
+    Exercise.create!(name: "Supino reto")
+    @version.workouts.create!(name: "A", position: 1, blocks: [ exercise("Supino reto com halteres", "4x10") ])
+
+    decisions = ->(items) do
+      items.map { |i| { id: i[:id], decision: "new", display_name: "Supino reto com halteres", family: { existing_id: family.id }, confidence: 0.5 } }
+    end
+
+    assert_no_difference -> { Exercise::Family.count } do
+      Exercise::Linker::Classifier.stub(:classify, decisions) { @version.link_exercises! }
+    end
+
+    assert_equal family, Exercise.resolve("Supino reto com halteres").exercise_family
+  end
+
+  test "two new exercises assigned the same new taxonomy share a single node" do
+    Exercise.create!(name: "Supino reto") # surfaces as a candidate for both variants
+    @version.workouts.create!(name: "A", position: 1, blocks: [
+      exercise("Supino reto com halteres", "4x10"),
+      exercise("Supino reto com barra", "4x8")
+    ])
+
+    decisions = ->(items) do
+      items.map { |i| { id: i[:id], decision: "new", display_name: i[:name], family: { new: "Supino" }, muscle_group: { new: "Peito" }, confidence: 0.3 } }
+    end
+
+    Exercise::Linker::Classifier.stub(:classify, decisions) { @version.link_exercises! }
+
+    assert_equal 1, Exercise::Family.where(name: "Supino").count
+    assert_equal 1, Exercise::MuscleGroup.where(name: "Peito").count
+  end
+
+  test "an uncertain decision mints rather than merging onto a candidate (bias to split)" do
+    supino = Exercise.create!(name: "Supino reto")
+    @version.workouts.create!(name: "A", position: 1, blocks: [ exercise("Supino reto com barra", "4x8") ])
+
+    decisions = ->(items) do
+      items.map { |i| { id: i[:id], decision: "new", display_name: i[:name], confidence: 0.2 } }
+    end
+
+    assert_difference -> { Exercise.count }, 1 do
+      Exercise::Linker::Classifier.stub(:classify, decisions) { @version.link_exercises! }
+    end
+
+    assert_not_equal supino, Exercise.resolve("Supino reto com barra")
+  end
+
+  test "link_exercises! through the Classifier is idempotent" do
+    Exercise.create!(name: "Supino reto")
+    @version.workouts.create!(name: "A", position: 1, blocks: [ exercise("Supino reto com barra", "4x8") ])
+
+    decisions = ->(items) { items.map { |i| { id: i[:id], decision: "new", display_name: i[:name], confidence: 0.5 } } }
+
+    Exercise::Linker::Classifier.stub(:classify, decisions) { @version.link_exercises! }
+    assert_no_difference -> { Exercise.count } do
+      Exercise::Linker::Classifier.stub(:classify, decisions) { @version.link_exercises! }
+    end
+  end
+
+  test "decisions are applied by stable id, not array position" do
+    supino = Exercise.create!(name: "Supino reto")
+    agacha = Exercise.create!(name: "Agachamento livre")
+    @version.workouts.create!(name: "A", position: 1, blocks: [
+      exercise("Supino reto com barra", "4x8"),
+      exercise("Agachamento com barra", "5x5")
+    ])
+
+    decisions = ->(items) do
+      by_id = {
+        Exercise.normalize_name("Supino reto com barra") => supino.id,
+        Exercise.normalize_name("Agachamento com barra") => agacha.id
+      }
+      # Reverse the order to prove matching is keyed by id, not position.
+      items.reverse.map { |i| { id: i[:id], decision: "match", exercise_id: by_id[i[:id]], confidence: 0.9 } }
+    end
+
+    Exercise::Linker::Classifier.stub(:classify, decisions) { @version.link_exercises! }
+
+    assert_equal supino, Exercise.resolve("Supino reto com barra")
+    assert_equal agacha, Exercise.resolve("Agachamento com barra")
+  end
+
   # ---- after_commit trigger -------------------------------------------------
 
   test "completing a version enqueues the linker once status becomes completed" do
