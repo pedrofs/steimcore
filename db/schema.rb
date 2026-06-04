@@ -10,9 +10,10 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.2].define(version: 2026_06_04_120000) do
+ActiveRecord::Schema[8.2].define(version: 2026_06_04_130000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
+  enable_extension "pg_trgm"
 
   create_table "active_storage_attachments", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
     t.uuid "blob_id", null: false
@@ -125,6 +126,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_06_04_120000) do
     t.datetime "updated_at", null: false
     t.index ["exercise_id"], name: "index_exercise_aliases_on_exercise_id"
     t.index ["normalized_key"], name: "index_exercise_aliases_on_normalized_key", unique: true
+    t.index ["normalized_key"], name: "index_exercise_aliases_on_normalized_key_trgm", opclass: :gin_trgm_ops, using: :gin
   end
 
   create_table "exercise_families", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
