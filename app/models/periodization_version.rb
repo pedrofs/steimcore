@@ -1,6 +1,7 @@
 class PeriodizationVersion < ApplicationRecord
   include JobStatusable
   include Forkable
+  include Linkable
 
   belongs_to :periodization
   belongs_to :trainer, class_name: "User"
@@ -17,6 +18,11 @@ class PeriodizationVersion < ApplicationRecord
   }
 
   after_initialize :set_default_status, if: :new_record?
+
+  # Linking runs on every version the moment it reaches `completed` (ADR-0006).
+  # The guard fires only on the actual transition into `completed`, so
+  # re-saving an already-completed version doesn't re-enqueue.
+  after_commit :enqueue_exercise_linking, on: [ :create, :update ]
 
   # A completed version must commit to a mesocycle length — the dashboard
   # computes "sessions remaining" from it. Pending / generating / failed
@@ -55,5 +61,11 @@ class PeriodizationVersion < ApplicationRecord
   private
     def set_default_status
       self.status ||= "pending"
+    end
+
+    def enqueue_exercise_linking
+      return unless saved_change_to_status? && status == "completed"
+
+      LinkExercisesJob.perform_later(self)
     end
 end
