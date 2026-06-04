@@ -8,6 +8,11 @@
 # (+exercise_key+). This survives workout edits and periodization version forks,
 # which rebuild workout rows but keep names.
 class ExerciseLoad < ApplicationRecord
+  # +exercise_key+ is the **Normalized key** — the same identity the Exercise
+  # catalog resolves names against, so per-student weight history can't drift
+  # from the catalog. The folding logic lives in `Normalizable`.
+  include Normalizable
+
   belongs_to :student
   belongs_to :training_session, optional: true
 
@@ -16,20 +21,4 @@ class ExerciseLoad < ApplicationRecord
   # +value+ is intentionally allowed to be blank: a blank entry is a *clearance*
   # — the trainer/student removed the weight, so the latest (blank) value means
   # "no current load". Reads treat a blank latest as nil (see ExerciseLoadable).
-
-  # Folds a movement name to its matching key: accent-stripped, lowercased,
-  # trimmed, whitespace-collapsed. Mirrors the client-side `normalizeForSearch`
-  # (NFD + strip combining marks) so "Supino  Reto" and "supíno reto" share a
-  # weight.
-  def self.normalize_name(name)
-    string = name.to_s
-    string = string.dup.force_encoding(Encoding::UTF_8) unless string.encoding == Encoding::UTF_8
-    string = string.scrub("") unless string.valid_encoding?
-
-    string.unicode_normalize(:nfd)
-          .gsub(/\p{Mn}/, "")
-          .downcase
-          .strip
-          .gsub(/\s+/, " ")
-  end
 end
