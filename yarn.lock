@@ -2042,6 +2042,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@rails/activestorage@npm:^8.1.300":
+  version: 8.1.300
+  resolution: "@rails/activestorage@npm:8.1.300"
+  dependencies:
+    spark-md5: "npm:^3.0.1"
+  checksum: 10c0/eacb07a0bccc98c4586cc34d933e481dd8c0c6c3be155816ea5bd8c1e805c78f4bbb8ad65920760888d881a3aa0d2dd9036b50299cc3d1036ce6b4571387a1fa
+  languageName: node
+  linkType: hard
+
 "@rolldown/binding-android-arm64@npm:1.0.1":
   version: 1.0.1
   resolution: "@rolldown/binding-android-arm64@npm:1.0.1"
@@ -2434,6 +2443,13 @@ __metadata:
   dependencies:
     undici-types: "npm:>=7.24.0 <7.24.7"
   checksum: 10c0/ff53e5428309d2e6060190ec5e02afd0e4a7369456b16130a7f5898f12a6ad0efd62d752830f2f7355d714ae429bc0acbb2dc0cbf761cadb03e88c4996cdf1dc
+  languageName: node
+  linkType: hard
+
+"@types/rails__activestorage@npm:^8":
+  version: 8.0.1
+  resolution: "@types/rails__activestorage@npm:8.0.1"
+  checksum: 10c0/7ebcb2bd7b448164ecb2b1fc70b47a1d09e8199a3ee7b16fa6eefdb37e0f344d457446fc3cf556a71b544ce42564d013ef496b469d4bf7cbd8c12b2e0b89ba92
   languageName: node
   linkType: hard
 
@@ -5890,9 +5906,11 @@ __metadata:
     "@inertiajs/react": "npm:^3.0.3"
     "@inertiajs/vite": "npm:^3.0.3"
     "@rails/actioncable": "npm:^8.1.300"
+    "@rails/activestorage": "npm:^8.1.300"
     "@tailwindcss/forms": "npm:^0.5.11"
     "@tailwindcss/typography": "npm:^0.5.19"
     "@tailwindcss/vite": "npm:^4.2.4"
+    "@types/rails__activestorage": "npm:^8"
     "@types/react": "npm:^19.2.14"
     "@types/react-dom": "npm:^19.2.3"
     "@vitejs/plugin-react": "npm:^6.0.1"
@@ -6170,6 +6188,13 @@ __metadata:
   version: 2.0.2
   resolution: "space-separated-tokens@npm:2.0.2"
   checksum: 10c0/6173e1d903dca41dcab6a2deed8b4caf61bd13b6d7af8374713500570aa929ff9414ae09a0519f4f8772df993300305a395d4871f35bc4ca72b6db57e1f30af8
+  languageName: node
+  linkType: hard
+
+"spark-md5@npm:^3.0.1":
+  version: 3.0.2
+  resolution: "spark-md5@npm:3.0.2"
+  checksum: 10c0/3fd11735eac5e7d60d6006d99ac0a055f148a89e9baf5f0b51ac103022dec30556b44190b37f6737ca50f81e8e50dc13e724f9edf6290c412ff5ab2101ce7780
   languageName: node
   linkType: hard
 
