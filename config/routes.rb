@@ -24,6 +24,7 @@ Rails.application.routes.draw do
     resource :archive,     only: :create, module: :students
     resource :restoration, only: :create, module: :students
     resource :setup_invitation, only: :create, module: :students
+    resource :periodization_clone, only: :create, module: :students
   end
 
   resource :student_setup_invitation_batch, only: :create

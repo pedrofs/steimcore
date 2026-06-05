@@ -7,6 +7,7 @@ import {
   Dumbbell,
   FileText,
   IdCard,
+  LayoutTemplate,
   Loader2,
   Mic,
   NotebookPen,
@@ -28,6 +29,12 @@ import type {
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { Textarea } from "@/components/ui/textarea"
 import { useChatStream, type LiveMessage, type ToolCallEvent } from "@/hooks/use-chat-stream"
 import { cn } from "@/lib/utils"
@@ -122,6 +129,12 @@ type SuggestionWorkout = {
   position: number
 }
 
+type Template = {
+  id: string
+  name: string
+  description: string | null
+}
+
 type Props = {
   student: Student
   chat: Chat
@@ -129,6 +142,7 @@ type Props = {
   openVersion: PeriodizationVersionData | null
   hasActivePeriodization: boolean
   suggestionWorkouts: SuggestionWorkout[]
+  templates: Template[]
   organizationNotesMd: string
 }
 
@@ -166,6 +180,7 @@ export default function AgentChatShow({
   openVersion,
   hasActivePeriodization,
   suggestionWorkouts,
+  templates,
   organizationNotesMd,
 }: Props) {
   const visibleMessages = useMemo(
@@ -348,12 +363,17 @@ export default function AgentChatShow({
         textareaRef={textareaRef}
         suggestionChips={
           showSuggestionChips ? (
-            <SuggestionChips
-              studentName={student.name}
-              hasActivePeriodization={hasActivePeriodization}
-              workouts={suggestionWorkouts}
-              onPrefill={handlePrefill}
-            />
+            <div className="mx-auto flex w-full max-w-3xl flex-wrap items-center gap-1.5">
+              <SuggestionChips
+                studentName={student.name}
+                hasActivePeriodization={hasActivePeriodization}
+                workouts={suggestionWorkouts}
+                onPrefill={handlePrefill}
+              />
+              {!hasActivePeriodization && templates.length > 0 && (
+                <TemplateCloneMenu studentId={student.id} templates={templates} />
+              )}
+            </div>
           ) : null
         }
       />
@@ -1123,6 +1143,56 @@ function SuggestionChips({
         </button>
       ))}
     </div>
+  )
+}
+
+// "Começar a partir de um modelo" — clones an org template into the student as
+// a live, promoted plan (no AI). Rendered only in the empty state when the
+// student has no active periodization and the org has at least one template;
+// the parent hides it otherwise so the UI never offers a dead-end action.
+function TemplateCloneMenu({
+  studentId,
+  templates,
+}: {
+  studentId: string
+  templates: Template[]
+}) {
+  const clone = (templateId: string) => {
+    router.post(
+      `/students/${studentId}/periodization_clone`,
+      { template_id: templateId },
+      { preserveScroll: true },
+    )
+  }
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          className="inline-flex items-center gap-1.5 rounded-full border border-brand/30 bg-brand/5 px-3 py-1 text-xs font-medium text-foreground transition hover:bg-brand/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+        >
+          <LayoutTemplate className="size-3 text-brand" aria-hidden />
+          Começar a partir de um modelo
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="max-w-xs">
+        {templates.map((template) => (
+          <DropdownMenuItem
+            key={template.id}
+            onSelect={() => clone(template.id)}
+            className="flex flex-col items-start gap-0.5"
+          >
+            <span className="font-medium">{template.name}</span>
+            {template.description != null && template.description !== "" && (
+              <span className="text-xs text-muted-foreground">
+                {template.description}
+              </span>
+            )}
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }
 

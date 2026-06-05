@@ -100,4 +100,83 @@ class StudentPeriodizationTest < ActiveSupport::TestCase
     assert_equal second.periodization_id, @student.reload.active_periodization_id
     assert_not_equal first.periodization_id, second.periodization_id
   end
+
+  test "start_periodization_from_template! copies content into a completed, promoted version and repoints the student" do
+    template = template_with_workouts
+
+    periodization = @student.start_periodization_from_template!(template, trainer: @trainer)
+
+    @student.reload
+    assert_equal periodization.id, @student.active_periodization_id
+
+    version = periodization.current_version
+    assert_not_nil version, "the new periodization is promoted (current_version set)"
+    assert_equal "completed", version.status
+    assert_nil version.parent_version_id
+    assert_equal @trainer, version.trainer
+
+    assert_equal "## Plano base", version.body_md
+    assert_equal 8, version.periodization_length_weeks
+    workouts = version.workouts.order(:position).to_a
+    assert_equal [ "A", "B" ], workouts.map(&:name)
+    assert_equal [ 1, 2 ], workouts.map(&:position)
+    assert_equal "Agachamento", workouts.first.blocks.first["name"]
+    assert_equal "4x8", workouts.first.blocks.first["prescription"]
+  end
+
+  test "start_periodization_from_template! archives a pre-existing active periodization, preserving the invariant" do
+    prior = @student.start_periodization!(trainer: @trainer)
+    prior_periodization = prior.periodization
+    assert_not prior_periodization.archived?
+
+    cloned = @student.start_periodization_from_template!(template_with_workouts, trainer: @trainer)
+
+    assert prior_periodization.reload.archived?
+    assert_not cloned.reload.archived?
+    assert_equal cloned.id, @student.reload.active_periodization_id
+    assert_not_equal prior_periodization.id, cloned.id
+  end
+
+  test "start_periodization_from_template! works when the student had no active periodization" do
+    assert_nil @student.active_periodization_id
+
+    cloned = @student.start_periodization_from_template!(template_with_workouts, trainer: @trainer)
+
+    assert_equal cloned.id, @student.reload.active_periodization_id
+    assert_equal "completed", cloned.current_version.status
+  end
+
+  test "start_periodization_from_template! enqueues exercise linking when the cloned version completes" do
+    template = template_with_workouts
+
+    assert_enqueued_with(job: LinkExercisesJob) do
+      @student.start_periodization_from_template!(template, trainer: @trainer)
+    end
+  end
+
+  private
+    def template_with_workouts
+      source = @student.start_periodization!(trainer: @trainer)
+      source.fork_with!(
+        scope: :create,
+        patch: {
+          body_md: "## Plano base",
+          periodization_length_weeks: 8,
+          workouts: [
+            { name: "A", blocks: [ { "kind" => "exercise", "name" => "Agachamento", "prescription" => "4x8" } ], position: 1 },
+            { name: "B", blocks: [ { "kind" => "exercise", "name" => "Supino", "prescription" => "4x8" } ], position: 2 }
+          ]
+        },
+        trainer: @trainer
+      )
+      source.transition_to!(:completed)
+      template = PeriodizationTemplate.create_from_version!(source, name: "Iniciante 3x")
+
+      # Archive the helper source periodization so the student starts clean for
+      # the test under exercise (the template is now an independent snapshot).
+      source.periodization.archive!
+      @student.update!(active_periodization: nil)
+
+      template
+    end
 end

@@ -240,6 +240,41 @@ class Student < ApplicationRecord
     end
   end
 
+  # Clones a PeriodizationTemplate into this student as a live, promoted plan —
+  # no AI. Mirrors start_periodization!'s archive-and-repoint semantics, but the
+  # first version is born :completed with the template's content (body_md,
+  # length, workouts copied row-for-row) instead of :generating with nothing.
+  # Reaching :completed triggers exercise Linking via the version's after_commit.
+  # `trainer` is the cloning trainer (the version's trainer_id is NOT NULL).
+  # Returns the new promoted Periodization.
+  def start_periodization_from_template!(template, trainer:)
+    transaction do
+      active_periodization&.archive!
+
+      new_periodization = periodizations.create!
+      new_version = new_periodization.versions.build(trainer: trainer, parent_version: nil)
+      new_version.assign_attributes(
+        body_md: template.body_md.to_s,
+        periodization_length_weeks: template.periodization_length_weeks
+      )
+      template.workouts.order(:position).each do |template_workout|
+        new_version.workouts.build(
+          name: template_workout.name,
+          position: template_workout.position,
+          blocks: template_workout.blocks
+        )
+      end
+      new_version.save!
+      new_version.transition_to!(:generating)
+      new_version.complete!
+
+      new_periodization.set_current_version!(new_version)
+      update!(active_periodization: new_periodization)
+
+      new_periodization
+    end
+  end
+
   private
     def enqueue_medal_evaluation
       MedalEvaluationJob.perform_later(self)

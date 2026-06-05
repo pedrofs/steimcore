@@ -19,6 +19,7 @@ class Students::AgentChatsController < InertiaController
       open_version: open_version_props,
       has_active_periodization: @student.active_periodization_id.present?,
       suggestion_workouts: suggestion_workouts_props(@student),
+      templates: templates_props,
       organization_notes_md: current_organization.notes_md
     }
   end
@@ -66,6 +67,15 @@ class Students::AgentChatsController < InertiaController
 
       version.workouts.order(:position).limit(3).map do |workout|
         { id: workout.id, name: workout.name, position: workout.position }
+      end
+    end
+
+    # The org's reusable Periodization templates, offered in the empty state as
+    # "Começar a partir de um modelo". Empty when the org has no templates yet,
+    # which hides/empty-states the affordance on the frontend.
+    def templates_props
+      current_organization.periodization_templates.order(:name).map do |template|
+        { id: template.id, name: template.name, description: template.description }
       end
     end
 
