@@ -224,8 +224,7 @@ function WorkoutsTabs({
           <TabsContent key={w.id} value={w.id} className="flex flex-col gap-3">
             {editingWorkoutId === w.id ? (
               <WorkoutEditor
-                versionId={version.id}
-                workoutId={w.id}
+                action={`/periodization_versions/${version.id}/workouts/${w.id}`}
                 blocks={w.blocks}
                 returnTo={returnTo}
                 onCancel={onCancelEdit}

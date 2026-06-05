@@ -37,8 +37,9 @@ type EditableFreeform = {
 type EditableBlock = EditableExercise | EditableGroup | EditableFreeform
 
 type Props = {
-  versionId: string
-  workoutId: string
+  /** PATCH endpoint for this workout's blocks. Lets the same editor target a
+   *  live-plan version workout or a template workout (PRD #170). */
+  action: string
   blocks: Block[]
   onCancel: () => void
   onSaved: () => void
@@ -47,8 +48,7 @@ type Props = {
 }
 
 export function WorkoutEditor({
-  versionId,
-  workoutId,
+  action,
   blocks,
   onCancel,
   onSaved,
@@ -182,7 +182,7 @@ export function WorkoutEditor({
       if (returnTo) payload.return_to = returnTo
       return payload
     })
-    patch(`/periodization_versions/${versionId}/workouts/${workoutId}`, {
+    patch(action, {
       preserveScroll: true,
       onSuccess: onSaved,
     })

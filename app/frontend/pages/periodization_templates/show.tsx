@@ -1,5 +1,10 @@
-import { router } from "@inertiajs/react"
-import { ChevronDownIcon, ChevronRightIcon, Trash2Icon } from "lucide-react"
+import { Link, router } from "@inertiajs/react"
+import {
+  ChevronDownIcon,
+  ChevronRightIcon,
+  PencilIcon,
+  Trash2Icon,
+} from "lucide-react"
 import { useState } from "react"
 
 import { BlocksRenderer, type Block } from "@/components/blocks-renderer"
@@ -33,19 +38,31 @@ export default function Show({ template }: Props) {
     <>
       <PageHeader
         actions={
-          <Button
-            type="button"
-            variant="outline"
-            className="h-11 gap-2 sm:h-10"
-            onClick={() => {
-              if (confirm(`Excluir o modelo "${template.name}"?`)) {
-                router.delete(`/periodization_templates/${template.id}`)
-              }
-            }}
-          >
-            <Trash2Icon className="size-4" />
-            Excluir
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              asChild
+              variant="outline"
+              className="h-11 gap-2 sm:h-10"
+            >
+              <Link href={`/periodization_templates/${template.id}/edit`}>
+                <PencilIcon className="size-4" />
+                Editar
+              </Link>
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              className="h-11 gap-2 sm:h-10"
+              onClick={() => {
+                if (confirm(`Excluir o modelo "${template.name}"?`)) {
+                  router.delete(`/periodization_templates/${template.id}`)
+                }
+              }}
+            >
+              <Trash2Icon className="size-4" />
+              Excluir
+            </Button>
+          </div>
         }
       >
         {template.description && (
