@@ -359,6 +359,40 @@ class TrainingSessionsControllerTest < ActionDispatch::IntegrationTest
     assert_response :not_found
   end
 
+  test "index enriches focused-session blocks with exercise media" do
+    exercise = Exercise.create!(name: "Supino Reto")
+    exercise.media.attach(io: StringIO.new("png-bytes"), filename: "photo.png", content_type: "image/png")
+    make_eligible(@alice, workout_count: 1, blocks: [
+      { "kind" => "exercise", "name" => "Supino Reto", "prescription" => "4x10" },
+      { "kind" => "group", "label" => "Bíceps", "items" => [
+        { "name" => "Supino Reto", "prescription" => "3x12" }
+      ] }
+    ])
+    @user.training_sessions.start_for!(@alice)
+
+    sign_in_as(@user)
+    get training_sessions_path
+
+    blocks = inertia.props[:training_sessions].first[:blocks]
+    assert_equal 1, blocks[0]["media"].size, "exercise block carries media"
+    assert_equal 1, blocks[1]["items"][0]["media"].size, "group item carries media"
+  end
+
+  test "index enriches a student-initiated session viewed under org scope" do
+    exercise = Exercise.create!(name: "Agachamento")
+    exercise.media.attach(io: StringIO.new("png-bytes"), filename: "photo.png", content_type: "image/png")
+    make_eligible(@alice, workout_count: 1, blocks: [
+      { "kind" => "exercise", "name" => "Agachamento", "prescription" => "5x5" }
+    ])
+    @alice.start_training_session!
+
+    sign_in_as(@user)
+    get training_sessions_path, params: { scope: "org" }
+
+    blocks = inertia.props[:training_sessions].first[:blocks]
+    assert_equal 1, blocks[0]["media"].size
+  end
+
   private
     def make_eligible(student, workout_count:, blocks: [], trainer: @user, organization: @organization)
       version = student.start_periodization!(trainer: trainer)

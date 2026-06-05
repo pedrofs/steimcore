@@ -14,6 +14,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
+import { ExerciseMedia, type ExerciseMediaItem } from "@/components/exercise-media"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
@@ -41,6 +42,7 @@ type ExerciseBlock = {
   rest_s?: number
   notes?: string
   weight?: string | null
+  media?: ExerciseMediaItem[]
 }
 
 type GroupItem = {
@@ -48,6 +50,7 @@ type GroupItem = {
   prescription: string
   notes?: string
   weight?: string | null
+  media?: ExerciseMediaItem[]
 }
 
 type GroupBlock = {
@@ -727,6 +730,7 @@ function ExerciseCard({
   const fine = done ? "text-white/70" : "text-muted-foreground"
   return (
     <div className="flex items-stretch gap-3">
+      <ExerciseMedia name={block.name} media={block.media} className="self-center" />
       <div className="flex flex-1 flex-col gap-1">
         <div className="text-base font-medium">{block.name}</div>
         <div className={cn("text-sm", muted)}>{block.prescription}</div>
@@ -769,8 +773,13 @@ function GroupCard({
       </div>
       <ul className="flex flex-col gap-1.5 pl-3">
         {block.items.map((item, idx) => (
-          <li key={idx} className="flex items-stretch justify-between gap-2">
-            <span className={cn("self-center text-sm", muted)}>
+          <li key={idx} className="flex items-stretch gap-2">
+            <ExerciseMedia
+              name={item.name}
+              media={item.media}
+              className="size-9 self-center"
+            />
+            <span className={cn("flex-1 self-center text-sm", muted)}>
               <span className="font-medium">{item.name}</span>
               <span className={cn(fine)}> · {item.prescription}</span>
             </span>
