@@ -1,10 +1,12 @@
 import { Link, router } from "@inertiajs/react"
 import { ChevronDown, FileTextIcon, PencilIcon, PrinterIcon } from "lucide-react"
 import { motion } from "motion/react"
+import { useState } from "react"
 
 import { BlocksRenderer, type Block } from "@/components/blocks-renderer"
 import { Markdown } from "@/components/markdown"
 import { PageHeader } from "@/components/page-header"
+import { SaveAsTemplateDialog } from "@/components/save-as-template-dialog"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -74,6 +76,7 @@ type Props = { student: Student; periodization: Periodization }
 export default function ShowPeriodization({ student, periodization }: Props) {
   const version = periodization.currentVersion
   const printablePath = `/students/${student.id}/periodization/printable`
+  const [saveTemplateOpen, setSaveTemplateOpen] = useState(false)
 
   return (
     <>
@@ -112,6 +115,14 @@ export default function ShowPeriodization({ student, periodization }: Props) {
               </Button>
               <PrintButton enabled href={printablePath} />
               <PlanSheet bodyMd={version.bodyMd} studentName={student.name} />
+              <Button
+                type="button"
+                variant="outline"
+                className="h-11 w-full gap-2 sm:h-10 sm:w-auto"
+                onClick={() => setSaveTemplateOpen(true)}
+              >
+                Salvar como modelo
+              </Button>
             </motion.div>
           )}
 
@@ -152,6 +163,14 @@ export default function ShowPeriodization({ student, periodization }: Props) {
           <Link href={`/students/${student.id}`}>Voltar ao aluno</Link>
         </Button>
       </div>
+
+      {version && (
+        <SaveAsTemplateDialog
+          versionId={version.id}
+          open={saveTemplateOpen}
+          onOpenChange={setSaveTemplateOpen}
+        />
+      )}
     </>
   )
 }
