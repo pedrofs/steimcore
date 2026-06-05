@@ -76,7 +76,7 @@ module Agent
 
           workouts.flat_map.with_index do |workout, index|
             blocks = workout.is_a?(Hash) ? (workout["blocks"] || workout[:blocks]) : nil
-            Workout::Blocks.errors_for(blocks).map { |msg| "treino #{index}: #{msg}" }
+            Blocks.errors_for(blocks).map { |msg| "treino #{index}: #{msg}" }
           end
         end
 

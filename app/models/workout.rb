@@ -1,10 +1,11 @@
 class Workout < ApplicationRecord
+  include Blockable
+
   belongs_to :periodization_version
   has_many :training_sessions, dependent: :nullify
 
   validates :name, presence: true
   validates :position, presence: true, numericality: { only_integer: true }
-  validate :validate_blocks_schema
 
   default_scope -> { order(:position) }
 

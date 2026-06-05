@@ -7,6 +7,7 @@ import {
   PeriodizationVersionView,
   type PeriodizationVersionData,
 } from "@/components/periodization-version-view"
+import { SaveAsTemplateDialog } from "@/components/save-as-template-dialog"
 import { Button } from "@/components/ui/button"
 import {
   Tooltip,
@@ -105,6 +106,7 @@ function CompletedVersion({
 }) {
   const printablePath = `/students/${student.id}/periodization/printable`
   const [dirtyWorkoutName, setDirtyWorkoutName] = useState<string | null>(null)
+  const [saveTemplateOpen, setSaveTemplateOpen] = useState(false)
 
   const promoteWithDirtyGuard = () => {
     if (dirtyWorkoutName) {
@@ -135,10 +137,14 @@ function CompletedVersion({
               Voltar à periodização
             </Link>
           </Button>
-          <PrintButton enabled={version.promoted} href={printablePath} />
+          <div className="flex flex-col-reverse gap-2 sm:flex-row">
+            <SaveAsTemplateButton onClick={() => setSaveTemplateOpen(true)} />
+            <PrintButton enabled={version.promoted} href={printablePath} />
+          </div>
         </div>
       ) : (
         <div className="no-print flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+          <SaveAsTemplateButton onClick={() => setSaveTemplateOpen(true)} />
           <PrintButton enabled={version.promoted} href={printablePath} />
           <Button
             type="button"
@@ -161,7 +167,26 @@ function CompletedVersion({
           </Button>
         </div>
       )}
+
+      <SaveAsTemplateDialog
+        versionId={version.id}
+        open={saveTemplateOpen}
+        onOpenChange={setSaveTemplateOpen}
+      />
     </div>
+  )
+}
+
+function SaveAsTemplateButton({ onClick }: { onClick: () => void }) {
+  return (
+    <Button
+      type="button"
+      variant="outline"
+      className="h-11 w-full gap-2 sm:h-10 sm:w-auto"
+      onClick={onClick}
+    >
+      Salvar como modelo
+    </Button>
   )
 }
 

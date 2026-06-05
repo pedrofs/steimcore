@@ -12,7 +12,7 @@ module Agent
     #
     # Returns a soft `{error: ...}` shape when no active periodization
     # exists (suggesting `create_periodization`) or when the patch's blocks
-    # fail `Workout::Blocks.errors_for`.
+    # fail `Blocks.errors_for`.
     class UpdatePeriodization < RubyLLM::Tool
       description <<~DESC
         Revisa a periodização ativa do aluno por inteiro (body markdown +
@@ -91,7 +91,7 @@ module Agent
 
           workouts.flat_map.with_index do |workout, index|
             blocks = workout.is_a?(Hash) ? (workout["blocks"] || workout[:blocks]) : nil
-            Workout::Blocks.errors_for(blocks).map { |msg| "treino #{index}: #{msg}" }
+            Blocks.errors_for(blocks).map { |msg| "treino #{index}: #{msg}" }
           end
         end
 

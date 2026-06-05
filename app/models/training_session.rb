@@ -126,6 +126,6 @@ class TrainingSession < ApplicationRecord
     end
 
     def validate_blocks_snapshot_schema
-      Workout::Blocks.errors_for(blocks_snapshot).each { |message| errors.add(:blocks_snapshot, message) }
+      Blocks.errors_for(blocks_snapshot).each { |message| errors.add(:blocks_snapshot, message) }
     end
 end

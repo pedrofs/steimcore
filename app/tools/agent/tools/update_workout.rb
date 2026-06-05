@@ -45,7 +45,7 @@ module Agent
         target_workout = latest.workouts.find_by(id: workout_id.to_s)
         return { error: "Treino não encontrado na versão atual da periodização." } if target_workout.nil?
 
-        block_errors = Workout::Blocks.errors_for(blocks)
+        block_errors = Blocks.errors_for(blocks)
         return { error: block_errors.join("; ") } if block_errors.any?
 
         if name.to_s.strip.empty?

@@ -5,7 +5,7 @@ module Agent
     # the same blocks discriminated-union vocabulary, the same workout
     # object shape (name + position + blocks for full plans; name + blocks
     # for single-workout patches). Per-kind block requirements are enforced
-    # post-parse by `Workout::Blocks.errors_for`; the schema only constrains
+    # post-parse by `Blocks.errors_for`; the schema only constrains
     # the vocabulary because most providers do not honor `oneOf`.
     module PeriodizationSchema
       module_function

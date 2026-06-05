@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.2].define(version: 2026_06_04_130000) do
+ActiveRecord::Schema[8.2].define(version: 2026_06_05_120000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pg_trgm"
@@ -191,6 +191,28 @@ ActiveRecord::Schema[8.2].define(version: 2026_06_04_130000) do
     t.text "notes_md", default: "", null: false
   end
 
+  create_table "periodization_template_workouts", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
+    t.uuid "periodization_template_id", null: false
+    t.string "name", null: false
+    t.integer "position", null: false
+    t.jsonb "blocks", default: [], null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["periodization_template_id", "position"], name: "index_ptw_on_template_id_and_position"
+    t.index ["periodization_template_id"], name: "index_ptw_on_periodization_template_id"
+  end
+
+  create_table "periodization_templates", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
+    t.uuid "organization_id", null: false
+    t.string "name", null: false
+    t.text "description"
+    t.text "body_md", default: "", null: false
+    t.integer "periodization_length_weeks"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["organization_id"], name: "index_periodization_templates_on_organization_id"
+  end
+
   create_table "periodization_versions", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
     t.uuid "agent_tool_call_id"
     t.text "body_md", default: "", null: false
@@ -347,6 +369,8 @@ ActiveRecord::Schema[8.2].define(version: 2026_06_04_130000) do
   add_foreign_key "exercises", "exercises", column: "merged_into_id"
   add_foreign_key "invitations", "organizations"
   add_foreign_key "invitations", "users", column: "invited_by_id"
+  add_foreign_key "periodization_template_workouts", "periodization_templates"
+  add_foreign_key "periodization_templates", "organizations"
   add_foreign_key "periodization_versions", "agent_tool_calls"
   add_foreign_key "periodization_versions", "periodization_versions", column: "parent_version_id", name: "fk_rails_periodization_versions_parent_version_id", deferrable: :deferred
   add_foreign_key "periodization_versions", "periodizations"

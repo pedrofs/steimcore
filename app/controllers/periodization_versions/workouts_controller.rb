@@ -3,7 +3,7 @@
 # Per-workout inline-edit endpoint. The trainer's `<WorkoutEditor>` PATCHes
 # `{ workout: { blocks: [...] } }` and the action replaces the workout's
 # blocks JSONB in place. Validation runs through the existing
-# `Workout::Blocks.errors_for` so the pt-BR error strings are identical to
+# `Blocks.errors_for` so the pt-BR error strings are identical to
 # what the LLM pipeline produces. Promoted/superseded versions are locked
 # history and cannot be edited inline.
 class PeriodizationVersions::WorkoutsController < InertiaController
