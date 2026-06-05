@@ -4,6 +4,7 @@ import { motion } from "motion/react"
 import { useCallback, useState } from "react"
 
 import { BrandMonogram } from "@/components/brand"
+import { ExerciseMedia, type ExerciseMediaItem } from "@/components/exercise-media"
 import { Button } from "@/components/ui/button"
 import { WeightControl } from "@/components/weight-control"
 import { cn } from "@/lib/utils"
@@ -15,6 +16,7 @@ type ExerciseBlock = {
   restS?: number
   notes?: string
   weight?: string | null
+  media?: ExerciseMediaItem[]
 }
 
 type GroupItem = {
@@ -22,6 +24,7 @@ type GroupItem = {
   prescription: string
   notes?: string
   weight?: string | null
+  media?: ExerciseMediaItem[]
 }
 
 type GroupBlock = {
@@ -274,11 +277,14 @@ function BlockCard({
 
 function ExerciseBody({ block }: { block: ExerciseBlock }) {
   return (
-    <div className="flex items-baseline justify-between gap-3">
-      <span className="truncate font-heading text-sm font-semibold">{block.name}</span>
-      <span className="shrink-0 text-sm tabular-nums text-muted-foreground">
-        {block.prescription}
-      </span>
+    <div className="flex items-center gap-2.5">
+      <ExerciseMedia name={block.name} media={block.media} />
+      <div className="flex min-w-0 flex-1 items-baseline justify-between gap-3">
+        <span className="truncate font-heading text-sm font-semibold">{block.name}</span>
+        <span className="shrink-0 text-sm tabular-nums text-muted-foreground">
+          {block.prescription}
+        </span>
+      </div>
     </div>
   )
 }
@@ -304,7 +310,12 @@ function GroupBody({
       </div>
       <ul className="mt-2 space-y-1.5 border-l-2 border-brand/15 pl-3">
         {block.items.map((item, i) => (
-          <li key={i} className="flex items-stretch justify-between gap-2">
+          <li key={i} className="flex items-stretch gap-2">
+            <ExerciseMedia
+              name={item.name}
+              media={item.media}
+              className="size-9 self-center"
+            />
             <div className="flex min-w-0 flex-1 items-baseline justify-between gap-3 self-center">
               <span className="truncate text-sm font-medium">{item.name}</span>
               <span className="shrink-0 text-sm tabular-nums text-muted-foreground">
