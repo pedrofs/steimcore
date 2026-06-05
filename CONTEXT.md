@@ -83,8 +83,16 @@ The single primary muscle an **Exercise** targets (e.g. "Peitoral"). One per Exe
 _Avoid_: muscle, body part; secondary/synergist muscles (not modeled in v1).
 
 **Unenriched / Enriched** *(Exercise state)*:
-Whether an **Exercise** has human-curated media/content. **Linking** mints exercises **Unenriched** (a name + **Exercise family** + **Muscle group**, no media — renders exactly like today). A human later makes it **Enriched** by attaching media/curation. The catalog's value (photos/videos) lives entirely in the Enriched state; Unenriched is just a resolved identity.
+Whether an **Exercise** has human-curated media/content. **Linking** mints exercises **Unenriched** (a name + **Exercise family** + **Muscle group**, no media — renders exactly like today). A human later makes it **Enriched** by attaching **Exercise media**. The catalog's value (photos/videos) lives entirely in the Enriched state; Unenriched is just a resolved identity.
 _Avoid_: draft (reserved for **Draft version**), published, complete.
+
+**Exercise media**:
+The photo or video a trainer attaches to an **Exercise** — the curated content whose *presence* defines the **Enriched** state (no media ⇒ **Unenriched**, so wrong media is strictly worse than none). Globally shared, like the Exercise itself.
+_Avoid_: asset, thumbnail; attachment (the Active Storage storage mechanism, not the domain thing).
+
+**Optimizing / Web-optimized** *(Exercise video lifecycle)*:
+Whether an uploaded **Exercise** video has been converted to its browser-playable form. Trainers record demos on their phones — full-resolution clips in codecs/containers (e.g. HEVC `.mov`) many browsers won't play — so a freshly uploaded video is **Optimizing** until it is transcoded in the background and swapped in place, becoming **Web-optimized**. The **Exercises admin** detail page shows an *optimizing* placeholder meanwhile; a clip that can't be converted **falls back** to playing the original rather than vanishing. Photos need no optimization and are ready on upload.
+_Avoid_: transcoding / encoding (the mechanism, not the state), processing, rendering.
 
 **Exercises admin**:
 The trainer-facing screen listing every **Exercise** for curation — **enriching** (attaching media → **Enriched**) and **consolidating** duplicate **Unenriched** exercises that **Linking**'s bias-to-split produced. Not student-facing. v1 has **no admin/staff role and no organization scope**: the app is SteimFit-internal, so every trainer can curate the **fully global** catalog. A dedicated internal-admin role is deferred until the product is sold to another organization.
@@ -203,9 +211,11 @@ Each earned Medal carries a nullable `seen_at`. Organic earns land **unseen** �
 - An **Exercise** belongs to one **Exercise family** and one **Muscle group**, and has many **Aliases**.
 - An **Alias** resolves one **Normalized key** to exactly one **Exercise**; every Exercise owns its own name as an Alias.
 - An **Exercise name** (a **Block** or group item `name`) **Resolves** to at most one **Exercise** via an Alias; **Unlinked** when none exists.
+- An **Exercise** carries zero or more **Exercise media**; their presence is what makes it **Enriched**. An uploaded video is **Optimizing** until it becomes **Web-optimized**; photos are ready on upload.
 
 ## Flagged ambiguities
 
 - "exercise" was three-way overloaded — resolved: **Exercise** (canonical catalog row), **Exercise name** (free-text Block string), and Block `kind: "exercise"` (a JSON serialization tag, not a domain entity). `ExerciseLoad` keeps its own meaning (per-student weight history keyed by **Normalized key**).
 - "Family" was overloaded across subsystems — resolved by qualification: **Medal family** (gamification) vs **Exercise family** (catalog taxonomy, `Exercise::Family`). Never use bare "Family".
 - "draft" stays reserved for **Draft version**; the Exercise enrichment axis is **Unenriched / Enriched**, not "draft".
+- "enrich" vs "optimize" — resolved: **enriching** is the *human* act of attaching **Exercise media** (flips **Unenriched → Enriched**); **optimizing** is the *system* converting an uploaded video to its **Web-optimized** form. An Exercise can be **Enriched** (media attached) while a video on it is still **Optimizing**.
