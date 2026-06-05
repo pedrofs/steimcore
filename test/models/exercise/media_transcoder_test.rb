@@ -35,6 +35,33 @@ class Exercise::MediaTranscoderTest < ActiveSupport::TestCase
     assert_operator [ width, height ].max, :<=, 720
   end
 
+  test "attaches a poster frame to the optimized blob on success" do
+    Exercise::MediaTranscoder.call(@attachment)
+
+    blob = @exercise.reload.media.first.blob
+    assert blob.preview_image.attached?, "the optimized blob carries a poster frame"
+    assert_equal "done", blob.metadata["transcode_status"], "poster-ready coincides with done"
+  end
+
+  test "downscales the poster frame to at most 480px on the longer edge" do
+    Exercise::MediaTranscoder.call(@attachment)
+
+    poster = @exercise.reload.media.first.blob.preview_image.blob
+    width, height = probe_dimensions(poster)
+    assert_operator [ width, height ].max, :<=, 480
+  end
+
+  test "a failed transcode attaches no poster frame" do
+    @exercise.media.attach(io: StringIO.new("not a video"),
+      filename: "noposter.mov", content_type: "video/quicktime")
+    broken = @exercise.media.attachments.last
+
+    Exercise::MediaTranscoder.call(broken)
+
+    assert_equal "failed", broken.blob.reload.metadata["transcode_status"]
+    assert_not broken.blob.preview_image.attached?, "no poster on a failed transcode"
+  end
+
   test "marks the blob failed and keeps the original when the input is unreadable" do
     @exercise.media.attach(io: StringIO.new("not a video"),
       filename: "broken.mov", content_type: "video/quicktime")
