@@ -8,7 +8,9 @@ Rails.application.routes.draw do
   resources :invitation_acceptances, param: :token, only: [ :edit, :update ]
   resource :organization, only: [ :show, :edit, :update ]
   resource :analytics, only: :show
+  resource :exercise_upload_queue, only: :show
   resources :exercises, only: [ :index, :show, :edit, :update ] do
+    resource  :media,  only: :create, module: :exercises
     resources :merges, only: :create, module: :exercises
   end
   resources :students, only: [ :index, :new, :create, :show, :edit, :update ] do

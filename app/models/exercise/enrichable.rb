@@ -57,4 +57,18 @@ module Exercise::Enrichable
     # taxonomy-only edits and image uploads (see Exercise::MediaTranscoding).
     enqueue_media_transcoding
   end
+
+  # Single-tap capture from the upload queue: attach one freshly recorded clip and
+  # flip to Enriched, leaving the taxonomy untouched — unlike #enrich, which
+  # rewrites family/muscle group from the edit form's args (nil clears them). The
+  # transcode pipeline kicks in after commit, same as #enrich.
+  def attach_media!(file)
+    transaction do
+      media.attach(file)
+      self.state = media.attached? ? :enriched : :unenriched
+      save!
+    end
+
+    enqueue_media_transcoding
+  end
 end

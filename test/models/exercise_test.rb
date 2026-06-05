@@ -236,4 +236,34 @@ class ExerciseTest < ActiveSupport::TestCase
     assert_equal c, Exercise.resolve("Supino reto com barra")
     assert_equal c, Exercise.resolve("Supino reto")
   end
+
+  test "attach_media! attaches one clip, flips to enriched, and leaves taxonomy untouched" do
+    family = Exercise::Family.for_name("Supino")
+    muscle = Exercise::MuscleGroup.for_name("Peito")
+    exercise = Exercise.create!(name: "Supino reto", exercise_family: family, muscle_group: muscle)
+
+    exercise.attach_media!({ io: StringIO.new("png"), filename: "a.png", content_type: "image/png" })
+
+    exercise.reload
+    assert_predicate exercise, :enriched?
+    assert exercise.media.attached?
+    assert_equal family, exercise.exercise_family, "taxonomy must survive a media-only capture"
+    assert_equal muscle, exercise.muscle_group
+  end
+
+  test "attach_media! enqueues video optimization for a captured video clip" do
+    exercise = Exercise.create!(name: "Agachamento")
+
+    assert_enqueued_jobs 1, only: TranscodeExerciseMediaJob do
+      exercise.attach_media!({ io: StringIO.new("raw"), filename: "clip.mov", content_type: "video/quicktime" })
+    end
+  end
+
+  test "attach_media! does not enqueue optimization for a captured photo" do
+    exercise = Exercise.create!(name: "Agachamento")
+
+    assert_enqueued_jobs 0, only: TranscodeExerciseMediaJob do
+      exercise.attach_media!({ io: StringIO.new("png"), filename: "a.png", content_type: "image/png" })
+    end
+  end
 end

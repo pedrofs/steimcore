@@ -27,4 +27,18 @@ class WorkoutTest < ActiveSupport::TestCase
 
     assert_equal %w[A B C], @version.workouts.pluck(:name)
   end
+
+  test "exercise_names returns every block name with repeats, including group items, ignoring freeform" do
+    workout = @version.workouts.create!(name: "A", position: 1, blocks: [
+      { "kind" => "exercise", "name" => "Supino reto", "prescription" => "4x8" },
+      { "kind" => "exercise", "name" => "Supino reto", "prescription" => "3x10" },
+      { "kind" => "group", "items" => [
+        { "name" => "Voador", "prescription" => "8 reps" },
+        { "name" => "Crucifixo", "prescription" => "8 reps" }
+      ] },
+      { "kind" => "freeform", "text_md" => "Alongar no fim" }
+    ])
+
+    assert_equal [ "Supino reto", "Supino reto", "Voador", "Crucifixo" ], workout.exercise_names
+  end
 end

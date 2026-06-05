@@ -12,6 +12,7 @@ class Exercise < ApplicationRecord
   include Enrichable
   include MediaTranscoding
   include Mergeable
+  include UploadQueue
 
   # An Exercise is Unenriched on mint (just a name + taxonomy) and becomes
   # Enriched once a trainer attaches media in the Exercises admin.
