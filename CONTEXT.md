@@ -30,6 +30,22 @@ _Note_: There is no `promoted_at` column today. When a "when did this go live" s
 A version that another version was forked from (via `start_edit!` setting `parent_version`). Becomes locked history rather than an in-review draft.
 _Avoid_: old version, deprecated version.
 
+### Templates
+
+**Periodization template** (`PeriodizationTemplate`, pt-BR **"Modelo de periodização"**):
+A reusable, student-agnostic blueprint that produces a **Periodization** when **cloned** into a **Student** — so the team can reuse a standard plan without starting from the AI. *Not* a **Periodization** (which is always for one Student); it carries only the *content* a **Periodization version** carries (`body_md`, `periodization_length_weeks`, and ordered **Template workouts**), plus a trainer-facing `name` (required) and `description` (optional). **Org-scoped** (`belongs_to :organization`) — a template encodes one gym's methodology and is not shared across orgs (unlike the fully-global **Exercise** catalog). No student, no versioning, no training sessions. Edited **in place** (mutates directly, never forks a version); retired by hard `destroy` (nothing references it — clone copies content, it doesn't link back).
+_Avoid_: making `Periodization.student_id` nullable to model this; the Student-coupling on **Periodization** is load-bearing (active_periodization, dashboard, medals, frequency) and a template is a different concept. The anglicism "Template" in UI copy (use **Modelo**).
+
+**Template workout** (`PeriodizationTemplate::Workout`):
+A **Workout**-shaped child row of a **Periodization template** (`name`, `position`, `blocks` JSONB, same `Blocks` schema validation), edited by the same **inline block editor** as a version's **Workout**. A parallel table to `workouts` rather than a polymorphic `Workout` (which is entangled with training_sessions, version-specific re-linking, and `belongs_to :periodization_version`). Clone copies template workout → version **Workout** row-for-row.
+
+**Cloning** *(template sense)*:
+Materializing a **Periodization template** into a **Student** as a live plan — `student.start_periodization_from_template!(template, trainer:)`. In one transaction: archives the **Active periodization** if any (same invariant as `start_periodization!` — a Student has at most one), creates a new **Periodization**, builds one **Periodization version** populated from the template (`body_md` + length + workouts copied), transitions it straight to `:completed`, and **promotes** it (sets `current_version` + repoints `active_periodization`) so the student trains from it immediately. Born `:completed` triggers **Linking** automatically. Trainer attribution = whoever clones.
+_Avoid_: confusing with the `:clone` **fork** scope (version→version copy *within* one Periodization); template cloning is template→new Periodization.
+
+**Save as template** (pt-BR **"Salvar como modelo"**):
+Creating a **Periodization template** by snapshotting an existing **Periodization version**'s content (`body_md` + length + workouts/blocks copied) into a new template, prompting for a `name`/`description`. The v1 authoring path — there is no from-scratch blank-canvas template editor yet (content authoring happens through the normal AI+edit flow on a real student, then gets promoted to a template). The snapshot is a copy: later edits to the source version do not change the template, and vice-versa.
+
 ### Workouts and sessions
 
 **Workout** (`Workout`):
@@ -199,6 +215,8 @@ Each earned Medal carries a nullable `seen_at`. Organic earns land **unseen** �
 - A **Periodization** has many **Periodization versions** and points to at most one **Current version**.
 - A **Periodization version** has many ordered **Workouts**; a **Workout** has many **Blocks**.
 - A **Training session** is a student's performance of one **Workout**; the **Treinos (student tab)** shows **Workouts**, never **Training sessions**.
+- A **Periodization template** belongs to an **Organization** and has many ordered **Template workouts**; it references no **Student**.
+- **Cloning** a **Periodization template** into a **Student** produces a new **Periodization** with one `:completed`, promoted **Periodization version** copied from the template — the template is not referenced afterward.
 - The **Dashboard queue** is the only cohort on the home page.
 - An **Exercise** belongs to one **Exercise family** and one **Muscle group**, and has many **Aliases**.
 - An **Alias** resolves one **Normalized key** to exactly one **Exercise**; every Exercise owns its own name as an Alias.
