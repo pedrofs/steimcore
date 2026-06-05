@@ -1,6 +1,6 @@
 import * as React from "react"
 import { Link, router, usePage } from "@inertiajs/react"
-import { Activity, BarChart3, ChevronsUpDown, DumbbellIcon, HomeIcon, LibraryBig, LogOut, UsersIcon, VideoIcon } from "lucide-react"
+import { Activity, BarChart3, ChevronsUpDown, DumbbellIcon, HomeIcon, LayersIcon, LibraryBig, LogOut, UsersIcon, VideoIcon } from "lucide-react"
 
 import { BrandLockup, BrandMark } from "@/components/brand"
 import { InstallAppMenuItem } from "@/components/install-app"
@@ -128,6 +128,16 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                 <Link href="/exercise_upload_queue" onClick={closeOnMobile}>
                   <VideoIcon />
                   <span>Fila de vídeos</span>
+                </Link>
+              </SidebarMenuButton>
+              <SidebarMenuButton
+                tooltip="Modelos"
+                isActive={url.startsWith("/periodization_templates")}
+                className="h-11 md:h-8"
+              >
+                <Link href="/periodization_templates" onClick={closeOnMobile}>
+                  <LayersIcon />
+                  <span>Modelos</span>
                 </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>

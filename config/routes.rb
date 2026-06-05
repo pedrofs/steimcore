@@ -52,6 +52,8 @@ Rails.application.routes.draw do
     resources :workouts, only: :update, module: :periodization_versions
   end
 
+  resources :periodization_templates, only: [ :index, :show, :destroy ]
+
   resources :periodizations, only: [] do
     resource :inline_edit, only: :create, module: :periodizations
   end
