@@ -121,12 +121,20 @@ class ExercisesController < InertiaController
     end
 
     def media_props(attachment)
+      blob = attachment.blob
+      is_video = blob.content_type.to_s.start_with?("video/")
+      status = blob.metadata.to_h["transcode_status"]
+
       {
         id: attachment.id,
-        filename: attachment.filename.to_s,
-        content_type: attachment.content_type,
+        filename: blob.filename.to_s,
+        content_type: blob.content_type,
         url: rails_blob_path(attachment, only_path: true),
-        is_video: attachment.content_type.to_s.start_with?("video/")
+        is_video: is_video,
+        # A raw video is still being optimized until its blob earns a verdict;
+        # "failed" falls back to playing the original (see Exercise::MediaTranscoder).
+        processing: is_video && status.blank?,
+        failed: status == "failed"
       }
     end
 

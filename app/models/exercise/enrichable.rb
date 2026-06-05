@@ -51,5 +51,10 @@ module Exercise::Enrichable
       self.state = self.media.attached? ? :enriched : :unenriched
       save!
     end
+
+    # Optimize any raw video the trainer just attached once the row is committed,
+    # so the background job reads the persisted attachments. A no-op for
+    # taxonomy-only edits and image uploads (see Exercise::MediaTranscoding).
+    enqueue_media_transcoding
   end
 end
