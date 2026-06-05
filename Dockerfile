@@ -14,9 +14,11 @@ FROM docker.io/library/ruby:$RUBY_VERSION-slim AS base
 # Rails app lives here
 WORKDIR /rails
 
-# Install base packages
+# Install base packages. ffmpeg is a runtime dependency: Solid Queue runs in-Puma
+# (SOLID_QUEUE_IN_PUMA), so this image also processes exercise-video transcoding
+# jobs (Exercise::MediaTranscoder) and Active Storage video analysis.
 RUN apt-get update -qq && \
-    apt-get install --no-install-recommends -y curl libjemalloc2 libvips postgresql-client && \
+    apt-get install --no-install-recommends -y curl ffmpeg libjemalloc2 libvips postgresql-client && \
     ln -s /usr/lib/$(uname -m)-linux-gnu/libjemalloc.so.2 /usr/local/lib/libjemalloc.so && \
     rm -rf /var/lib/apt/lists /var/cache/apt/archives
 

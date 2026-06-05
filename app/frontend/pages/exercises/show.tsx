@@ -1,5 +1,6 @@
-import { Form, Link } from "@inertiajs/react"
-import { GitMergeIcon, ImageIcon, PencilIcon } from "lucide-react"
+import { Form, Link, router } from "@inertiajs/react"
+import { GitMergeIcon, ImageIcon, Loader2Icon, PencilIcon } from "lucide-react"
+import { useEffect } from "react"
 
 import { PageHeader } from "@/components/page-header"
 import { Badge } from "@/components/ui/badge"
@@ -12,6 +13,8 @@ type Media = {
   contentType: string | null
   url: string
   isVideo: boolean
+  processing: boolean
+  failed: boolean
 }
 
 type Exercise = {
@@ -35,6 +38,16 @@ type Props = {
 }
 
 export default function Show({ exercise, mergeTargets }: Props) {
+  // Videos are optimized in the background; poll until every clip is ready so the
+  // "optimizing" placeholder swaps itself for the playable MP4 without a manual
+  // refresh. router.reload() takes no options here (see Inertia reload drift).
+  const optimizing = exercise.media.some((item) => item.processing)
+  useEffect(() => {
+    if (!optimizing) return
+    const interval = setInterval(() => router.reload(), 4000)
+    return () => clearInterval(interval)
+  }, [optimizing])
+
   return (
     <>
       <PageHeader
@@ -78,10 +91,17 @@ export default function Show({ exercise, mergeTargets }: Props) {
                 key={item.id}
                 className="overflow-hidden rounded-xl border bg-card"
               >
-                {item.isVideo ? (
+                {item.processing ? (
+                  <div className="flex aspect-square w-full flex-col items-center justify-center gap-2 bg-muted/40 text-muted-foreground">
+                    <Loader2Icon className="size-5 animate-spin" />
+                    <span className="text-xs">Otimizando vídeo…</span>
+                  </div>
+                ) : item.isVideo ? (
                   <video
                     src={item.url}
                     controls
+                    playsInline
+                    preload="metadata"
                     className="aspect-square w-full object-cover"
                   />
                 ) : (
@@ -90,6 +110,11 @@ export default function Show({ exercise, mergeTargets }: Props) {
                     alt={item.filename}
                     className="aspect-square w-full object-cover"
                   />
+                )}
+                {item.failed && (
+                  <p className="px-2 py-1 text-xs text-muted-foreground">
+                    Não foi possível otimizar; exibindo o original.
+                  </p>
                 )}
               </li>
             ))}

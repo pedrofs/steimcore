@@ -118,6 +118,33 @@ class ExercisesControllerTest < ActionDispatch::IntegrationTest
     assert_equal "Remada curvada", inertia.props[:exercise][:aliases].first[:raw_name]
   end
 
+  test "show reports a freshly attached video as still optimizing" do
+    exercise = Exercise.create!(name: "Agachamento")
+    exercise.media.attach(io: StringIO.new("raw"), filename: "clip.mov", content_type: "video/quicktime")
+
+    sign_in_as(@user)
+    get exercise_path(exercise)
+
+    media = inertia.props[:exercise][:media].first
+    assert media[:is_video]
+    assert media[:processing]
+    assert_not media[:failed]
+  end
+
+  test "show reports an optimized video as ready to play" do
+    exercise = Exercise.create!(name: "Agachamento")
+    exercise.media.attach(io: StringIO.new("mp4"), filename: "clip.mp4", content_type: "video/mp4")
+    exercise.media.first.blob.update!(metadata: { "transcode_status" => "done", "web_optimized" => true })
+
+    sign_in_as(@user)
+    get exercise_path(exercise)
+
+    media = inertia.props[:exercise][:media].first
+    assert media[:is_video]
+    assert_not media[:processing]
+    assert_not media[:failed]
+  end
+
   test "show offers every other live exercise as a merge target" do
     exercise = Exercise.create!(name: "Remada curvada")
     other = Exercise.create!(name: "Puxada alta")

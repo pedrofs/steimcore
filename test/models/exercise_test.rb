@@ -68,6 +68,38 @@ class ExerciseTest < ActiveSupport::TestCase
     assert_equal muscle, exercise.muscle_group
   end
 
+  test "enrich enqueues video optimization when a video is attached" do
+    exercise = Exercise.create!(name: "Agachamento")
+
+    assert_enqueued_jobs 1, only: TranscodeExerciseMediaJob do
+      exercise.enrich(media: [ { io: StringIO.new("raw"), filename: "clip.mov", content_type: "video/quicktime" } ])
+    end
+  end
+
+  test "enrich does not enqueue optimization for image-only uploads" do
+    exercise = Exercise.create!(name: "Agachamento")
+
+    assert_enqueued_jobs 0, only: TranscodeExerciseMediaJob do
+      exercise.enrich(media: [ { io: StringIO.new("png"), filename: "a.png", content_type: "image/png" } ])
+    end
+  end
+
+  test "transcode_pending_media! optimizes pending videos but skips images and optimized videos" do
+    exercise = Exercise.create!(name: "Agachamento")
+    exercise.media.attach(io: StringIO.new("png"), filename: "a.png", content_type: "image/png")
+    exercise.media.attach(io: StringIO.new("raw"), filename: "clip.mov", content_type: "video/quicktime")
+    exercise.media.attach(io: StringIO.new("done"), filename: "old.mov", content_type: "video/quicktime")
+    exercise.media.attachments.find { |a| a.filename.to_s == "old.mov" }
+      .blob.update!(metadata: { "transcode_status" => "done" })
+
+    optimized = []
+    Exercise::MediaTranscoder.stub(:call, ->(attachment) { optimized << attachment.filename.to_s }) do
+      exercise.transcode_pending_media!
+    end
+
+    assert_equal [ "clip.mov" ], optimized
+  end
+
   test "enrich keeps an already-enriched exercise enriched when only taxonomy changes" do
     exercise = Exercise.create!(name: "Supino reto")
     exercise.enrich(media: [ { io: StringIO.new("png"), filename: "a.png", content_type: "image/png" } ])
