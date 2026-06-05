@@ -24,7 +24,40 @@ class Student::WorkoutsViewTest < ActiveSupport::TestCase
     assert_equal treino_a.id, payload[:id]
     assert_equal "Treino A", payload[:name]
     assert_equal 1, payload[:position]
-    assert_equal [ { "kind" => "exercise", "name" => "Supino", "prescription" => "4x10" } ], payload[:blocks]
+    assert_equal(
+      [ { "kind" => "exercise", "name" => "Supino", "prescription" => "4x10", "media" => [] } ],
+      payload[:blocks]
+    )
+  end
+
+  test "exercise blocks across workouts carry resolved media from the catalog" do
+    build_active_plan!
+    supino = Exercise.create!(name: "Supino")
+    photo = attach_photo(supino)
+
+    workouts = Student::WorkoutsView.new(@student.reload).to_h[:workouts]
+
+    enriched = workouts.find { |w| w[:name] == "Treino A" }[:blocks].first
+    assert_equal 1, enriched["media"].size
+    assert_equal photo.id, enriched["media"][0][:id]
+
+    # An unenriched exercise on another workout still renders, with no media.
+    plain = workouts.find { |w| w[:name] == "Treino B" }[:blocks].first
+    assert_equal [], plain["media"]
+  end
+
+  test "the media resolve does not fan out per workout (no N+1 across the tab)" do
+    exercise = Exercise.create!(name: "Supino")
+    attach_photo(exercise)
+
+    build_plan_with_workout_count!(2)
+    few = count_queries { Student::WorkoutsView.new(@student.reload).to_h }
+
+    @student.update!(active_periodization: nil)
+    build_plan_with_workout_count!(20)
+    many = count_queries { Student::WorkoutsView.new(@student.reload).to_h }
+
+    assert_equal few, many, "ten times the workouts must not multiply the media resolve queries"
   end
 
   test "returns an empty list when the student has no active periodization" do
@@ -76,5 +109,33 @@ class Student::WorkoutsViewTest < ActiveSupport::TestCase
       periodization.set_current_version!(version)
       @student.update!(active_periodization: periodization)
       { periodization: periodization, version: version }
+    end
+
+    def build_plan_with_workout_count!(count)
+      periodization = @student.periodizations.create!
+      version = periodization.versions.create!(trainer: @trainer, status: "completed", periodization_length_weeks: 8)
+      count.times do |i|
+        version.workouts.create!(name: "Treino #{i + 1}", position: i + 1, blocks: [
+          { "kind" => "exercise", "name" => "Supino", "prescription" => "4x10" }
+        ])
+      end
+      periodization.set_current_version!(version)
+      @student.update!(active_periodization: periodization)
+    end
+
+    def attach_photo(exercise)
+      exercise.media.attach(io: StringIO.new("png-bytes"), filename: "photo.png", content_type: "image/png")
+      exercise.media.attachments.last
+    end
+
+    def count_queries(&block)
+      count = 0
+      counter = lambda do |_name, _start, _finish, _id, payload|
+        next if payload[:name] == "SCHEMA"
+        next if payload[:sql] =~ /\A\s*(BEGIN|COMMIT|RELEASE|SAVEPOINT|ROLLBACK)/i
+        count += 1
+      end
+      ActiveSupport::Notifications.subscribed(counter, "sql.active_record", &block)
+      count
     end
 end

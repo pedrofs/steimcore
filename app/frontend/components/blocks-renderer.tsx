@@ -1,3 +1,4 @@
+import { ExerciseMedia, type ExerciseMediaItem } from "@/components/exercise-media"
 import { Markdown } from "@/components/markdown"
 
 export type ExerciseBlock = {
@@ -6,12 +7,14 @@ export type ExerciseBlock = {
   prescription: string
   restS?: number
   notes?: string
+  media?: ExerciseMediaItem[]
 }
 
 export type GroupItem = {
   name: string
   prescription: string
   notes?: string
+  media?: ExerciseMediaItem[]
 }
 
 export type GroupBlock = {
@@ -275,27 +278,32 @@ function StudentMovementRow({
   prescription,
   rest,
   notes,
+  media,
 }: {
   number: number
   name: string
   prescription: string
   rest?: number
   notes?: string
+  media?: ExerciseMediaItem[]
 }) {
   const meta = [rest != null ? `descanso ${rest}s` : null, notes].filter(Boolean).join(" · ")
 
   return (
-    <div className="workout-block exercise-row flex flex-col gap-0.5">
-      <div className="flex items-baseline justify-between gap-3">
-        <span className="flex min-w-0 items-baseline gap-2.5">
-          <StudentIndex number={number} />
-          <span className="exercise-name truncate text-sm font-medium">{name}</span>
-        </span>
-        <span className="exercise-prescription shrink-0 text-sm tabular-nums text-muted-foreground">
-          {prescription}
-        </span>
+    <div className="workout-block exercise-row flex items-center gap-2.5">
+      <ExerciseMedia name={name} media={media} className="size-9 self-center" />
+      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+        <div className="flex items-baseline justify-between gap-3">
+          <span className="flex min-w-0 items-baseline gap-2.5">
+            <StudentIndex number={number} />
+            <span className="exercise-name truncate text-sm font-medium">{name}</span>
+          </span>
+          <span className="exercise-prescription shrink-0 text-sm tabular-nums text-muted-foreground">
+            {prescription}
+          </span>
+        </div>
+        {meta && <span className="exercise-meta pl-[1.85rem] text-xs text-muted-foreground">{meta}</span>}
       </div>
-      {meta && <span className="exercise-meta pl-[1.85rem] text-xs text-muted-foreground">{meta}</span>}
     </div>
   )
 }
@@ -308,6 +316,7 @@ function StudentExerciseRow({ block, number }: { block: ExerciseBlock; number: n
       prescription={block.prescription}
       rest={block.restS}
       notes={block.notes}
+      media={block.media}
     />
   )
 }
@@ -338,6 +347,7 @@ function StudentGroupRow({
             name={item.name}
             prescription={item.prescription}
             notes={item.notes}
+            media={item.media}
           />
         ))}
       </div>

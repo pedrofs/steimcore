@@ -19,21 +19,35 @@ class Student
     end
 
     def to_h
-      { workouts: workouts.map { |workout| workout_payload(workout) } }
+      { workouts: workout_payloads }
     end
 
     private
       def workouts
-        @student.active_periodization&.current_version&.workouts&.order(:position) || []
+        @workouts ||= @student.active_periodization&.current_version&.workouts&.order(:position)&.to_a || []
       end
 
-      def workout_payload(workout)
-        {
-          id: workout.id,
-          name: workout.name,
-          position: workout.position,
-          blocks: workout.blocks
-        }
+      # Enrich every workout's blocks with catalog media in a single BlockMedia
+      # pass: concatenate all blocks across the tab's workouts, resolve once, then
+      # split the result back per workout by length. One bulk resolve keeps the
+      # query count bounded by distinct exercise keys, not by how many workouts
+      # are on the page (no N+1) — calling with_media per workout would re-resolve
+      # for each one.
+      def workout_payloads
+        enriched = BlockMedia.with_media(workouts.flat_map { |workout| Array(workout.blocks) })
+
+        offset = 0
+        workouts.map do |workout|
+          length = Array(workout.blocks).length
+          blocks = enriched.slice(offset, length) || []
+          offset += length
+          {
+            id: workout.id,
+            name: workout.name,
+            position: workout.position,
+            blocks: blocks
+          }
+        end
       end
   end
 end
