@@ -1,5 +1,5 @@
 import { Head, Link, router, usePage } from "@inertiajs/react"
-import { ClockIcon, PlusIcon, XIcon } from "lucide-react"
+import { ClockIcon, MoreVerticalIcon, PlusIcon, XIcon } from "lucide-react"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import ReactMarkdown from "react-markdown"
 
@@ -16,6 +16,13 @@ import {
 } from "@/components/ui/alert-dialog"
 import { ExerciseMedia, type ExerciseMediaItem } from "@/components/exercise-media"
 import { Button } from "@/components/ui/button"
+import { ButtonGroup } from "@/components/ui/button-group"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
 import {
   Sheet,
@@ -519,6 +526,8 @@ function FocusedView({
   const total = session.blocks.length
   const pct = total > 0 ? Math.round((doneCount / total) * 100) : 0
   const [staleDismissed, setStaleDismissed] = useState(false)
+  const [removeOpen, setRemoveOpen] = useState(false)
+  const canSwap = session.swapOptions.length > 0
 
   return (
     <div className="flex-1 overflow-y-auto px-4 py-4 pb-24">
@@ -556,73 +565,76 @@ function FocusedView({
             </p>
           </div>
         </div>
-        <div className="flex flex-col items-end gap-2">
+        <div className="shrink-0">
           {session.finishedAt ? (
             <Button type="button" variant="outline" onClick={onFinish}>
               Reabrir
             </Button>
           ) : (
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button type="button">Finalizar</Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent size="sm">
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Finalizar sessão?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    {doneCount === 0
-                      ? "Nenhum bloco foi marcado como feito. "
-                      : `Você marcou ${doneCount} de ${total} blocos como feitos. `}
-                    Você pode reabrir a sessão depois se precisar.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                  <AlertDialogAction onClick={onFinish}>
-                    Finalizar
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-          )}
-          {!session.finishedAt && session.swapOptions.length > 0 && (
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={onSwap}
-              className="text-xs"
-            >
-              Trocar treino
-            </Button>
-          )}
-          {!session.finishedAt && (
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="text-xs text-destructive hover:text-destructive"
-                >
-                  Remover da pista
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent size="sm">
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Remover da pista?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    A sessão será apagada e não aparecerá no histórico do aluno.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                  <AlertDialogAction onClick={onRemove}>
-                    Remover
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
+            <>
+              <ButtonGroup>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button type="button">Finalizar</Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent size="sm">
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Finalizar sessão?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        {doneCount === 0
+                          ? "Nenhum bloco foi marcado como feito. "
+                          : `Você marcou ${doneCount} de ${total} blocos como feitos. `}
+                        Você pode reabrir a sessão depois se precisar.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                      <AlertDialogAction onClick={onFinish}>
+                        Finalizar
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button type="button" size="icon" aria-label="Mais ações">
+                      <MoreVerticalIcon />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    {canSwap && (
+                      <DropdownMenuItem onSelect={onSwap}>
+                        Trocar treino
+                      </DropdownMenuItem>
+                    )}
+                    <DropdownMenuItem
+                      variant="destructive"
+                      onSelect={() => setRemoveOpen(true)}
+                    >
+                      Remover da pista
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </ButtonGroup>
+
+              <AlertDialog open={removeOpen} onOpenChange={setRemoveOpen}>
+                <AlertDialogContent size="sm">
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Remover da pista?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      A sessão será apagada e não aparecerá no histórico do aluno.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                    <AlertDialogAction onClick={onRemove}>
+                      Remover
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </>
           )}
         </div>
       </div>
