@@ -1,5 +1,10 @@
 import { useForm, usePage } from "@inertiajs/react"
-import { CameraIcon, Loader2Icon, VideoIcon } from "lucide-react"
+import {
+  AlertCircleIcon,
+  CameraIcon,
+  Loader2Icon,
+  VideoIcon,
+} from "lucide-react"
 import { useRef, useState } from "react"
 
 import { PageHeader } from "@/components/page-header"
@@ -58,13 +63,14 @@ type Phase =
   | { kind: "idle" }
   | { kind: "uploading"; pct: number }
   | { kind: "saving" }
+  | { kind: "error"; message: string }
 
 function QueueCard({ exercise }: { exercise: QueueItem }) {
   const videoInput = useRef<HTMLInputElement>(null)
   const photoInput = useRef<HTMLInputElement>(null)
   const [phase, setPhase] = useState<Phase>({ kind: "idle" })
   const form = useForm<{ media: string }>({ media: "" })
-  const busy = phase.kind !== "idle"
+  const busy = phase.kind === "uploading" || phase.kind === "saving"
 
   const handleFile = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
@@ -79,12 +85,23 @@ function QueueCard({ exercise }: { exercise: QueueItem }) {
       setPhase({ kind: "saving" })
       form.transform(() => ({ media: signedId }))
       // On success Inertia follows the redirect back to the queue and this card
-      // unmounts; only the failure path needs to reset the button.
+      // unmounts; the failure paths surface why so the upload isn't a silent no-op
+      // (a swallowed direct-upload error here was the original "progress bar then
+      // nothing happened" bug).
       form.post(`/exercises/${exercise.id}/media`, {
-        onError: () => setPhase({ kind: "idle" }),
+        onError: () =>
+          setPhase({
+            kind: "error",
+            message: "O envio falhou ao salvar. Tente novamente.",
+          }),
       })
-    } catch {
-      setPhase({ kind: "idle" })
+    } catch (cause) {
+      console.error("[upload-queue] direct upload failed", cause)
+      setPhase({
+        kind: "error",
+        message:
+          "Não foi possível enviar a mídia. Verifique a conexão e tente novamente.",
+      })
     }
   }
 
@@ -130,26 +147,34 @@ function QueueCard({ exercise }: { exercise: QueueItem }) {
           Salvando…
         </div>
       ) : (
-        <div className="flex gap-2">
-          <Button
-            type="button"
-            onClick={() => videoInput.current?.click()}
-            disabled={busy}
-            className="h-11 flex-1 sm:h-10"
-          >
-            <VideoIcon className="size-4" />
-            Filmar
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => photoInput.current?.click()}
-            disabled={busy}
-            className="h-11 flex-1 sm:h-10"
-          >
-            <CameraIcon className="size-4" />
-            Foto
-          </Button>
+        <div className="flex flex-col gap-2">
+          {phase.kind === "error" && (
+            <p className="flex items-center gap-1.5 text-sm text-destructive">
+              <AlertCircleIcon className="size-4 shrink-0" />
+              {phase.message}
+            </p>
+          )}
+          <div className="flex gap-2">
+            <Button
+              type="button"
+              onClick={() => videoInput.current?.click()}
+              disabled={busy}
+              className="h-11 flex-1 sm:h-10"
+            >
+              <VideoIcon className="size-4" />
+              Filmar
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => photoInput.current?.click()}
+              disabled={busy}
+              className="h-11 flex-1 sm:h-10"
+            >
+              <CameraIcon className="size-4" />
+              Foto
+            </Button>
+          </div>
         </div>
       )}
     </li>
