@@ -1,0 +1,9 @@
+[
+  {
+    "AllowedHeaders": ["*"],
+    "AllowedMethods": ["PUT"],
+    "AllowedOrigins": ["https://steimfit.com"],
+    "ExposeHeaders": ["Origin", "Content-Type", "Content-MD5", "Content-Disposition"],
+    "MaxAgeSeconds": 3600
+  }
+]
