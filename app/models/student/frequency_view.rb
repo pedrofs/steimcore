@@ -56,7 +56,7 @@ class Student
           palette_slot: palette_slot_for(version_id),
           workout_name_snapshot: session.workout_name_snapshot,
           workout_position_snapshot: session.workout_position_snapshot,
-          trainer_email_prefix: session.trainer.email_address.split("@").first
+          trainer_email_prefix: session.trainer&.email_address&.split("@")&.first
         }
       end
 
