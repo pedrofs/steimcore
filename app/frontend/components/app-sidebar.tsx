@@ -130,7 +130,10 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                   <span>Fila de vídeos</span>
                 </Link>
               </SidebarMenuButton>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
               <SidebarMenuButton
+                asChild
                 tooltip="Modelos"
                 isActive={url.startsWith("/periodization_templates")}
                 className="h-11 md:h-8"
