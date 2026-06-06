@@ -1,8 +1,25 @@
 import { Form, Link, router } from "@inertiajs/react"
-import { GitMergeIcon, ImageIcon, Loader2Icon, PencilIcon } from "lucide-react"
+import {
+  GitMergeIcon,
+  ImageIcon,
+  Loader2Icon,
+  PencilIcon,
+  Trash2Icon,
+} from "lucide-react"
 import { useEffect } from "react"
 
 import { PageHeader } from "@/components/page-header"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
@@ -87,36 +104,11 @@ export default function Show({ exercise, mergeTargets }: Props) {
         ) : (
           <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3">
             {exercise.media.map((item) => (
-              <li
+              <MediaCard
                 key={item.id}
-                className="overflow-hidden rounded-xl border bg-card"
-              >
-                {item.processing ? (
-                  <div className="flex aspect-square w-full flex-col items-center justify-center gap-2 bg-muted/40 text-muted-foreground">
-                    <Loader2Icon className="size-5 animate-spin" />
-                    <span className="text-xs">Otimizando vídeo…</span>
-                  </div>
-                ) : item.isVideo ? (
-                  <video
-                    src={item.url}
-                    controls
-                    playsInline
-                    preload="metadata"
-                    className="aspect-square w-full object-cover"
-                  />
-                ) : (
-                  <img
-                    src={item.url}
-                    alt={item.filename}
-                    className="aspect-square w-full object-cover"
-                  />
-                )}
-                {item.failed && (
-                  <p className="px-2 py-1 text-xs text-muted-foreground">
-                    Não foi possível otimizar; exibindo o original.
-                  </p>
-                )}
-              </li>
+                exerciseId={exercise.id}
+                item={item}
+              />
             ))}
           </ul>
         )}
@@ -139,6 +131,72 @@ export default function Show({ exercise, mergeTargets }: Props) {
 
       <MergeSection exerciseId={exercise.id} targets={mergeTargets} />
     </>
+  )
+}
+
+function MediaCard({
+  exerciseId,
+  item,
+}: {
+  exerciseId: string
+  item: Media
+}) {
+  function remove() {
+    router.delete(`/exercises/${exerciseId}/media/${item.id}`)
+  }
+
+  return (
+    <li className="relative overflow-hidden rounded-xl border bg-card">
+      {item.processing ? (
+        <div className="flex aspect-square w-full flex-col items-center justify-center gap-2 bg-muted/40 text-muted-foreground">
+          <Loader2Icon className="size-5 animate-spin" />
+          <span className="text-xs">Otimizando vídeo…</span>
+        </div>
+      ) : item.isVideo ? (
+        <video
+          src={item.url}
+          controls
+          playsInline
+          preload="metadata"
+          className="aspect-square w-full object-cover"
+        />
+      ) : (
+        <img
+          src={item.url}
+          alt={item.filename}
+          className="aspect-square w-full object-cover"
+        />
+      )}
+      {item.failed && (
+        <p className="px-2 py-1 text-xs text-muted-foreground">
+          Não foi possível otimizar; exibindo o original.
+        </p>
+      )}
+      <AlertDialog>
+        <AlertDialogTrigger asChild>
+          <button
+            type="button"
+            className="absolute top-2 right-2 inline-flex size-8 items-center justify-center rounded-md border border-border/60 bg-background/90 text-destructive shadow-sm backdrop-blur-sm hover:bg-background"
+            aria-label={`Remover ${item.filename}`}
+          >
+            <Trash2Icon className="size-4" aria-hidden />
+          </button>
+        </AlertDialogTrigger>
+        <AlertDialogContent size="sm">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remover mídia?</AlertDialogTitle>
+            <AlertDialogDescription>
+              <strong>{item.filename}</strong> será apagada deste exercício. Se
+              for a última mídia, o exercício volta a ficar sem enriquecimento.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={remove}>Remover</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </li>
   )
 }
 

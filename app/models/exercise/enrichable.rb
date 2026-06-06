@@ -71,4 +71,14 @@ module Exercise::Enrichable
 
     enqueue_media_transcoding
   end
+
+  # Drops one attached clip from the Exercises admin and folds state to match
+  # whatever media remains — an Exercise with no media reads as Unenriched again.
+  def detach_media!(attachment_id)
+    transaction do
+      media.find(attachment_id).purge
+      self.state = media.attached? ? :enriched : :unenriched
+      save!
+    end
+  end
 end

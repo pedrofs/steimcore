@@ -8,12 +8,18 @@
 # convention) and kept separate from exercises#update, which rewrites taxonomy.
 class Exercises::MediaController < InertiaController
   before_action :load_exercise
-  before_action :ensure_unenriched
+  before_action :ensure_unenriched, only: :create
 
   def create
     @exercise.attach_media!(params.require(:media))
 
     redirect_to exercise_upload_queue_path, notice: "Mídia de #{@exercise.name} enviada."
+  end
+
+  def destroy
+    @exercise.detach_media!(params[:id])
+
+    redirect_to exercise_path(@exercise), notice: "Mídia removida."
   end
 
   private

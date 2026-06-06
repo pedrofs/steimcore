@@ -10,7 +10,7 @@ Rails.application.routes.draw do
   resource :analytics, only: :show
   resource :exercise_upload_queue, only: :show
   resources :exercises, only: [ :index, :show, :edit, :update ] do
-    resource  :media,  only: :create, module: :exercises
+    resources :media, only: [ :create, :destroy ], module: :exercises
     resources :merges, only: :create, module: :exercises
   end
   resources :students, only: [ :index, :new, :create, :show, :edit, :update ] do

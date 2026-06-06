@@ -259,6 +259,33 @@ class ExerciseTest < ActiveSupport::TestCase
     end
   end
 
+  test "detach_media! removes one attachment and flips to unenriched when none remain" do
+    exercise = Exercise.create!(name: "Supino reto")
+    exercise.enrich(media: [ { io: StringIO.new("png"), filename: "a.png", content_type: "image/png" } ])
+    attachment = exercise.media.first
+
+    exercise.detach_media!(attachment.id)
+
+    exercise.reload
+    assert_not exercise.media.attached?
+    assert_predicate exercise, :unenriched?
+  end
+
+  test "detach_media! keeps enriched when other attachments remain" do
+    exercise = Exercise.create!(name: "Supino reto")
+    exercise.enrich(media: [
+      { io: StringIO.new("png"), filename: "a.png", content_type: "image/png" },
+      { io: StringIO.new("jpg"), filename: "b.jpg", content_type: "image/jpeg" }
+    ])
+    attachment = exercise.media.first
+
+    exercise.detach_media!(attachment.id)
+
+    exercise.reload
+    assert_predicate exercise, :enriched?
+    assert_equal 1, exercise.media.count
+  end
+
   test "attach_media! does not enqueue optimization for a captured photo" do
     exercise = Exercise.create!(name: "Agachamento")
 
