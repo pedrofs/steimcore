@@ -384,7 +384,7 @@ class TrainingSessionsControllerTest < ActionDispatch::IntegrationTest
     make_eligible(@alice, workout_count: 1, blocks: [
       { "kind" => "exercise", "name" => "Agachamento", "prescription" => "5x5" }
     ])
-    @alice.start_training_session!
+    travel_to(monday) { @alice.start_training_session! }
 
     sign_in_as(@user)
     get training_sessions_path, params: { scope: "org" }
@@ -394,6 +394,10 @@ class TrainingSessionsControllerTest < ActionDispatch::IntegrationTest
   end
 
   private
+    def monday
+      Time.zone.local(2026, 6, 1, 10, 0, 0)
+    end
+
     def make_eligible(student, workout_count:, blocks: [], trainer: @user, organization: @organization)
       version = student.start_periodization!(trainer: trainer)
       workouts = Array.new(workout_count) do |i|

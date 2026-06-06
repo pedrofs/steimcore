@@ -8,7 +8,7 @@ class Exercises::MediaControllerTest < ActionDispatch::IntegrationTest
   test "create requires authentication" do
     exercise = Exercise.create!(name: "Supino reto")
 
-    post exercise_media_index_path(exercise), params: { media: signed_clip }
+    post exercise_media_path(exercise), params: { media: signed_clip }
 
     assert_redirected_to new_session_path
     assert_not exercise.reload.media.attached?
@@ -18,7 +18,7 @@ class Exercises::MediaControllerTest < ActionDispatch::IntegrationTest
     exercise = Exercise.create!(name: "Supino reto")
 
     sign_in_as(@user)
-    post exercise_media_index_path(exercise), params: { media: signed_clip }
+    post exercise_media_path(exercise), params: { media: signed_clip }
 
     assert_redirected_to exercise_upload_queue_path
     assert_predicate exercise.reload, :enriched?
@@ -30,7 +30,7 @@ class Exercises::MediaControllerTest < ActionDispatch::IntegrationTest
     exercise.update!(state: :enriched)
 
     sign_in_as(@user)
-    post exercise_media_index_path(exercise), params: { media: signed_clip }
+    post exercise_media_path(exercise), params: { media: signed_clip }
 
     assert_redirected_to exercise_upload_queue_path
     assert_not exercise.reload.media.attached?
@@ -42,7 +42,7 @@ class Exercises::MediaControllerTest < ActionDispatch::IntegrationTest
     merged.update!(merged_into: survivor)
 
     sign_in_as(@user)
-    post exercise_media_index_path(merged), params: { media: signed_clip }
+    post exercise_media_path(merged), params: { media: signed_clip }
 
     assert_response :not_found
     assert_not merged.reload.media.attached?
@@ -70,7 +70,7 @@ class Exercises::MediaControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "destroy cannot target a merged-away exercise" do
-    survivor = enriched_exercise_with_media
+    survivor = enriched_exercise_with_media(name: "Supino")
     merged = enriched_exercise_with_media(name: "Supino reto")
     attachment = merged.media.first
     merged.update!(merged_into: survivor)

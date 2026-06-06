@@ -77,7 +77,9 @@ module Exercise::Enrichable
   def detach_media!(attachment_id)
     transaction do
       media.find(attachment_id).purge
-      self.state = media.attached? ? :enriched : :unenriched
+      # purge deletes the join row but leaves the loaded media collection cached,
+      # so reload it before reading the post-removal attachment count.
+      self.state = media.attachments.reload.any? ? :enriched : :unenriched
       save!
     end
   end

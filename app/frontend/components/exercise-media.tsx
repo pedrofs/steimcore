@@ -1,4 +1,5 @@
 import { PlayIcon } from "lucide-react"
+import { useState } from "react"
 
 import {
   Drawer,
@@ -17,10 +18,11 @@ export type ExerciseMediaItem = {
 }
 
 // Inline thumbnail for a linked, Enriched exercise that opens a Drawer with all
-// of its media — videos play, images show full-size. Resolved live at read time
-// by BlockMedia (server side), so it renders nothing when the exercise carries
-// no ready media. The trigger is a span (not a button) and stops click
-// propagation so tapping it never toggles the surrounding block card.
+// of its media — short demo clips autoplay muted on loop (no controls); images
+// show full-size. Resolved live at read time by BlockMedia (server side), so it
+// renders nothing when the exercise carries no ready media. The trigger is a span
+// (not a button) and stops click propagation so tapping it never toggles the
+// surrounding block card.
 export function ExerciseMedia({
   name,
   media,
@@ -30,12 +32,14 @@ export function ExerciseMedia({
   media?: ExerciseMediaItem[] | null
   className?: string
 }) {
+  const [open, setOpen] = useState(false)
+
   if (!media || media.length === 0) return null
 
   const primary = media[0]
 
   return (
-    <Drawer>
+    <Drawer open={open} onOpenChange={setOpen}>
       <DrawerTrigger asChild>
         <span
           role="button"
@@ -66,26 +70,30 @@ export function ExerciseMedia({
           <DrawerTitle>{name}</DrawerTitle>
         </DrawerHeader>
         <div className="flex flex-col gap-4 overflow-y-auto px-4 pb-[calc(env(safe-area-inset-bottom)+1.5rem)]">
-          {media.map((item) =>
-            item.isVideo ? (
-              <video
-                key={item.id}
-                src={item.fullUrl}
-                poster={item.thumbUrl}
-                controls
-                playsInline
-                preload="none"
-                className="w-full rounded-lg bg-black"
-              />
-            ) : (
-              <img
-                key={item.id}
-                src={item.fullUrl}
-                alt={name}
-                className="w-full rounded-lg"
-              />
-            ),
-          )}
+          {open &&
+            media.map((item) =>
+              item.isVideo ? (
+                <video
+                  key={item.id}
+                  src={item.fullUrl}
+                  poster={item.thumbUrl}
+                  autoPlay
+                  muted
+                  loop
+                  playsInline
+                  preload="auto"
+                  aria-hidden
+                  className="w-full rounded-lg bg-black"
+                />
+              ) : (
+                <img
+                  key={item.id}
+                  src={item.fullUrl}
+                  alt={name}
+                  className="w-full rounded-lg"
+                />
+              ),
+            )}
         </div>
       </DrawerContent>
     </Drawer>
