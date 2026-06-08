@@ -66,6 +66,7 @@ Rails.application.routes.draw do
     resources :exercise_loads,    only: :create,               module: :training_sessions
     resource  :completion,        only: [ :create, :destroy ], module: :training_sessions
     resource  :workout_swap,      only: :create,               module: :training_sessions
+    resource  :claim,             only: :create,               module: :training_sessions
   end
 
   if Rails.env.development?

@@ -118,6 +118,24 @@ class TrainingSessionTest < ActiveSupport::TestCase
     end
   end
 
+  test "claim! assigns the trainer to a student-started session" do
+    session = build_valid_session(trainer: nil)
+    session.save!
+
+    session.claim!(trainer: @trainer)
+
+    assert_equal @trainer.id, session.reload.trainer_id
+  end
+
+  test "claim! does not enqueue medal evaluation" do
+    session = build_valid_session(trainer: nil)
+    session.save!
+
+    assert_no_enqueued_jobs only: MedalEvaluationJob do
+      session.claim!(trainer: @trainer)
+    end
+  end
+
   private
     def build_valid_session(**overrides)
       defaults = {

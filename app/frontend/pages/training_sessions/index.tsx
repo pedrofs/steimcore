@@ -283,6 +283,11 @@ export default function TrainingSessionsIndex({
     )
   }
 
+  function claimFocused() {
+    if (!focused) return
+    router.post(`/training_sessions/${focused.id}/claim`, {}, TOGGLE_RELOAD)
+  }
+
   return (
     <>
       <Head title="Sessões ao vivo" />
@@ -331,6 +336,10 @@ export default function TrainingSessionsIndex({
                 onFinish={finishFocused}
                 onRemove={removeFocused}
                 onSwap={() => setSwapOpen(true)}
+                onClaim={claimFocused}
+                canClaim={
+                  currentUserId !== null && focused.trainerId !== currentUserId
+                }
                 showAttribution={
                   currentUserId !== null && focused.trainerId !== currentUserId
                 }
@@ -511,6 +520,8 @@ function FocusedView({
   onFinish,
   onRemove,
   onSwap,
+  onClaim,
+  canClaim,
   showAttribution,
 }: {
   session: TrainingSessionRow
@@ -521,6 +532,8 @@ function FocusedView({
   onFinish: () => void
   onRemove: () => void
   onSwap: () => void
+  onClaim: () => void
+  canClaim: boolean
   showAttribution: boolean
 }) {
   const total = session.blocks.length
@@ -603,6 +616,11 @@ function FocusedView({
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
+                    {canClaim && (
+                      <DropdownMenuItem onSelect={onClaim}>
+                        Assumir aluno
+                      </DropdownMenuItem>
+                    )}
                     {canSwap && (
                       <DropdownMenuItem onSelect={onSwap}>
                         Trocar treino

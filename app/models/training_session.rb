@@ -26,6 +26,12 @@ class TrainingSession < ApplicationRecord
     trainer_id.nil?
   end
 
+  # Reassigns this live session to +trainer+, capturing a student-started (or
+  # another trainer's) session into that trainer's own list.
+  def claim!(trainer:)
+    update!(trainer: trainer)
+  end
+
   # Begins a new active session for the student, optionally under a trainer.
   # When no +trainer+ is given the session is student-initiated (trainer_id
   # null); when no +workout+ is given it defaults to the auto-picked
