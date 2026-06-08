@@ -102,6 +102,14 @@ _Avoid_: muscle, body part; secondary/synergist muscles (not modeled in v1).
 Whether an **Exercise** has human-curated media/content. **Linking** mints exercises **Unenriched** (a name + **Exercise family** + **Muscle group**, no media — renders exactly like today). A human later makes it **Enriched** by attaching media/curation. The catalog's value (photos/videos) lives entirely in the Enriched state; Unenriched is just a resolved identity.
 _Avoid_: draft (reserved for **Draft version**), published, complete.
 
+**Media surfacing**:
+Where an **Enriched** **Exercise**'s media is shown to a *performer* (as opposed to a curator): the **trainer live board**'s focused session, the **student live session**, and the **Treinos (student tab)**. A **Resolved**, Enriched exercise renders an inline **thumbnail** — a video's grabbed **poster frame**, or a photo — that opens the exercise's full media in a drawer (the primary thumbnail is the first video, else the first photo; the drawer shows all of the exercise's media). **Unlinked** names, **Unenriched** exercises, and exercises whose only media is still transcoding render exactly as today (no thumbnail) — these surfaces show **only fully-processed media**; transcoding/failed state is observable solely in the **Exercises admin**, never mid-workout. Resolution is **live at read time** (per [ADR-0006](docs/adr/0006-exercise-catalog-free-generation-and-linking.md)): media attached to an Exercise *after* a **Training session** started still appears in that session, even though the **Block** text is snapshotted. Shared by all three surfaces through one enrichment pass (`Workout::BlockMedia`) that bulk-resolves names and merges a `media` array onto each `exercise` block and group **item**.
+_Avoid_: showing "Otimizando vídeo…" spinners or failed-fallback originals in a workout surface (that's curation, not performance).
+
+**Poster frame**:
+A still image grabbed from an **Exercise** video during transcoding (one extra ffmpeg frame-grab in the same job that produces the web MP4), stored in the optimized blob's native Active Storage `preview_image` slot. Serves as the video's **thumbnail** in **Media surfacing**; ready exactly when the video's `transcode_status` is `done`.
+_Avoid_: poster URL pointers in blob metadata (orphan-blob risk), or Rails' lazy `blob.preview` previewer (the pipeline hand-rolls ffmpeg already).
+
 **Exercises admin**:
 The trainer-facing screen listing every **Exercise** for curation — **enriching** (attaching media → **Enriched**) and **consolidating** duplicate **Unenriched** exercises that **Linking**'s bias-to-split produced. Not student-facing. v1 has **no admin/staff role and no organization scope**: the app is SteimFit-internal, so every trainer can curate the **fully global** catalog. A dedicated internal-admin role is deferred until the product is sold to another organization.
 _Avoid_: exercise library (reads as student-facing), catalog management.
