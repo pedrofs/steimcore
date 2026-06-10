@@ -3,6 +3,7 @@ import { Link, router, usePage } from "@inertiajs/react"
 import {
   Archive,
   ChevronRight,
+  LayoutTemplate,
   Mail,
   MessageSquare,
   Pencil,
@@ -32,6 +33,12 @@ import {
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { Label } from "@/components/ui/label"
 import {
   Popover,
@@ -131,14 +138,27 @@ type EarnedMedal = {
   earnedAt: string | null
 }
 
+type Template = {
+  id: string
+  name: string
+  description: string | null
+}
+
 type Props = {
   student: Student
   frequency: Frequency | null
   invitation: Invitation | null
   medals: EarnedMedal[]
+  templates: Template[]
 }
 
-export default function Show({ student, frequency, invitation, medals }: Props) {
+export default function Show({
+  student,
+  frequency,
+  invitation,
+  medals,
+  templates,
+}: Props) {
   return (
     <>
       <StudentIdentity student={student} invitation={invitation} />
@@ -157,7 +177,11 @@ export default function Show({ student, frequency, invitation, medals }: Props) 
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.075, ease: [0.16, 1, 0.3, 1] }}
           >
-            <PlanHeroCard student={student} plan={student.activePlan} />
+            <PlanHeroCard
+              student={student}
+              plan={student.activePlan}
+              templates={templates}
+            />
           </motion.div>
         )}
 
@@ -1117,10 +1141,28 @@ function parseDateOnly(iso: string): Date {
 function PlanHeroCard({
   student,
   plan,
+  templates,
 }: {
   student: Student
   plan: ActivePlan | null
+  templates: Template[]
 }) {
+  // Available in every state so a trainer can always start a fresh plan from a
+  // template. With an active plan, cloning archives it first, so we confirm.
+  const templateMenu =
+    templates.length > 0 ? (
+      <TemplateCloneMenu
+        studentId={student.id}
+        templates={templates}
+        label={
+          plan == null
+            ? "Começar a partir de um modelo"
+            : "Nova periodização de um modelo"
+        }
+        confirm={plan != null}
+      />
+    ) : null
+
   if (plan == null) {
     return (
       <PlanCardShell tone="muted">
@@ -1135,6 +1177,7 @@ function PlanHeroCard({
             label="Criar periodização"
             icon={<Sparkles className="size-4" />}
           />
+          {templateMenu}
         </PlanCardActions>
       </PlanCardShell>
     )
@@ -1156,6 +1199,7 @@ function PlanHeroCard({
         />
         <PlanCardActions>
           <PlanCardCta href={planHref} label="Acompanhar geração" />
+          {templateMenu}
         </PlanCardActions>
       </PlanCardShell>
     )
@@ -1172,6 +1216,7 @@ function PlanHeroCard({
         <PlanCardActions>
           <PlanCardCta href={`/students/${student.id}/agent_chat`} label="Abrir chat" />
           {openPlanCta}
+          {templateMenu}
         </PlanCardActions>
       </PlanCardShell>
     )
@@ -1192,6 +1237,7 @@ function PlanHeroCard({
             icon={<Play className="size-4 fill-current" />}
           />
           {openPlanCta}
+          {templateMenu}
         </PlanCardActions>
       </PlanCardShell>
     )
@@ -1207,6 +1253,7 @@ function PlanHeroCard({
         />
         <PlanCardActions>
           <PlanCardCta href={planHref} label="Abrir periodização" />
+          {templateMenu}
         </PlanCardActions>
       </PlanCardShell>
     )
@@ -1224,8 +1271,98 @@ function PlanHeroCard({
       <PlanCardActions>
         <StartSessionButton studentId={student.id} />
         {openPlanCta}
+        {templateMenu}
       </PlanCardActions>
     </PlanCardShell>
+  )
+}
+
+// Clones an org template into the student as a live, promoted plan (no AI).
+// Rendered on the plan hero card whenever the org has at least one template, so
+// the UI never offers a dead-end. When the student already has an active plan
+// (`confirm`), cloning archives it and promotes the clone, so we gate the action
+// behind a confirmation dialog before posting.
+function TemplateCloneMenu({
+  studentId,
+  templates,
+  label,
+  confirm = false,
+}: {
+  studentId: string
+  templates: Template[]
+  label: string
+  confirm?: boolean
+}) {
+  const [pending, setPending] = useState<Template | null>(null)
+
+  const clone = (templateId: string) => {
+    router.post(
+      `/students/${studentId}/periodization_clone`,
+      { template_id: templateId },
+      { preserveScroll: true },
+    )
+  }
+
+  const select = (template: Template) => {
+    if (confirm) setPending(template)
+    else clone(template.id)
+  }
+
+  return (
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            variant="outline"
+            className="h-12 w-full justify-between sm:h-11 sm:w-fit sm:justify-start sm:gap-2 sm:px-4"
+          >
+            <span className="inline-flex items-center gap-2">
+              <LayoutTemplate className="size-4" />
+              {label}
+            </span>
+            <ChevronRight className="size-4 sm:hidden" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start" className="max-w-xs">
+          {templates.map((template) => (
+            <DropdownMenuItem
+              key={template.id}
+              onSelect={() => select(template)}
+              className="flex flex-col items-start gap-0.5"
+            >
+              <span className="font-medium">{template.name}</span>
+              {template.description != null && template.description !== "" && (
+                <span className="text-xs text-muted-foreground">
+                  {template.description}
+                </span>
+              )}
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      <AlertDialog
+        open={pending != null}
+        onOpenChange={(open) => !open && setPending(null)}
+      >
+        <AlertDialogContent size="sm">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Substituir periodização ativa?</AlertDialogTitle>
+            <AlertDialogDescription>
+              A periodização atual será arquivada e{" "}
+              <strong>{pending?.name}</strong> passará a ser o plano ativo. O
+              histórico de treinos é preservado.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={() => pending && clone(pending.id)}>
+              Criar do modelo
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   )
 }
 
