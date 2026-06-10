@@ -46,7 +46,8 @@ class StudentsController < InertiaController
       student: student_props(student),
       frequency: frequency_props(student),
       invitation: invitation_props(student),
-      medals: medals_props(student)
+      medals: medals_props(student),
+      templates: templates_props
     }
   end
 
@@ -202,6 +203,15 @@ class StudentsController < InertiaController
     def frequency_props(student)
       return nil if student.archived?
       Student::FrequencyView.new(student).to_h
+    end
+
+    # The org's reusable Periodization templates, offered on the plan hero card
+    # as "Começar a partir de um modelo" when the student has no active plan.
+    # Empty when the org has no templates yet, which hides the affordance.
+    def templates_props
+      current_organization.periodization_templates.order(:name).map do |template|
+        { id: template.id, name: template.name, description: template.description }
+      end
     end
 
     # The student's Earned medals as a passive, read-only list for the trainer
