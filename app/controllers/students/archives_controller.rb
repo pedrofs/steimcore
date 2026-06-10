@@ -10,7 +10,7 @@ class Students::ArchivesController < InertiaController
   def create
     @student.archive!(reason: archive_params[:reason])
 
-    redirect_to student_path(@student), notice: "Aluno arquivado."
+    redirect_back_or_to student_path(@student), notice: "Aluno arquivado."
   end
 
   private
@@ -21,7 +21,7 @@ class Students::ArchivesController < InertiaController
     def ensure_not_already_archived
       return unless @student.archived?
 
-      redirect_to student_path(@student), alert: "Aluno já está arquivado."
+      redirect_back_or_to student_path(@student), alert: "Aluno já está arquivado."
     end
 
     def archive_params

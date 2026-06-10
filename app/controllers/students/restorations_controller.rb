@@ -8,7 +8,7 @@ class Students::RestorationsController < InertiaController
   def create
     @student.restore!
 
-    redirect_to student_path(@student), notice: "Aluno restaurado."
+    redirect_back_or_to student_path(@student), notice: "Aluno restaurado."
   end
 
   private

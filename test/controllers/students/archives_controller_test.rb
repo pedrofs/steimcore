@@ -28,6 +28,17 @@ class Students::ArchivesControllerTest < ActionDispatch::IntegrationTest
     assert_equal "Só faz crossfit (sem musculação)", @student.archive_reason
   end
 
+  test "create redirects back to the referring page when one is present" do
+    sign_in_as(@user)
+
+    post student_archive_path(@student),
+         params: { archive: { reason: "Parou de treinar" } },
+         headers: { "Referer" => students_url(q: "ali") }
+
+    assert_redirected_to students_url(q: "ali")
+    assert @student.reload.archived?
+  end
+
   test "create archives without a reason when none is given" do
     sign_in_as(@user)
 
