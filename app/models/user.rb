@@ -1,4 +1,6 @@
 class User < ApplicationRecord
+  include PushNotifiable
+
   has_secure_password
   belongs_to :organization
   has_many :sessions, as: :authenticatable, dependent: :destroy

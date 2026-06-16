@@ -19,6 +19,10 @@ class Student::ApplicationController < InertiaController
       new_student_session_path
     end
 
+    def web_push_subscription_path
+      student_push_subscription_path
+    end
+
     # Pages that act on the Selected profile require one to be set. When the
     # selection is missing or no longer reachable (e.g. the trainer destroyed
     # that Student mid-session), bounce to the Profile chooser if any profiles

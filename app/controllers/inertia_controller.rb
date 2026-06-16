@@ -33,6 +33,18 @@ class InertiaController < ApplicationController
   inertia_share title: -> { @title }
   inertia_share breadcrumbs: -> { @breadcrumbs || [] }
 
+  # Everything the client needs to register a web-push subscription: the VAPID
+  # public key handed to `pushManager.subscribe`, and the RESTful endpoint to
+  # POST/DELETE the subscription to. `subscription_path` is overridden per auth
+  # boundary (see Student::ApplicationController) so the subscription is owned by
+  # the right principal.
+  inertia_share web_push: -> {
+    {
+      vapid_public_key: Rails.application.config.x.web_push.vapid_public_key,
+      subscription_path: web_push_subscription_path
+    }
+  }
+
   inertia_share active_session_count: -> {
     next 0 unless Current.user
 
@@ -49,6 +61,12 @@ class InertiaController < ApplicationController
   private
     def current_organization
       Current.organization
+    end
+
+    # The RESTful push-subscription endpoint for this auth boundary. Overridden
+    # in Student::ApplicationController to point at the student-namespaced route.
+    def web_push_subscription_path
+      push_subscription_path
     end
 
     # Same-origin allowlist for `return_to` query params. The trainer-facing

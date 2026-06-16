@@ -5,6 +5,9 @@ gem "aws-sdk-s3", require: false
 gem "resend"
 gem "ruby-vips"
 
+# Web Push (VAPID) delivery for PWA push notifications.
+gem "web-push", "~> 3.0"
+
 # Use specific branch of Rails
 gem "rails", github: "rails/rails", branch: "main"
 # Use postgresql as the database for Active Record

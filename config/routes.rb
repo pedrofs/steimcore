@@ -29,8 +29,12 @@ Rails.application.routes.draw do
 
   resource :student_setup_invitation_batch, only: :create
 
+  # The current browser's web-push endpoint for the signed-in trainer.
+  resource :push_subscription, only: [ :create, :destroy ]
+
   namespace :student do
     resource :session, only: [ :new, :create, :destroy ]
+    resource :push_subscription, only: [ :create, :destroy ]
     resources :passwords, param: :token, only: [ :new, :create, :edit, :update ]
     resources :setup_acceptances, param: :token, only: [ :edit, :update ]
     resource :profile_selection, only: [ :new, :create ]
