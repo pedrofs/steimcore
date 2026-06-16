@@ -245,14 +245,11 @@ function BlockCard({
         !disabled && "active:bg-muted/50",
       )}
     >
-      <span
-        className={cn(
-          "mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full border-2 transition-colors",
-          done ? "border-brand bg-brand text-brand-foreground" : "border-muted-foreground/30",
-        )}
-      >
-        {done && <CheckIcon className="size-4" />}
-      </span>
+      {done && (
+        <span className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full bg-brand text-brand-foreground">
+          <CheckIcon className="size-4" />
+        </span>
+      )}
 
       <div className={cn("flex min-w-0 flex-1 flex-col justify-center", done && "opacity-60")}>
         {block.kind === "exercise" && <ExerciseBody block={block} />}
@@ -279,9 +276,11 @@ function ExerciseBody({ block }: { block: ExerciseBlock }) {
   return (
     <div className="flex items-center gap-2.5">
       <ExerciseMedia name={block.name} media={block.media} />
-      <div className="flex min-w-0 flex-1 items-baseline justify-between gap-3">
-        <span className="truncate font-heading text-sm font-semibold">{block.name}</span>
-        <span className="shrink-0 text-sm tabular-nums text-muted-foreground">
+      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+        <span className="line-clamp-2 font-heading text-sm font-semibold leading-snug">
+          {block.name}
+        </span>
+        <span className="text-sm tabular-nums text-muted-foreground">
           {block.prescription}
         </span>
       </div>
@@ -316,9 +315,9 @@ function GroupBody({
               media={item.media}
               className="size-9 self-center"
             />
-            <div className="flex min-w-0 flex-1 items-baseline justify-between gap-3 self-center">
-              <span className="truncate text-sm font-medium">{item.name}</span>
-              <span className="shrink-0 text-sm tabular-nums text-muted-foreground">
+            <div className="flex min-w-0 flex-1 flex-col justify-center gap-0.5 self-center">
+              <span className="line-clamp-2 text-sm font-medium leading-snug">{item.name}</span>
+              <span className="text-sm tabular-nums text-muted-foreground">
                 {item.prescription}
               </span>
             </div>
