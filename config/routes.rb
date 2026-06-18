@@ -69,6 +69,10 @@ Rails.application.routes.draw do
     resource  :claim,             only: :create,               module: :training_sessions
   end
 
+  # Active Job / Solid Queue dashboard. Extends ApplicationController, so the
+  # existing User session auth gates it (students can't reach it).
+  mount MissionControl::Jobs::Engine, at: "/jobs"
+
   if Rails.env.development?
     mount LetterOpenerWeb::Engine, at: "/letter_opener"
   end
