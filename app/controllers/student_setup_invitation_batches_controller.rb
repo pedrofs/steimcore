@@ -19,7 +19,7 @@ class StudentSetupInvitationBatchesController < InertiaController
     def batch_notice(sent, waiting)
       parts = [ "#{sent} #{sent == 1 ? "convite enviado" : "convites enviados"}." ]
       if waiting.positive?
-        parts << "#{waiting} #{waiting == 1 ? "aguardando" : "aguardando"} o período de espera de 24h."
+        parts << "#{waiting} #{waiting == 1 ? "aguardando" : "aguardando"} o período de espera de 1h."
       end
       parts.join(" ")
     end

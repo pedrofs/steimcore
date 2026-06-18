@@ -6,11 +6,13 @@ class Students::SetupInvitationsController < InertiaController
   before_action :ensure_not_confirmed
 
   def create
+    resending = @student.student_identity.last_invited_at.present?
     @student.student_identity.invite!(from_organization: current_organization)
-    redirect_to student_path(@student), notice: "Convite enviado para #{@student.email}."
+    redirect_to student_path(@student),
+                notice: "Convite #{resending ? 'reenviado' : 'enviado'} para #{@student.email}."
   rescue StudentIdentity::UnderCooldown
     redirect_to student_path(@student),
-                alert: "Esse aluno já foi convidado nas últimas 24 horas. Tente novamente mais tarde."
+                alert: "Esse aluno já foi convidado na última hora. Tente novamente mais tarde."
   end
 
   private

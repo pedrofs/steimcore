@@ -43,7 +43,7 @@ class StudentSetupInvitationBatchesControllerTest < ActionDispatch::IntegrationT
 
     ready = @organization.students.create!(name: "Ready", email: "ready@example.com")
     waiting = @organization.students.create!(name: "Waiting", email: "waiting@example.com")
-    invited_at = 1.hour.ago
+    invited_at = 30.minutes.ago
     waiting.student_identity.update!(last_invited_at: invited_at)
 
     assert_enqueued_emails 1 do
