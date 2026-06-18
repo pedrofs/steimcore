@@ -12,7 +12,7 @@ class Students::SetupInvitationsController < InertiaController
                 notice: "Convite #{resending ? 'reenviado' : 'enviado'} para #{@student.email}."
   rescue StudentIdentity::UnderCooldown
     redirect_to student_path(@student),
-                alert: "Esse aluno já foi convidado nas últimas 24 horas. Tente novamente mais tarde."
+                alert: "Esse aluno já foi convidado na última hora. Tente novamente mais tarde."
   end
 
   private

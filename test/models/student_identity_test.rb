@@ -19,30 +19,30 @@ class StudentIdentityTest < ActiveSupport::TestCase
     assert_not @pending.confirmed?
   end
 
-  test "under_cooldown? is true only within 24h of the last invite" do
+  test "under_cooldown? is true only within 1h of the last invite" do
     assert_not @pending.under_cooldown?
 
-    @pending.update!(last_invited_at: 23.hours.ago)
+    @pending.update!(last_invited_at: 30.minutes.ago)
     assert @pending.under_cooldown?
 
-    @pending.update!(last_invited_at: 25.hours.ago)
+    @pending.update!(last_invited_at: 2.hours.ago)
     assert_not @pending.under_cooldown?
   end
 
   test "invitable? requires pending and not under cooldown" do
     assert @pending.invitable?
 
-    @pending.update!(last_invited_at: 1.hour.ago)
+    @pending.update!(last_invited_at: 30.minutes.ago)
     assert_not @pending.invitable?
 
     assert_not @confirmed.invitable?
   end
 
-  test "cooldown_available_at is 24h after the last invite, nil when never invited" do
+  test "cooldown_available_at is 1h after the last invite, nil when never invited" do
     assert_nil @pending.cooldown_available_at
 
     @pending.update!(last_invited_at: Time.current)
-    assert_in_delta @pending.last_invited_at + 24.hours, @pending.cooldown_available_at, 1.second
+    assert_in_delta @pending.last_invited_at + 1.hour, @pending.cooldown_available_at, 1.second
   end
 
   test "invite! stamps last_invited_at and enqueues the setup mailer" do
@@ -55,7 +55,7 @@ class StudentIdentityTest < ActiveSupport::TestCase
   end
 
   test "invite! raises UnderCooldown when a recent invite is still cooling down" do
-    @pending.update!(last_invited_at: 1.hour.ago)
+    @pending.update!(last_invited_at: 30.minutes.ago)
 
     assert_no_enqueued_emails do
       assert_raises StudentIdentity::UnderCooldown do

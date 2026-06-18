@@ -28,7 +28,7 @@ class Students::SetupInvitationsControllerTest < ActionDispatch::IntegrationTest
   test "create on a previously-invited identity off cooldown resends with a reenviado notice" do
     sign_in_as(@user)
     student = @organization.students.create!(name: "Dana", email: "dana@example.com")
-    student.student_identity.update!(last_invited_at: 25.hours.ago)
+    student.student_identity.update!(last_invited_at: 2.hours.ago)
 
     assert_enqueued_emails 1 do
       post student_setup_invitation_path(student)
@@ -66,7 +66,7 @@ class Students::SetupInvitationsControllerTest < ActionDispatch::IntegrationTest
   test "create on an identity under cooldown redirects with alert and does not re-stamp last_invited_at" do
     sign_in_as(@user)
     student = @organization.students.create!(name: "Cooldown Cora", email: "cora@example.com")
-    invited_at = 1.hour.ago
+    invited_at = 30.minutes.ago
     student.student_identity.update!(last_invited_at: invited_at)
 
     assert_enqueued_emails 0 do

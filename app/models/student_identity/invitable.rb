@@ -6,7 +6,7 @@
 module StudentIdentity::Invitable
   extend ActiveSupport::Concern
 
-  COOLDOWN = 24.hours
+  COOLDOWN = 1.hour
 
   included do
     scope :pending,   -> { where(password_digest: nil) }
