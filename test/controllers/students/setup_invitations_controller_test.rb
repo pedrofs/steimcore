@@ -25,6 +25,19 @@ class Students::SetupInvitationsControllerTest < ActionDispatch::IntegrationTest
     assert_match(/Convite enviado para dana@example\.com\./, flash[:notice])
   end
 
+  test "create on a previously-invited identity off cooldown resends with a reenviado notice" do
+    sign_in_as(@user)
+    student = @organization.students.create!(name: "Dana", email: "dana@example.com")
+    student.student_identity.update!(last_invited_at: 25.hours.ago)
+
+    assert_enqueued_emails 1 do
+      post student_setup_invitation_path(student)
+    end
+
+    assert_redirected_to student_path(student)
+    assert_match(/Convite reenviado para dana@example\.com\./, flash[:notice])
+  end
+
   test "create on a student with no email redirects with alert and sends nothing" do
     sign_in_as(@user)
     student = @organization.students.create!(name: "Noemail")

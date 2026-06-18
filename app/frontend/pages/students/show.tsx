@@ -539,7 +539,7 @@ function StudentInvite({
       disabled={sending}
     >
       <Send className="size-3.5" />
-      Convidar
+      {invitation.lastInvitedAt ? "Reenviar" : "Convidar"}
     </Button>
   )
 }
