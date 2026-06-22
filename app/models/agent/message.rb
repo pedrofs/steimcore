@@ -9,4 +9,17 @@ class Agent::Message < ApplicationRecord
   has_many_attached :voice_clips
 
   include Agent::Message::Transcribable
+
+  # True when the row carries nothing a human or the model needs to see —
+  # typically crash debris from a turn that errored after the gem pre-created
+  # the assistant row but before any content streamed. Such rows are dropped
+  # from both the LLM payload (`Agent::Chat::MessageSelection`) and the chat UI
+  # without ever being deleted, so the persisted history stays intact.
+  def empty_payload?
+    content.to_s.strip.blank? &&
+      tool_calls.none? &&
+      self[:thinking_text].to_s.strip.blank? &&
+      !attachments.attached? &&
+      !voice_clips.attached?
+  end
 end
