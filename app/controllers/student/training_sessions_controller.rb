@@ -7,6 +7,10 @@ class Student::TrainingSessionsController < Student::ApplicationController
 
   def create
     session = Current.student.start_training_session!(workout: chosen_workout)
+    track "session_started",
+      training_session_id: session.id,
+      workout_position: session.workout_position_snapshot,
+      blocks_count: session.blocks_snapshot.size
     redirect_to student_training_session_path(session)
   end
 
@@ -21,7 +25,16 @@ class Student::TrainingSessionsController < Student::ApplicationController
   # again. Distinct from finishing (#completion stamps finished_at). Guarded to
   # student-initiated sessions by +ensure_student_initiated+.
   def destroy
+    # Capture the abandonment shape before the row is gone — a cancel hard-deletes
+    # the session, so this event is the only trace it ever leaves.
+    cancelled = {
+      training_session_id: @session.id,
+      blocks_total: @session.blocks_snapshot.size,
+      blocks_completed: @session.progress.size,
+      age_seconds: (Time.current - @session.created_at).round
+    }
     @session.destroy!
+    track "session_cancelled", **cancelled
     redirect_to student_home_path, notice: "Sessão cancelada."
   end
 

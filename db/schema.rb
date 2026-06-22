@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.2].define(version: 2026_06_05_120000) do
+ActiveRecord::Schema[8.2].define(version: 2026_06_06_120000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pg_trgm"
@@ -114,6 +114,39 @@ ActiveRecord::Schema[8.2].define(version: 2026_06_05_120000) do
     t.index ["message_id"], name: "index_agent_tool_calls_on_message_id"
     t.index ["name"], name: "index_agent_tool_calls_on_name"
     t.index ["tool_call_id"], name: "index_agent_tool_calls_on_tool_call_id", unique: true
+  end
+
+  create_table "ahoy_events", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
+    t.uuid "visit_id"
+    t.string "name"
+    t.jsonb "properties"
+    t.datetime "time", precision: nil
+    t.index ["name", "time"], name: "index_ahoy_events_on_name_and_time"
+    t.index ["properties"], name: "index_ahoy_events_on_properties", opclass: :jsonb_path_ops, using: :gin
+    t.index ["visit_id"], name: "index_ahoy_events_on_visit_id"
+  end
+
+  create_table "ahoy_visits", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
+    t.string "visit_token"
+    t.string "visitor_token"
+    t.uuid "user_id"
+    t.string "ip"
+    t.text "user_agent"
+    t.text "referrer"
+    t.string "referring_domain"
+    t.text "landing_page"
+    t.string "browser"
+    t.string "os"
+    t.string "device_type"
+    t.string "utm_source"
+    t.string "utm_medium"
+    t.string "utm_term"
+    t.string "utm_content"
+    t.string "utm_campaign"
+    t.datetime "started_at", precision: nil
+    t.index ["started_at"], name: "index_ahoy_visits_on_started_at"
+    t.index ["user_id"], name: "index_ahoy_visits_on_user_id"
+    t.index ["visit_token"], name: "index_ahoy_visits_on_visit_token", unique: true
   end
 
   create_table "exercise_aliases", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
@@ -361,6 +394,7 @@ ActiveRecord::Schema[8.2].define(version: 2026_06_05_120000) do
   add_foreign_key "agent_messages", "agent_tool_calls", column: "tool_call_id"
   add_foreign_key "agent_messages", "users", column: "trainer_id"
   add_foreign_key "agent_tool_calls", "agent_messages", column: "message_id"
+  add_foreign_key "ahoy_events", "ahoy_visits", column: "visit_id", on_delete: :cascade
   add_foreign_key "exercise_aliases", "exercises"
   add_foreign_key "exercise_loads", "students"
   add_foreign_key "exercise_loads", "training_sessions", on_delete: :nullify

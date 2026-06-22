@@ -5,11 +5,17 @@ class Student::TrainingSessions::BlockCompletionsController < Student::Applicati
 
   def create
     @session.mark_block_done!(params[:block_index].to_s)
+    track "block_completed",
+      training_session_id: @session.id,
+      block_index: params[:block_index].to_i,
+      blocks_completed: @session.progress.size,
+      blocks_total: @session.blocks_snapshot.size
     redirect_to student_training_session_path(@session)
   end
 
   def destroy
     @session.unmark_block!(params[:id].to_s)
+    track "block_uncompleted", training_session_id: @session.id, block_index: params[:id].to_i
     redirect_to student_training_session_path(@session)
   end
 

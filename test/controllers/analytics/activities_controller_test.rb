@@ -1,21 +1,27 @@
 require "test_helper"
 
-class AnalyticsControllerTest < ActionDispatch::IntegrationTest
+class Analytics::ActivitiesControllerTest < ActionDispatch::IntegrationTest
   setup { @user = users(:one) }
 
   test "requires authentication" do
-    get analytics_path
+    get analytics_activity_path
 
     assert_redirected_to new_session_path
   end
 
-  test "renders the analytics page for a signed-in trainer" do
-    sign_in_as(@user)
-
+  test "bare /analytics redirects to the default tab" do
     get analytics_path
 
+    assert_redirected_to "/analytics/activity"
+  end
+
+  test "renders the activity tab for a signed-in trainer" do
+    sign_in_as(@user)
+
+    get analytics_activity_path
+
     assert_response :success
-    assert_equal "analytics/show", inertia.component
+    assert_equal "analytics/activities/show", inertia.component
   end
 
   test "passes the training_sessions and periodizations day series" do
@@ -27,7 +33,7 @@ class AnalyticsControllerTest < ActionDispatch::IntegrationTest
     student.periodizations.create!
 
     sign_in_as(@user)
-    get analytics_path
+    get analytics_activity_path
 
     sessions = inertia.props[:training_sessions]
     periodizations = inertia.props[:periodizations]
