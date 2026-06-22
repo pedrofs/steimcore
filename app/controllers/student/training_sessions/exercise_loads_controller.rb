@@ -6,6 +6,9 @@ class Student::TrainingSessions::ExerciseLoadsController < Student::ApplicationC
   # A blank +value+ clears the movement's weight (records a clearance).
   def create
     @session.record_load!(exercise_name: exercise_name, value: load_value)
+    # has_value distinguishes logging a weight from clearing one; the movement name
+    # and value themselves are deliberately not tracked.
+    track "load_recorded", training_session_id: @session.id, has_value: load_value.present?
     redirect_to student_training_session_path(@session)
   end
 

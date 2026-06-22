@@ -4,6 +4,7 @@ class Student::SetupAcceptancesController < Student::ApplicationController
   before_action :ensure_not_yet_confirmed, only: %i[ edit update ]
 
   def edit
+    track "setup_opened", student_identity_id: @identity.id
     render inertia: "student/setup_acceptances/edit", props: {
       token: params[:token],
       email_address: @identity.email_address
@@ -16,6 +17,7 @@ class Student::SetupAcceptancesController < Student::ApplicationController
       password_confirmation: params[:password_confirmation]
     )
     start_new_session_for(@identity)
+    track "setup_completed", student_identity_id: @identity.id
     flash[:notice] = "Bem-vindo(a), #{@identity.email_address}!"
     redirect_to_profile_destination
   rescue ActiveRecord::RecordInvalid => e

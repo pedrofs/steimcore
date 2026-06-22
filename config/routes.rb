@@ -7,7 +7,14 @@ Rails.application.routes.draw do
   end
   resources :invitation_acceptances, param: :token, only: [ :edit, :update ]
   resource :organization, only: [ :show, :edit, :update ]
-  resource :analytics, only: :show
+
+  # The Analytics section is a tabbed set of dashboards. Bare /analytics lands on
+  # the default tab; each tab is its own RESTful sub-resource + page.
+  get "analytics", to: redirect("/analytics/activity", status: 302), as: :analytics
+  namespace :analytics do
+    resource :activity, only: :show
+    resource :usage,    only: :show
+  end
   resource :exercise_upload_queue, only: :show
   resources :exercises, only: [ :index, :show, :edit, :update ] do
     resources :media, only: [ :create, :destroy ], module: :exercises

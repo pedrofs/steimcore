@@ -151,7 +151,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                 isActive={url.startsWith("/analytics")}
                 className="h-11 md:h-8"
               >
-                <Link href="/analytics" onClick={closeOnMobile}>
+                <Link href="/analytics/activity" onClick={closeOnMobile}>
                   <BarChart3 />
                   <span>Analytics</span>
                 </Link>

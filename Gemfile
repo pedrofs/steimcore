@@ -31,6 +31,10 @@ gem "solid_cable"
 # Web dashboard for Active Job / Solid Queue (mounted at /jobs, gated behind auth)
 gem "mission_control-jobs"
 
+# First-party, server-side product analytics for the student app. Visits/events
+# land in Postgres (ahoy_visits / ahoy_events); no JS client, no external service.
+gem "ahoy_matey", "~> 5.4"
+
 # Reduces boot times through caching; required in config/boot.rb
 gem "bootsnap", require: false
 

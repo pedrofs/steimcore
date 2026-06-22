@@ -1,4 +1,6 @@
 class Student::ApplicationController < InertiaController
+  include Student::Trackable
+
   authenticates_as StudentIdentity
 
   inertia_share can_switch_profile: -> {

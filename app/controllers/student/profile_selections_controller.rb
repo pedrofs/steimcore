@@ -15,6 +15,7 @@ class Student::ProfileSelectionsController < Student::ApplicationController
 
   def create
     Current.session.update!(selected_student: @student)
+    track "profile_selected", organization_id: @student.organization_id, student_id: @student.id
     redirect_to student_home_path
   end
 

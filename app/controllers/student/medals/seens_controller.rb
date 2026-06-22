@@ -9,6 +9,7 @@ class Student::Medals::SeensController < Student::ApplicationController
   # here (it reads medals only).
   def create
     @medal.mark_seen!
+    track "medal_seen", family: @medal.family, tier: @medal.tier
     redirect_to student_medals_path
   end
 

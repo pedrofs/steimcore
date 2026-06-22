@@ -3,6 +3,7 @@ class Student::NoProfilesController < Student::ApplicationController
   # archived between invite and acceptance). The session stays alive; the page
   # offers only copy and a sign-out button. See PRD #108.
   def show
+    track "no_profile_reached"
     render inertia: "student/home/no_profile"
   end
 end
