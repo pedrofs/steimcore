@@ -84,4 +84,4 @@ end
 
 gem "vite_rails", "~> 3.11"
 
-gem "pagy", "~> 9.4"
+gem "pagy", "~> 43.5"
