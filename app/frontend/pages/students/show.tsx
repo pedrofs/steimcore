@@ -1163,6 +1163,17 @@ function PlanHeroCard({
       />
     ) : null
 
+  // Same reasoning as the template menu: a trainer can always start the next
+  // block. With a plan in place this is the renewal path — the agent gets the
+  // current plan's dose in the briefing and interviews before proposing.
+  const aiPlanButton = (
+    <NewPeriodizationButton
+      studentId={student.id}
+      label={plan == null ? "Criar periodização" : "Nova periodização com IA"}
+      variant={plan == null ? "default" : "outline"}
+    />
+  )
+
   if (plan == null) {
     return (
       <PlanCardShell tone="muted">
@@ -1172,11 +1183,7 @@ function PlanHeroCard({
           meta="Crie um plano para começar a treinar com este aluno."
         />
         <PlanCardActions>
-          <PlanCardCta
-            href={`/students/${student.id}/periodizations/new`}
-            label="Criar periodização"
-            icon={<Sparkles className="size-4" />}
-          />
+          {aiPlanButton}
           {templateMenu}
         </PlanCardActions>
       </PlanCardShell>
@@ -1199,6 +1206,7 @@ function PlanHeroCard({
         />
         <PlanCardActions>
           <PlanCardCta href={planHref} label="Acompanhar geração" />
+          {aiPlanButton}
           {templateMenu}
         </PlanCardActions>
       </PlanCardShell>
@@ -1216,6 +1224,7 @@ function PlanHeroCard({
         <PlanCardActions>
           <PlanCardCta href={`/students/${student.id}/agent_chat`} label="Abrir chat" />
           {openPlanCta}
+          {aiPlanButton}
           {templateMenu}
         </PlanCardActions>
       </PlanCardShell>
@@ -1237,6 +1246,7 @@ function PlanHeroCard({
             icon={<Play className="size-4 fill-current" />}
           />
           {openPlanCta}
+          {aiPlanButton}
           {templateMenu}
         </PlanCardActions>
       </PlanCardShell>
@@ -1253,6 +1263,7 @@ function PlanHeroCard({
         />
         <PlanCardActions>
           <PlanCardCta href={planHref} label="Abrir periodização" />
+          {aiPlanButton}
           {templateMenu}
         </PlanCardActions>
       </PlanCardShell>
@@ -1271,6 +1282,7 @@ function PlanHeroCard({
       <PlanCardActions>
         <StartSessionButton studentId={student.id} />
         {openPlanCta}
+        {aiPlanButton}
         {templateMenu}
       </PlanCardActions>
     </PlanCardShell>
@@ -1448,6 +1460,45 @@ function PlanCardCta({
         </span>
         <ChevronRight className="size-4 sm:hidden" />
       </Link>
+    </Button>
+  )
+}
+
+// Opens the agent chat with a briefing already posted, so the assistant starts
+// the conversation asking what the next block should look like instead of
+// waiting on an empty chat. Unlike the template clone, nothing is archived
+// here — the current plan only gets replaced when the agent creates the new
+// one, so no confirmation is needed.
+function NewPeriodizationButton({
+  studentId,
+  label,
+  variant = "default",
+}: {
+  studentId: string
+  label: string
+  variant?: "default" | "outline"
+}) {
+  const [pending, setPending] = useState(false)
+
+  return (
+    <Button
+      variant={variant}
+      disabled={pending}
+      onClick={() => {
+        setPending(true)
+        router.post(
+          `/students/${studentId}/agent_chat/periodization_briefing`,
+          {},
+          { preserveScroll: true, onFinish: () => setPending(false) },
+        )
+      }}
+      className="h-12 w-full justify-between sm:h-11 sm:w-fit sm:justify-start sm:gap-2 sm:px-4"
+    >
+      <span className="inline-flex items-center gap-2">
+        <Sparkles className="size-4" />
+        {label}
+      </span>
+      <ChevronRight className="size-4 sm:hidden" />
     </Button>
   )
 }

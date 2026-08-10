@@ -275,6 +275,13 @@ class Student < ApplicationRecord
     end
   end
 
+  # The student's single agent chat, created on first use. Both the chat page
+  # (a plain GET) and the periodization briefing reach the conversation this
+  # way, so neither has to care whether the trainer has opened it before.
+  def find_or_create_agent_chat!
+    agent_chat || create_agent_chat!(organization: organization, model: StudentAgent.chat_kwargs[:model])
+  end
+
   private
     def enqueue_medal_evaluation
       MedalEvaluationJob.perform_later(self)

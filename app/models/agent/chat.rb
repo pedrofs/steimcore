@@ -14,4 +14,5 @@ class Agent::Chat < ApplicationRecord
   enum :state, { idle: "idle", running: "running" }, validate: true
 
   include Agent::Chat::Runnable
+  include Agent::Chat::Briefable
 end

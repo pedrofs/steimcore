@@ -2,9 +2,16 @@ module Agent
   module Tools
     # Creates a brand-new periodization for the student. Returns a soft
     # `{error: ...}` shape on the documented domain failures (validation
-    # against the block schema; an active periodization already exists) so
-    # the agent can self-correct and switch tools — typically to
-    # `update_periodization`.
+    # against the block schema; an active periodization already exists and
+    # `replace_active` was not set) so the agent can self-correct and switch
+    # tools — typically to `update_periodization`.
+    #
+    # Renewals (the current block is ending, the trainer wants the next one)
+    # pass `replace_active: true`: the plan has to be a NEW Periodization, not
+    # a new version of the old one, because the sessions-remaining clock is
+    # per-Periodization. `Student#start_periodization!` archives the previous
+    # plan in the same transaction, so nothing is lost until the new plan
+    # actually exists.
     #
     # On success, the resulting `PeriodizationVersion` row carries
     # `agent_tool_call_id` pointing back to the `Agent::ToolCall` row that
@@ -13,12 +20,14 @@ module Agent
       description <<~DESC
         Cria uma nova periodização para o aluno (em estado de esboço, não
         promovida). Use quando o aluno ainda não tem periodização ativa, ou
-        quando o treinador pede explicitamente um plano novo do zero. Para
-        revisar um plano existente, use `update_periodization`; para mexer em
-        apenas um treino, use `update_workout`.
+        quando o treinador pede um plano novo — inclusive na renovação de
+        mesociclo, passando `replace_active: true` para arquivar a
+        periodização atual. Para revisar o plano vigente sem começar um novo
+        ciclo, use `update_periodization`; para mexer em apenas um treino, use
+        `update_workout`.
       DESC
 
-      params PeriodizationSchema.full_plan_params
+      params PeriodizationSchema.create_plan_params
 
       def name
         "create_periodization"
@@ -32,7 +41,7 @@ module Agent
         @trainer = trainer
       end
 
-      def execute(body_md:, workouts:, summary_md:, periodization_length_weeks:)
+      def execute(body_md:, workouts:, summary_md:, periodization_length_weeks:, replace_active: false)
         summary_md = summary_md.to_s.strip
         return { error: "Faltou um resumo curto (`summary_md`) descrevendo a alteração." } if summary_md.empty?
 
@@ -40,8 +49,8 @@ module Agent
         return { error: "`periodization_length_weeks` deve ser um inteiro positivo (duração do mesociclo em semanas)." } if length <= 0
 
         @student.reload
-        if @student.active_periodization.present?
-          return { error: "Aluno já tem periodização ativa. Use `update_periodization` para revisar ou `update_workout` para alterar um treino." }
+        if @student.active_periodization.present? && !replace_active
+          return { error: "Aluno já tem periodização ativa. Use `update_periodization` para revisar, `update_workout` para alterar um treino, ou repita com `replace_active: true` se o treinador pediu um plano novo no lugar do atual." }
         end
 
         if (errors = validate_workouts(workouts)).any?

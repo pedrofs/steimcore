@@ -63,6 +63,35 @@ class Agent::Tools::CreatePeriodizationTest < ActiveSupport::TestCase
     assert_equal 1, @student.periodizations.count
   end
 
+  test "replace_active archives the current periodization and starts a fresh one" do
+    previous_version = @student.start_periodization!(trainer: @trainer)
+    previous_version.periodization_length_weeks = 8
+    previous_version.complete!
+    previous = @student.active_periodization
+    previous.set_current_version!(previous_version)
+
+    result = @tool.execute(
+      body_md: "## Novo bloco",
+      periodization_length_weeks: 6,
+      workouts: [ { "name" => "A", "position" => 1, "blocks" => [ { "kind" => "exercise", "name" => "Agachamento", "prescription" => "4x6" } ] } ],
+      summary_md: "Novo mesociclo de força.",
+      replace_active: true
+    )
+
+    assert_equal true, result[:ok]
+    @student.reload
+    assert previous.reload.archived?
+    assert_not_equal previous.id, @student.active_periodization_id
+    assert_equal 2, @student.periodizations.count
+
+    version = @student.active_periodization.versions.sole
+    assert_equal 6, version.periodization_length_weeks
+    assert_equal version.id, result[:version_id]
+    # The sessions-remaining clock is per-Periodization, so the new block starts
+    # with no sessions of its own — the old ones stay with the archived plan.
+    assert_equal 0, TrainingSession.where(periodization_version: @student.active_periodization.versions).count
+  end
+
   test "soft-errors when periodization_length_weeks is not a positive integer" do
     result = @tool.execute(
       body_md: "## Plano",

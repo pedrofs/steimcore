@@ -63,6 +63,21 @@ module Agent
         }
       end
 
+      # `full_plan_params` plus the flag that lets a brand-new plan supersede
+      # the student's active one. Only `create_periodization` takes it —
+      # `update_periodization` revises the active plan in place and has no such
+      # notion, so it keeps using `full_plan_params`.
+      def create_plan_params
+        params = full_plan_params
+        params[:properties] = params[:properties].merge(
+          replace_active: {
+            type: "boolean",
+            description: "true quando o treinador pediu um plano NOVO e a periodização ativa deve ser arquivada (renovação de mesociclo). Omita quando o aluno ainda não tem periodização ativa."
+          }
+        )
+        params
+      end
+
       def workout_patch_params
         {
           type: "object",

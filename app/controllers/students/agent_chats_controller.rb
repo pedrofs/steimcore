@@ -80,10 +80,7 @@ class Students::AgentChatsController < InertiaController
     end
 
     def load_or_create_chat
-      @chat = @student.agent_chat || @student.create_agent_chat!(
-        organization: current_organization,
-        model: StudentAgent.chat_kwargs[:model]
-      )
+      @chat = @student.find_or_create_agent_chat!
     end
 
     def student_props(student)
