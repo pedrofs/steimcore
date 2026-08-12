@@ -29,15 +29,32 @@ ENV RAILS_ENV="production" \
     BUNDLE_WITHOUT="development" \
     LD_PRELOAD="/usr/local/lib/libjemalloc.so"
 
+# Bundle the frontend on the builder's *native* architecture. Vite 8 bundles with
+# Rolldown, a native Rust binary that segfaults under QEMU (`uncaught target signal
+# 11`), so an arm64 machine cross-building the linux/amd64 image can't run the Vite
+# build inside the emulated stage. Building here and copying the output over keeps
+# the JS toolchain unemulated (and much faster).
+FROM --platform=$BUILDPLATFORM node:24-slim AS assets
+
+WORKDIR /rails
+
+RUN corepack enable
+
+COPY package.json yarn.lock .yarnrc.yml ./
+RUN yarn install --immutable
+
+# Full context: Tailwind v4 scans the whole project for class names, not just app/frontend.
+COPY . .
+RUN yarn vite build
+
 # Throw-away build stage to reduce size of final image
 FROM base AS build
 
-# Install packages needed to build gems and JS assets
+# Install packages needed to build gems. No Node here: the frontend is built in the
+# `assets` stage above.
 RUN apt-get update -qq && \
-    apt-get install --no-install-recommends -y build-essential git libpq-dev libvips libyaml-dev nodejs pkg-config && \
+    apt-get install --no-install-recommends -y build-essential git libpq-dev libvips libyaml-dev pkg-config && \
     rm -rf /var/lib/apt/lists /var/cache/apt/archives
-
-RUN corepack enable
 
 # Install application gems
 COPY vendor/* ./vendor/
@@ -55,9 +72,11 @@ COPY . .
 # -j 1 disable parallel compilation to avoid a QEMU bug: https://github.com/rails/bootsnap/issues/495
 RUN bundle exec bootsnap precompile -j 1 app/ lib/
 
-# Install JS dependencies and precompile assets (includes Vite build via Propshaft)
-RUN yarn install
-RUN SECRET_KEY_BASE_DUMMY=1 bundle exec rails assets:precompile
+# Take the Vite bundle from the native `assets` stage, then precompile the rest with
+# vite_ruby's assets:precompile hook disabled — the bundle is already built.
+COPY --from=assets /rails/public/vite ./public/vite
+RUN SECRET_KEY_BASE_DUMMY=1 VITE_RUBY_SKIP_ASSETS_PRECOMPILE_EXTENSION=true \
+    bundle exec rails assets:precompile
 
 
 
