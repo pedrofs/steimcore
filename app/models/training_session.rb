@@ -2,6 +2,7 @@ class TrainingSession < ApplicationRecord
   include Blockable
   include Finishable
   include Swappable
+  include WorkoutRevisable
   include ExerciseLoadable
 
   belongs_to :student
