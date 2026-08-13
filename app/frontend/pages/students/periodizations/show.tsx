@@ -96,35 +96,43 @@ export default function ShowPeriodization({ student, periodization }: Props) {
 
       {version ? (
         <>
-          {!periodization.archived && (
-            <motion.div
-              className="no-print flex flex-col gap-2 sm:flex-row sm:flex-wrap"
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.075, ease: [0.16, 1, 0.3, 1] }}
+          {/* An archived block is frozen: Editar and Imprimir render disabled
+              with the reason, while reading the Plano and salvaging it into a
+              Modelo stay available. */}
+          <motion.div
+            className="no-print flex flex-col gap-2 sm:flex-row sm:flex-wrap"
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.075, ease: [0.16, 1, 0.3, 1] }}
+          >
+            <EditButton
+              disabledReason={
+                periodization.archived
+                  ? "Periodização arquivada — não pode ser editada."
+                  : null
+              }
+              onClick={() =>
+                router.post(`/periodizations/${periodization.id}/inline_edit`)
+              }
+            />
+            <PrintButton
+              href={printablePath}
+              disabledReason={
+                periodization.archived
+                  ? "Só a periodização ativa pode ser impressa."
+                  : null
+              }
+            />
+            <PlanSheet bodyMd={version.bodyMd} studentName={student.name} />
+            <Button
+              type="button"
+              variant="outline"
+              className="h-11 w-full gap-2 sm:h-10 sm:w-auto"
+              onClick={() => setSaveTemplateOpen(true)}
             >
-              <Button
-                type="button"
-                className="h-11 w-full gap-2 sm:h-10 sm:w-auto"
-                onClick={() =>
-                  router.post(`/periodizations/${periodization.id}/inline_edit`)
-                }
-              >
-                <PencilIcon className="size-4" />
-                Editar
-              </Button>
-              <PrintButton enabled href={printablePath} />
-              <PlanSheet bodyMd={version.bodyMd} studentName={student.name} />
-              <Button
-                type="button"
-                variant="outline"
-                className="h-11 w-full gap-2 sm:h-10 sm:w-auto"
-                onClick={() => setSaveTemplateOpen(true)}
-              >
-                Salvar como modelo
-              </Button>
-            </motion.div>
-          )}
+              Salvar como modelo
+            </Button>
+          </motion.div>
 
           <motion.div
             initial={{ opacity: 0, y: 12 }}
@@ -145,7 +153,10 @@ export default function ShowPeriodization({ student, periodization }: Props) {
             Esta periodização ainda não tem uma versão ativa.
           </p>
           <div className="no-print">
-            <PrintButton enabled={false} href={printablePath} />
+            <PrintButton
+              href={printablePath}
+              disabledReason="Aguarde a versão atual ficar pronta para imprimir."
+            />
           </div>
         </motion.div>
       )}
@@ -279,28 +290,61 @@ function WorkoutsTabs({ workouts }: { workouts: Workout[] }) {
   )
 }
 
-function PrintButton({ enabled, href }: { enabled: boolean; href: string }) {
+function EditButton({
+  disabledReason,
+  onClick,
+}: {
+  disabledReason: string | null
+  onClick: () => void
+}) {
+  const button = (
+    <Button
+      type="button"
+      className="h-11 w-full gap-2 sm:h-10 sm:w-auto"
+      disabled={disabledReason != null}
+      onClick={() => disabledReason == null && onClick()}
+    >
+      <PencilIcon className="size-4" />
+      Editar
+    </Button>
+  )
+  return withDisabledTooltip(button, disabledReason)
+}
+
+function PrintButton({
+  href,
+  disabledReason,
+}: {
+  href: string
+  disabledReason: string | null
+}) {
   const button = (
     <Button
       type="button"
       variant="outline"
       className="h-11 w-full gap-2 sm:h-10 sm:w-auto"
-      disabled={!enabled}
-      onClick={() => enabled && window.open(href, "_blank", "noopener")}
+      disabled={disabledReason != null}
+      onClick={() =>
+        disabledReason == null && window.open(href, "_blank", "noopener")
+      }
     >
       <PrinterIcon className="size-4" />
       Imprimir
     </Button>
   )
-  if (enabled) return button
+  return withDisabledTooltip(button, disabledReason)
+}
+
+// A disabled button swallows pointer events, so the tooltip has to hang off a
+// focusable wrapper — same trick the print button has always used.
+function withDisabledTooltip(button: React.ReactNode, reason: string | null) {
+  if (reason == null) return button
   return (
     <Tooltip>
       <TooltipTrigger asChild>
         <span tabIndex={0}>{button}</span>
       </TooltipTrigger>
-      <TooltipContent>
-        Aguarde a versão atual ficar pronta para imprimir.
-      </TooltipContent>
+      <TooltipContent>{reason}</TooltipContent>
     </Tooltip>
   )
 }

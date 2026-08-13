@@ -52,6 +52,18 @@ class Periodizations::InlineEditsControllerTest < ActionDispatch::IntegrationTes
     assert_match(/atual/i, flash[:alert])
   end
 
+  test "create refuses to edit an archived periodization" do
+    @periodization.archive!
+    sign_in_as(@user)
+
+    assert_no_difference -> { @periodization.versions.count } do
+      post periodization_inline_edit_path(@periodization)
+    end
+
+    assert_redirected_to student_periodization_path(@student, @periodization)
+    assert_match(/arquivada/i, flash[:alert])
+  end
+
   test "create is scoped to the current organization" do
     other_org = Organization.create!(name: "Outro Gym")
     foreign_student = other_org.students.create!(name: "Externo")

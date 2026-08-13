@@ -21,7 +21,7 @@ Rails.application.routes.draw do
     resources :merges, only: :create, module: :exercises
   end
   resources :students, only: [ :index, :new, :create, :show, :edit, :update ] do
-    resources :periodizations, only: [ :new, :show ], module: :students
+    resources :periodizations, only: [ :index, :new, :show ], module: :students
     resource :periodization, only: [], module: :students do
       resource :printable, only: :show, module: :periodizations
     end

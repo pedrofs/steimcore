@@ -7,6 +7,31 @@
 class Students::PeriodizationsController < InertiaController
   before_action :load_student
 
+  # Periodization history: every block the student actually went through,
+  # newest first. Blocks without a current_version (a failed generation, or
+  # one whose versions were all discarded) never shipped to the student, so
+  # they stay out — and the ordinal is numbered over what's listed, keeping
+  # the sequence contiguous.
+  def index
+    @title = "Periodizações — #{@student.name}"
+    add_breadcrumb(label: "Alunos", path: students_path)
+    add_breadcrumb(label: @student.name, path: student_path(@student))
+    add_breadcrumb(label: "Periodizações", path: student_periodizations_path(@student))
+
+    periodizations = @student.periodizations
+                             .where.not(current_version_id: nil)
+                             .includes(current_version: :workouts)
+                             .order(:created_at)
+
+    render inertia: "students/periodizations/index", props: {
+      student: { id: @student.id, name: @student.name },
+      periodizations: periodizations
+        .each_with_index
+        .map { |periodization, index| periodization_summary(periodization, ordinal: index + 1) }
+        .reverse
+    }
+  end
+
   def new
     redirect_to student_agent_chat_path(@student)
   end
@@ -18,6 +43,7 @@ class Students::PeriodizationsController < InertiaController
     @title = "Periodização — #{@student.name}"
     add_breadcrumb(label: "Alunos", path: students_path)
     add_breadcrumb(label: @student.name, path: student_path(@student))
+    add_breadcrumb(label: "Periodizações", path: student_periodizations_path(@student))
     add_breadcrumb(label: "Periodização", path: student_periodization_path(@student, periodization))
 
     history = periodization.versions
@@ -60,6 +86,25 @@ class Students::PeriodizationsController < InertiaController
         sessions_remaining: progress.sessions_remaining,
         overdue: progress.overdue?,
         due: progress.due?
+      }
+    end
+
+    # One card on the history list. The split of record is the Current
+    # version's — superseded versions may have had a different shape, but the
+    # block ended on this one.
+    def periodization_summary(periodization, ordinal:)
+      version = periodization.current_version
+
+      {
+        id: periodization.id,
+        ordinal: ordinal,
+        archived: periodization.archived?,
+        started_on: periodization.created_at.to_date.iso8601,
+        ended_on: periodization.archived_at&.to_date&.iso8601,
+        length_weeks: version.periodization_length_weeks,
+        workouts: version.workouts.sort_by(&:position).map { |w| { id: w.id, name: w.name, position: w.position } },
+        progress: progress_props(periodization),
+        path: student_periodization_path(@student, periodization)
       }
     end
 

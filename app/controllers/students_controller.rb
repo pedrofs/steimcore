@@ -251,6 +251,7 @@ class StudentsController < InertiaController
       {
         periodization_id: periodization.id,
         version_status: version&.status,
+        started_on: periodization.created_at.to_date.iso8601,
         next_workout: next_workout && {
           name: next_workout.name,
           position: next_workout.position,

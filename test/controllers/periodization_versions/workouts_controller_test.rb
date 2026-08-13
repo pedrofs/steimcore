@@ -129,6 +129,17 @@ class PeriodizationVersions::WorkoutsControllerTest < ActionDispatch::Integratio
     assert_response :not_found
   end
 
+  test "update refuses to edit a workout of an archived periodization" do
+    @version.periodization.archive!
+    sign_in_as(@user)
+
+    patch periodization_version_workout_path(@version, @workout),
+          params: { workout: { blocks: [ exercise_block("Levantamento terra", "4x6") ] } }
+
+    assert_redirected_to periodization_version_path(@version)
+    assert_equal "Agachamento", @workout.reload.blocks.first["name"]
+  end
+
   private
     def exercise_block(name, prescription)
       { "kind" => "exercise", "name" => name, "prescription" => prescription }

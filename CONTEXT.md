@@ -22,8 +22,23 @@ _Avoid_: active version, latest version (latest by creation isn't necessarily cu
 A **Periodization** that is not archived (`archived_at IS NULL`). A **Student** has at most one. Exposed as `student.active_periodization`.
 _Avoid_: current plan.
 
+**Archived periodization**:
+A **Periodization** with `archived_at` set — a block the student already went through. **Frozen**: it cannot be edited (no inline fork via `Periodizations::InlineEditsController`, no block edit via `PeriodizationVersions::WorkoutsController#update`) and no leftover draft on it can be **promoted**. Enforced server-side, not only by disabling the buttons — otherwise an old block's split could change retroactively under the **Periodization history**. Implemented two ways: an `ensure_periodization_active` guard on **inline edit** and **promotion**, and `PeriodizationVersion#read_only?` now including `periodization.archived?`, which locks the block editor (and the discard/promote row) on every version of an archived block through the guard that was already there. Reading stays open: the **Plano** sheet and **Save as template** both work on an archived block (salvaging a plan that worked into a **Modelo** is a real trainer want). **Imprimir** is the exception — the **Printable view** is wired to the Active periodization only, so it renders disabled.
+_Avoid_: deleted, closed, finished (a block can be archived mid-dose).
+
+**Periodization history** (pt-BR **"Histórico de periodizações"**):
+The trainer-facing list of every **Periodization** a **Student** went through, at `/students/:student_id/periodizations` (`Students::PeriodizationsController#index`). Newest first, one card per block linking to its show page. Each card carries the **Periodization ordinal**, the date range (`created_at` → `archived_at`, open-ended for the active one), the **Split** (workout count + names), and the **Sessions remaining** progress bar — neutral coloring on archived blocks, due/overdue coloring only on the **Active periodization**, which is badged **"Ativa"** (never "Atual" — that's the **Current version**). Lists only blocks with a **Current version**: a failed generation or a block whose versions were all discarded is trainer noise, not something the student went through. Reached from the plan card's overflow menu on the student profile, including for archived students.
+_Avoid_: periodization list, plan history.
+
+**Periodization ordinal**:
+The trainer-facing handle for a block — "Periodização 3" — computed, never stored: the block's position among the student's **Periodization history**, oldest = 1. Numbered over listed blocks only, so the sequence is contiguous (hidden never-promoted blocks don't leave gaps). Lives on the list only; the periodization show page keeps its generic heading.
+
+**Split**:
+The shape of a **Periodization**'s training week as shown in the **Periodization history**: the count and names of the **Workouts** on its **Current version** (e.g. "4 treinos · A Peito · B Costas · C Pernas · D Ombros"). Read from the **Current version** only — a **Superseded version** may have had a different shape, but the split of record is the one the block ended on.
+_Avoid_: using "split" for the student's `weekly_frequency` (cadence is a Student attribute and is deliberately absent from the history).
+
 **Promotion**:
-The act of pointing a **Periodization**'s `current_version_id` at a specific **Periodization version**. Performed by the trainer reviewing a generated/edited draft.
+The act of pointing a **Periodization**'s `current_version_id` at a specific **Periodization version**. Performed by the trainer reviewing a generated/edited draft. Blocked on an **Archived periodization**.
 _Note_: There is no `promoted_at` column today. When a "when did this go live" signal is needed (e.g., the print card sort), `periodization_versions.created_at` is used as a proxy — close enough because generation and review usually happen the same session, but not strictly truthful for slowly-reviewed drafts.
 
 **Superseded version**:
@@ -133,7 +148,7 @@ _Avoid_: sessions left (use **Sessions remaining**), training sessions left.
 ### Printing
 
 **Printable view**:
-A chrome-free, screen-only rendering of a **Student**'s **Active periodization** — a single page with the header plus workouts — that auto-fires the browser's native print dialog on load (`Students::Periodizations::PrintablesController#show`). Printing is a **last resort**: the product is fully digital, so there is no tracked print state. Opening or printing the view records nothing.
+A chrome-free, screen-only rendering of a **Student**'s **Active periodization** — a single page with the header plus workouts — that auto-fires the browser's native print dialog on load (`Students::Periodizations::PrintablesController#show`). Printing is a **last resort**: the product is fully digital, so there is no tracked print state. Opening or printing the view records nothing. **Active-only by design**: the route is the singular `resource :periodization → resource :printable` and the controller reads `student.active_periodization`, so an **Archived periodization** cannot be printed — considered and declined when the **Periodization history** landed, since printing an old block is a rare want and re-nesting the route costs more than it returns.
 _Avoid_: **Printed** state, **Print confirmation**, **Print queue** — all removed when the product went fully digital (see [ADR-0004](docs/adr/0004-remove-print-queue-and-printed-state.md)).
 
 ### Live training sessions
@@ -143,7 +158,7 @@ A single in-progress or completed workout for a **Student**, snapshotting the wo
 _Avoid_: live session (UI label only), workout log.
 
 **Trainer-initiated** vs **Student-initiated session**:
-A training session can be started two ways. **Trainer-initiated**: a trainer starts it for a student from the live-sessions board (`trainer_id` set). **Student-initiated**: the student starts it themselves from their home screen (`trainer_id` null — there is no trainer associated). Same record, same lifecycle (blocks, progress, finish); the only difference is who started it, encoded by the presence/absence of `trainer_id`. See [ADR-0007](docs/adr/0007-student-initiated-sessions-via-nullable-trainer.md) for why this is overloaded onto one model rather than a separate concept.
+A training session can be started two ways. **Trainer-initiated**: a trainer starts it for a student from the live-sessions board (`trainer_id` set) — that board is the *only* trainer entry point; the student profile's plan card deliberately no longer offers "Iniciar treino", because trainers don't start sessions from a profile page. **Student-initiated**: the student starts it themselves from their home screen (`trainer_id` null — there is no trainer associated). Same record, same lifecycle (blocks, progress, finish); the only difference is who started it, encoded by the presence/absence of `trainer_id`. See [ADR-0007](docs/adr/0007-student-initiated-sessions-via-nullable-trainer.md) for why this is overloaded onto one model rather than a separate concept.
 _Note_: "Check-in" is not a domain term and is not used in the student UI — it's just the student starting a training session.
 
 **Resuming**:
@@ -242,6 +257,7 @@ Each earned Medal carries a nullable `seen_at`. Organic earns land **unseen** �
 - A **Periodization** has many **Periodization versions** and points to at most one **Current version**.
 - A **Periodization version** has many ordered **Workouts**; a **Workout** has many **Blocks**.
 - A **Training session** is a student's performance of one **Workout**; the **Treinos (student tab)** shows **Workouts**, never **Training sessions**.
+- A **Student** has many **Periodizations**: at most one **Active periodization** plus any number of **Archived periodizations**; those with a **Current version** form the **Periodization history**.
 - A **Periodization template** belongs to an **Organization** and has many ordered **Template workouts**; it references no **Student**.
 - **Cloning** a **Periodization template** into a **Student** produces a new **Periodization** with one `:completed`, promoted **Periodization version** copied from the template — the template is not referenced afterward.
 - A **Mid-session edit** produces a new promoted **Periodization version** and re-points the live **Training session** at it; a **Swap** produces neither.

@@ -7,6 +7,83 @@ class Students::PeriodizationsControllerTest < ActionDispatch::IntegrationTest
     @student = students(:alice)
   end
 
+  test "index lists periodizations newest first, numbered oldest-first, badging the active one" do
+    first = promoted_periodization(workouts: [ "A", "B" ])
+    second = promoted_periodization(workouts: [ "A", "B", "C" ])
+    sign_in_as(@user)
+
+    get student_periodizations_path(@student)
+
+    assert_response :success
+    assert_equal "students/periodizations/index", inertia.component
+    listed = inertia.props[:periodizations]
+    assert_equal [ second.id, first.id ], listed.map { |p| p[:id] }
+    assert_equal [ 2, 1 ], listed.map { |p| p[:ordinal] }
+    assert_equal [ false, true ], listed.map { |p| p[:archived] }
+  end
+
+  test "index omits periodizations that never had a current version" do
+    promoted = promoted_periodization(workouts: [ "A" ])
+    failed_version = @student.start_periodization!(trainer: @user)
+    failed_version.fail!("erro")
+    sign_in_as(@user)
+
+    get student_periodizations_path(@student)
+
+    assert_response :success
+    assert_equal [ promoted.id ], inertia.props[:periodizations].map { |p| p[:id] }
+    assert_not_equal failed_version.periodization_id, promoted.id
+  end
+
+  test "index exposes the split, length and progress of each periodization" do
+    @student.update!(weekly_frequency: 4)
+    periodization = promoted_periodization(workouts: [ "A", "B" ])
+    version = periodization.current_version
+    TrainingSession.create!(
+      student: @student,
+      trainer: @user,
+      periodization_version: version,
+      workout: version.workouts.first,
+      workout_name_snapshot: "A",
+      workout_position_snapshot: 1,
+      blocks_snapshot: version.workouts.first.blocks,
+      finished_at: Time.current
+    )
+    sign_in_as(@user)
+
+    get student_periodizations_path(@student)
+
+    assert_response :success
+    props = inertia.props[:periodizations].first
+    assert_equal %w[A B], props[:workouts].map { |w| w[:name] }
+    assert_equal 8, props[:length_weeks]
+    assert_equal 32, props[:progress][:target]
+    assert_equal 1, props[:progress][:sessions_done]
+    assert_equal 31, props[:progress][:sessions_remaining]
+    assert_equal student_periodization_path(@student, periodization), props[:path]
+  end
+
+  test "index renders for an archived student" do
+    periodization = promoted_periodization(workouts: [ "A" ])
+    @student.archive!
+    sign_in_as(@user)
+
+    get student_periodizations_path(@student)
+
+    assert_response :success
+    assert_equal [ periodization.id ], inertia.props[:periodizations].map { |p| p[:id] }
+  end
+
+  test "index is scoped to the current organization" do
+    other_org = Organization.create!(name: "Outro Gym")
+    foreign_student = other_org.students.create!(name: "Externo")
+    sign_in_as(@user)
+
+    get student_periodizations_path(foreign_student)
+
+    assert_response :not_found
+  end
+
   test "new redirects to the agent chat" do
     sign_in_as(@user)
 
@@ -137,5 +214,25 @@ class Students::PeriodizationsControllerTest < ActionDispatch::IntegrationTest
   private
     def exercise_block(name, prescription)
       { "kind" => "exercise", "name" => name, "prescription" => prescription }
+    end
+
+    # A block the student actually went through: a promoted version with the
+    # given split. Starting a second one archives the first, exactly as the
+    # renewal flow does.
+    def promoted_periodization(workouts:)
+      version = @student.start_periodization!(trainer: @user)
+      version.fork_with!(
+        scope: :create,
+        patch: {
+          body_md: "## Plano",
+          periodization_length_weeks: 8,
+          workouts: workouts.each_with_index.map { |name, index|
+            { name: name, blocks: [ exercise_block("Agachamento", "4x8") ], position: index + 1 }
+          }
+        },
+        trainer: @user
+      )
+      version.transition_to!(:completed)
+      version.periodization.tap { |p| p.set_current_version!(version) }
     end
 end

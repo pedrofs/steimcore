@@ -52,10 +52,12 @@ class PeriodizationVersion < ApplicationRecord
     PeriodizationVersion.where(parent_version_id: id).exists?
   end
 
-  # A version is read-only when it is no longer the working draft — either it
-  # has been promoted, or it has been superseded by a child fork.
+  # A version is read-only when it is no longer the working draft — it has
+  # been promoted, superseded by a child fork, or its Periodization was
+  # archived. An archived block is frozen history: letting a leftover draft
+  # still be block-edited would rewrite what the student went through.
   def read_only?
-    promoted? || superseded?
+    promoted? || superseded? || periodization.archived?
   end
 
   private

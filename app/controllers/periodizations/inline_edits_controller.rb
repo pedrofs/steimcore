@@ -5,6 +5,7 @@
 # trainer to the new version's review page, where the inline editor lives.
 class Periodizations::InlineEditsController < InertiaController
   before_action :load_periodization
+  before_action :ensure_periodization_active
   before_action :ensure_current_version_present
 
   def create
@@ -22,6 +23,13 @@ class Periodizations::InlineEditsController < InertiaController
       @periodization = Periodization.find(params[:periodization_id])
       organization_id = @periodization.student.organization_id
       raise ActiveRecord::RecordNotFound unless organization_id == current_organization.id
+    end
+
+    def ensure_periodization_active
+      return unless @periodization.archived?
+
+      redirect_to student_periodization_path(@periodization.student, @periodization),
+                  alert: "Esta periodização está arquivada e não pode ser editada."
     end
 
     def ensure_current_version_present

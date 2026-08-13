@@ -57,6 +57,18 @@ class PeriodizationVersions::PromotionsControllerTest < ActionDispatch::Integrat
     assert_redirected_to student_periodization_path(@student, @version.periodization)
   end
 
+  test "create refuses to promote a version of an archived periodization" do
+    @version.transition_to!(:completed)
+    @version.periodization.archive!
+    sign_in_as(@user)
+
+    post periodization_version_promotion_path(@version)
+
+    assert_redirected_to periodization_version_path(@version)
+    assert_match(/arquivada/i, flash[:alert])
+    assert_nil @version.periodization.reload.current_version_id
+  end
+
   test "create is scoped to the current organization" do
     other_org = Organization.create!(name: "Outro Gym")
     foreign_student = other_org.students.create!(name: "Externo")

@@ -3,12 +3,13 @@ import { Link, router, usePage } from "@inertiajs/react"
 import {
   Archive,
   ChevronRight,
+  History,
   LayoutTemplate,
   Mail,
   MessageSquare,
+  MoreVerticalIcon,
   Pencil,
   Phone,
-  Play,
   RotateCcw,
   Send,
   Sparkles,
@@ -37,6 +38,9 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Label } from "@/components/ui/label"
@@ -53,6 +57,7 @@ type VersionStatus = "pending" | "generating" | "completed" | "failed"
 type ActivePlan = {
   periodizationId: string
   versionStatus: VersionStatus | null
+  startedOn: string
   nextWorkout: { name: string; position: number; total: number } | null
   lastSessionAt: string | null
   activeSessionId: string | null
@@ -171,19 +176,17 @@ export default function Show({
           student.archived && "opacity-60",
         )}
       >
-        {!student.archived && (
-          <motion.div
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.075, ease: [0.16, 1, 0.3, 1] }}
-          >
-            <PlanHeroCard
-              student={student}
-              plan={student.activePlan}
-              templates={templates}
-            />
-          </motion.div>
-        )}
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.075, ease: [0.16, 1, 0.3, 1] }}
+        >
+          <PlanHeroCard
+            student={student}
+            plan={student.activePlan}
+            templates={templates}
+          />
+        </motion.div>
 
         {!student.archived && frequency && (
           <FrequencySection frequency={frequency} studentId={student.id} />
@@ -1138,6 +1141,9 @@ function parseDateOnly(iso: string): Date {
   return new Date(y!, (m ?? 1) - 1, d ?? 1)
 }
 
+// One shape for every state: a single primary CTA plus an overflow menu with
+// the plan-management actions. Starting a training session deliberately does
+// not live here — trainers start sessions from the live-sessions board.
 function PlanHeroCard({
   student,
   plan,
@@ -1147,34 +1153,57 @@ function PlanHeroCard({
   plan: ActivePlan | null
   templates: Template[]
 }) {
-  // Available in every state so a trainer can always start a fresh plan from a
-  // template. With an active plan, cloning archives it first, so we confirm.
-  const templateMenu =
-    templates.length > 0 ? (
-      <TemplateCloneMenu
-        studentId={student.id}
-        templates={templates}
-        label={
-          plan == null
-            ? "Começar a partir de um modelo"
-            : "Nova periodização de um modelo"
-        }
-        confirm={plan != null}
-      />
-    ) : null
+  const planHref = plan
+    ? `/students/${student.id}/periodizations/${plan.periodizationId}`
+    : null
 
-  // Same reasoning as the template menu: a trainer can always start the next
-  // block. With a plan in place this is the renewal path — the agent gets the
-  // current plan's dose in the briefing and interviews before proposing.
-  const aiPlanButton = (
-    <NewPeriodizationButton
+  // An archived student is frozen: no new plan, and none of the live-session
+  // copy (active_periodization survives archiving, so the state-flavoured
+  // bodies would claim a session is in progress for someone who isn't
+  // training). Just the block they ended on and a way into the history.
+  if (student.archived) {
+    return (
+      <PlanCardShell tone="muted">
+        <PlanCardBody
+          eyebrow="Periodização"
+          title={plan ? "Última periodização" : "Sem periodização"}
+          meta={
+            plan
+              ? `Iniciada em ${formatShortDate(plan.startedOn)}`
+              : "Este aluno nunca teve uma periodização."
+          }
+        />
+        <PlanCardActions>
+          {planHref && <PlanCardCta href={planHref} label="Ver periodização" />}
+          <PlanActionsMenu
+            studentId={student.id}
+            templates={[]}
+            showAi={false}
+          />
+        </PlanCardActions>
+      </PlanCardShell>
+    )
+  }
+
+  const menu = (
+    <PlanActionsMenu
       studentId={student.id}
-      label={plan == null ? "Criar periodização" : "Nova periodização com IA"}
-      variant={plan == null ? "default" : "outline"}
+      templates={templates}
+      // With no plan the AI path is already the primary button; repeating it
+      // in the menu would be two triggers for one action.
+      showAi={plan != null}
+      templateLabel={
+        plan == null
+          ? "Começar de um modelo"
+          : "Nova periodização de um modelo"
+      }
+      // Cloning archives the active plan first, so we confirm before posting.
+      confirmClone={plan != null}
+      showChat={plan?.versionStatus === "failed"}
     />
   )
 
-  if (plan == null) {
+  if (plan == null || planHref == null) {
     return (
       <PlanCardShell tone="muted">
         <PlanCardBody
@@ -1183,19 +1212,21 @@ function PlanHeroCard({
           meta="Crie um plano para começar a treinar com este aluno."
         />
         <PlanCardActions>
-          {aiPlanButton}
-          {templateMenu}
+          <NewPeriodizationButton
+            studentId={student.id}
+            label="Criar periodização"
+          />
+          {menu}
         </PlanCardActions>
       </PlanCardShell>
     )
   }
 
-  const planHref = `/students/${student.id}/periodizations/${plan.periodizationId}`
-  const openPlanCta = (
-    <PlanCardCta href={planHref} label="Ver periodização" variant="outline" />
-  )
-
-  if (plan.versionStatus == null || plan.versionStatus === "pending" || plan.versionStatus === "generating") {
+  if (
+    plan.versionStatus == null ||
+    plan.versionStatus === "pending" ||
+    plan.versionStatus === "generating"
+  ) {
     return (
       <PlanCardShell tone="accent">
         <PlanCardBody
@@ -1206,8 +1237,7 @@ function PlanHeroCard({
         />
         <PlanCardActions>
           <PlanCardCta href={planHref} label="Acompanhar geração" />
-          {aiPlanButton}
-          {templateMenu}
+          {menu}
         </PlanCardActions>
       </PlanCardShell>
     )
@@ -1222,10 +1252,8 @@ function PlanHeroCard({
           meta="Abra o chat para gerar uma nova versão."
         />
         <PlanCardActions>
-          <PlanCardCta href={`/students/${student.id}/agent_chat`} label="Abrir chat" />
-          {openPlanCta}
-          {aiPlanButton}
-          {templateMenu}
+          <PlanCardCta href={planHref} label="Ver periodização" />
+          {menu}
         </PlanCardActions>
       </PlanCardShell>
     )
@@ -1237,17 +1265,11 @@ function PlanHeroCard({
         <PlanCardBody
           eyebrow="Em andamento"
           title={plan.nextWorkout?.name ?? "Sessão ao vivo"}
-          meta="Treino em curso — continue de onde parou."
+          meta="Treino em curso."
         />
         <PlanCardActions>
-          <PlanCardCta
-            href="/training_sessions"
-            label="Continuar treino"
-            icon={<Play className="size-4 fill-current" />}
-          />
-          {openPlanCta}
-          {aiPlanButton}
-          {templateMenu}
+          <PlanCardCta href={planHref} label="Ver periodização" />
+          {menu}
         </PlanCardActions>
       </PlanCardShell>
     )
@@ -1262,9 +1284,8 @@ function PlanHeroCard({
           meta="Abra a periodização para adicionar treinos."
         />
         <PlanCardActions>
-          <PlanCardCta href={planHref} label="Abrir periodização" />
-          {aiPlanButton}
-          {templateMenu}
+          <PlanCardCta href={planHref} label="Ver periodização" />
+          {menu}
         </PlanCardActions>
       </PlanCardShell>
     )
@@ -1280,30 +1301,31 @@ function PlanHeroCard({
     <PlanCardShell tone="primary">
       <PlanCardBody eyebrow={eyebrow} title={plan.nextWorkout.name} meta={meta} />
       <PlanCardActions>
-        <StartSessionButton studentId={student.id} />
-        {openPlanCta}
-        {aiPlanButton}
-        {templateMenu}
+        <PlanCardCta href={planHref} label="Ver periodização" />
+        {menu}
       </PlanCardActions>
     </PlanCardShell>
   )
 }
 
-// Clones an org template into the student as a live, promoted plan (no AI).
-// Rendered on the plan hero card whenever the org has at least one template, so
-// the UI never offers a dead-end. When the student already has an active plan
-// (`confirm`), cloning archives it and promotes the clone, so we gate the action
-// behind a confirmation dialog before posting.
-function TemplateCloneMenu({
+// The plan card's overflow menu: starting the next block (AI or from a
+// Modelo) and reaching the periodization history. Cloning a template archives
+// the active plan and promotes the clone, so it's gated behind a confirmation
+// when a plan is in place.
+function PlanActionsMenu({
   studentId,
   templates,
-  label,
-  confirm = false,
+  showAi = true,
+  templateLabel = "Nova periodização de um modelo",
+  confirmClone = false,
+  showChat = false,
 }: {
   studentId: string
   templates: Template[]
-  label: string
-  confirm?: boolean
+  showAi?: boolean
+  templateLabel?: string
+  confirmClone?: boolean
+  showChat?: boolean
 }) {
   const [pending, setPending] = useState<Template | null>(null)
 
@@ -1316,7 +1338,7 @@ function TemplateCloneMenu({
   }
 
   const select = (template: Template) => {
-    if (confirm) setPending(template)
+    if (confirmClone) setPending(template)
     else clone(template.id)
   }
 
@@ -1326,30 +1348,77 @@ function TemplateCloneMenu({
         <DropdownMenuTrigger asChild>
           <Button
             variant="outline"
+            aria-label="Mais ações da periodização"
             className="h-12 w-full justify-between sm:h-11 sm:w-fit sm:justify-start sm:gap-2 sm:px-4"
           >
             <span className="inline-flex items-center gap-2">
-              <LayoutTemplate className="size-4" />
-              {label}
+              <MoreVerticalIcon className="size-4" />
+              Mais ações
             </span>
             <ChevronRight className="size-4 sm:hidden" />
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" className="max-w-xs">
-          {templates.map((template) => (
-            <DropdownMenuItem
-              key={template.id}
-              onSelect={() => select(template)}
-              className="flex flex-col items-start gap-0.5"
-            >
-              <span className="font-medium">{template.name}</span>
-              {template.description != null && template.description !== "" && (
-                <span className="text-xs text-muted-foreground">
-                  {template.description}
-                </span>
-              )}
+        {/* The content base pins width to the trigger, which wraps every
+            label on desktop. Grow to fit the labels, never narrower than the
+            trigger (so the full-width mobile button gets a full-width menu),
+            never wider than the viewport. */}
+        <DropdownMenuContent
+          align="start"
+          className="w-fit min-w-(--radix-dropdown-menu-trigger-width) max-w-[calc(100vw-2rem)]"
+        >
+          {showChat && (
+            <DropdownMenuItem asChild>
+              <Link href={`/students/${studentId}/agent_chat`}>
+                <MessageSquare className="size-4" />
+                Abrir chat
+              </Link>
             </DropdownMenuItem>
-          ))}
+          )}
+          {showAi && (
+            <DropdownMenuItem
+              onSelect={() =>
+                router.post(
+                  `/students/${studentId}/agent_chat/periodization_briefing`,
+                  {},
+                  { preserveScroll: true },
+                )
+              }
+            >
+              <Sparkles className="size-4" />
+              Nova periodização com IA
+            </DropdownMenuItem>
+          )}
+          {templates.length > 0 && (
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger>
+                <LayoutTemplate className="size-4" />
+                {templateLabel}
+              </DropdownMenuSubTrigger>
+              <DropdownMenuSubContent className="w-fit min-w-48 max-w-[min(20rem,calc(100vw-2rem))]">
+                {templates.map((template) => (
+                  <DropdownMenuItem
+                    key={template.id}
+                    onSelect={() => select(template)}
+                    className="flex flex-col items-start gap-0.5"
+                  >
+                    <span className="font-medium">{template.name}</span>
+                    {template.description != null &&
+                      template.description !== "" && (
+                        <span className="text-xs text-muted-foreground">
+                          {template.description}
+                        </span>
+                      )}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
+          )}
+          <DropdownMenuItem asChild>
+            <Link href={`/students/${studentId}/periodizations`}>
+              <History className="size-4" />
+              Ver histórico de periodizações
+            </Link>
+          </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
 
@@ -1376,6 +1445,14 @@ function TemplateCloneMenu({
       </AlertDialog>
     </>
   )
+}
+
+const SHORT_DATE_FORMATTER_PT = new Intl.DateTimeFormat("pt-BR", {
+  dateStyle: "short",
+})
+
+function formatShortDate(iso: string): string {
+  return SHORT_DATE_FORMATTER_PT.format(parseDateOnly(iso))
 }
 
 function PlanCardActions({ children }: { children: React.ReactNode }) {
@@ -1497,27 +1574,6 @@ function NewPeriodizationButton({
       <span className="inline-flex items-center gap-2">
         <Sparkles className="size-4" />
         {label}
-      </span>
-      <ChevronRight className="size-4 sm:hidden" />
-    </Button>
-  )
-}
-
-function StartSessionButton({ studentId }: { studentId: string }) {
-  return (
-    <Button
-      onClick={() =>
-        router.post(
-          "/training_sessions",
-          { student_id: studentId },
-          { preserveScroll: true },
-        )
-      }
-      className="h-12 w-full justify-between sm:h-11 sm:w-fit sm:justify-start sm:gap-2 sm:px-4"
-    >
-      <span className="inline-flex items-center gap-2">
-        <Play className="size-4 fill-current" />
-        Iniciar treino
       </span>
       <ChevronRight className="size-4 sm:hidden" />
     </Button>

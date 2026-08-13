@@ -7,6 +7,7 @@
 # periodization.current_version_id.
 class PeriodizationVersions::PromotionsController < InertiaController
   before_action :load_version
+  before_action :ensure_periodization_active
   before_action :ensure_version_completed
 
   def create
@@ -23,6 +24,15 @@ class PeriodizationVersions::PromotionsController < InertiaController
       @version = PeriodizationVersion.find(params[:periodization_version_id])
       organization_id = @version.periodization.student.organization_id
       raise ActiveRecord::RecordNotFound unless organization_id == current_organization.id
+    end
+
+    # An archived block is frozen: promoting a draft left over from before the
+    # student moved on would rewrite the split they actually trained.
+    def ensure_periodization_active
+      return unless @version.periodization.archived?
+
+      redirect_to periodization_version_path(@version),
+                  alert: "Esta periodização está arquivada e não pode ser alterada."
     end
 
     def ensure_version_completed
