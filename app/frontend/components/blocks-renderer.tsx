@@ -1,35 +1,22 @@
-import { ExerciseMedia, type ExerciseMediaItem } from "@/components/exercise-media"
+import { ExerciseMedia } from "@/components/exercise-media"
 import { Markdown } from "@/components/markdown"
+import type {
+  Block,
+  ExerciseBlock,
+  ExerciseMediaItem,
+  FreeformBlock,
+  GroupBlock,
+  GroupItem,
+} from "@/lib/blocks"
 
-export type ExerciseBlock = {
-  kind: "exercise"
-  name: string
-  prescription: string
-  restS?: number
-  notes?: string
-  media?: ExerciseMediaItem[]
-}
-
-export type GroupItem = {
-  name: string
-  prescription: string
-  notes?: string
-  media?: ExerciseMediaItem[]
-}
-
-export type GroupBlock = {
-  kind: "group"
-  label?: string
-  rounds?: number
-  items: GroupItem[]
-}
-
-export type FreeformBlock = {
-  kind: "freeform"
-  textMd: string
-}
-
-export type Block = ExerciseBlock | GroupBlock | FreeformBlock
+export type {
+  Block,
+  ExerciseBlock,
+  ExerciseMediaItem,
+  FreeformBlock,
+  GroupBlock,
+  GroupItem,
+} from "@/lib/blocks"
 
 type Props = {
   blocks: Block[]

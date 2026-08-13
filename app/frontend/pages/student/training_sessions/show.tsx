@@ -4,42 +4,16 @@ import { motion } from "motion/react"
 import { useCallback, useState } from "react"
 
 import { BrandMonogram } from "@/components/brand"
-import { ExerciseMedia, type ExerciseMediaItem } from "@/components/exercise-media"
+import { ExerciseMedia } from "@/components/exercise-media"
 import { Button } from "@/components/ui/button"
 import { WeightControl } from "@/components/weight-control"
+import type {
+  Block,
+  ExerciseBlock,
+  FreeformBlock,
+  GroupBlock,
+} from "@/lib/blocks"
 import { cn } from "@/lib/utils"
-
-type ExerciseBlock = {
-  kind: "exercise"
-  name: string
-  prescription: string
-  restS?: number
-  notes?: string
-  weight?: string | null
-  media?: ExerciseMediaItem[]
-}
-
-type GroupItem = {
-  name: string
-  prescription: string
-  notes?: string
-  weight?: string | null
-  media?: ExerciseMediaItem[]
-}
-
-type GroupBlock = {
-  kind: "group"
-  label?: string
-  rounds?: number
-  items: GroupItem[]
-}
-
-type FreeformBlock = {
-  kind: "freeform"
-  textMd: string
-}
-
-type Block = ExerciseBlock | GroupBlock | FreeformBlock
 
 type LiveSession = {
   id: string

@@ -8,14 +8,10 @@ import {
   DrawerTitle,
   DrawerTrigger,
 } from "@/components/ui/drawer"
+import type { ExerciseMediaItem } from "@/lib/blocks"
 import { cn } from "@/lib/utils"
 
-export type ExerciseMediaItem = {
-  id: string
-  thumbUrl: string
-  fullUrl: string
-  isVideo: boolean
-}
+export type { ExerciseMediaItem } from "@/lib/blocks"
 
 // Inline thumbnail for a linked, Enriched exercise that opens a Drawer with all
 // of its media — short demo clips autoplay muted on loop (no controls); images

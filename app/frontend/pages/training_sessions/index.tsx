@@ -14,7 +14,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
-import { ExerciseMedia, type ExerciseMediaItem } from "@/components/exercise-media"
+import { ExerciseMedia } from "@/components/exercise-media"
 import { Button } from "@/components/ui/button"
 import { ButtonGroup } from "@/components/ui/button-group"
 import {
@@ -31,6 +31,12 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet"
 import { WeightControl } from "@/components/weight-control"
+import type {
+  Block,
+  ExerciseBlock,
+  FreeformBlock,
+  GroupBlock,
+} from "@/lib/blocks"
 import { cn } from "@/lib/utils"
 
 import { initials, paletteColorFor } from "./avatar"
@@ -41,38 +47,6 @@ function normalizeForSearch(value: string): string {
     .replace(/\p{Diacritic}/gu, "")
     .toLowerCase()
 }
-
-type ExerciseBlock = {
-  kind: "exercise"
-  name: string
-  prescription: string
-  rest_s?: number
-  notes?: string
-  weight?: string | null
-  media?: ExerciseMediaItem[]
-}
-
-type GroupItem = {
-  name: string
-  prescription: string
-  notes?: string
-  weight?: string | null
-  media?: ExerciseMediaItem[]
-}
-
-type GroupBlock = {
-  kind: "group"
-  label?: string
-  rounds?: number
-  items: GroupItem[]
-}
-
-type FreeformBlock = {
-  kind: "freeform"
-  textMd: string
-}
-
-type Block = ExerciseBlock | GroupBlock | FreeformBlock
 
 type TrainingSessionRow = {
   id: string
@@ -764,8 +738,8 @@ function ExerciseCard({
       <div className="flex flex-1 flex-col gap-1">
         <div className="text-base font-medium">{block.name}</div>
         <div className={cn("text-sm", muted)}>{block.prescription}</div>
-        {typeof block.rest_s === "number" && (
-          <div className={cn("text-xs", fine)}>Descanso: {block.rest_s}s</div>
+        {typeof block.restS === "number" && (
+          <div className={cn("text-xs", fine)}>Descanso: {block.restS}s</div>
         )}
         {block.notes && <div className={cn("text-xs", fine)}>{block.notes}</div>}
       </div>
