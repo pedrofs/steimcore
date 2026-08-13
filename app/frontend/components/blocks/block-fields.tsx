@@ -5,10 +5,12 @@
 
 import { ArrowDownIcon, ArrowUpIcon, PlusIcon, XIcon } from "lucide-react"
 
+import { ExerciseNameInput } from "@/components/exercise-name-input"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import type { ExerciseSuggestion } from "@/lib/exercise-suggestions"
 import type {
   EditableBlock,
   EditableExercise,
@@ -92,16 +94,19 @@ export function BlockControls({
 export function ExerciseBlockFields({
   block,
   onChange,
+  suggestions,
 }: {
   block: EditableExercise
   onChange: (partial: Partial<EditableExercise>) => void
+  suggestions?: ExerciseSuggestion[]
 }) {
   return (
     <div className="grid gap-2 sm:grid-cols-2">
       <FieldRow label="Nome">
-        <Input
+        <ExerciseNameInput
           value={block.name}
-          onChange={(e) => onChange({ name: e.target.value })}
+          onChange={(name) => onChange({ name })}
+          suggestions={suggestions}
         />
       </FieldRow>
       <FieldRow label="Prescrição">
@@ -138,6 +143,7 @@ export function GroupBlockFields({
   onItemRemove,
   onItemMoveUp,
   onItemMoveDown,
+  suggestions,
 }: {
   block: EditableGroup
   onChange: (partial: Partial<EditableGroup>) => void
@@ -146,6 +152,7 @@ export function GroupBlockFields({
   onItemRemove: (itemIndex: number) => void
   onItemMoveUp: (itemIndex: number) => void
   onItemMoveDown: (itemIndex: number) => void
+  suggestions?: ExerciseSuggestion[]
 }) {
   const itemCount = block.items.length
   return (
@@ -213,11 +220,10 @@ export function GroupBlockFields({
             </div>
             <div className="grid gap-2 sm:grid-cols-2">
               <FieldRow label="Nome">
-                <Input
+                <ExerciseNameInput
                   value={item.name}
-                  onChange={(e) =>
-                    onItemChange(itemIndex, { name: e.target.value })
-                  }
+                  onChange={(name) => onItemChange(itemIndex, { name })}
+                  suggestions={suggestions}
                 />
               </FieldRow>
               <FieldRow label="Prescrição">

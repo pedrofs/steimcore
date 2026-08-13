@@ -16,7 +16,10 @@ class TrainingSessionsController < InertiaController
     render inertia: "training_sessions/index", props: {
       training_sessions: sessions.map { |s| training_session_props(s) },
       picker_candidates: picker_candidates,
-      scope: resolved_scope
+      scope: resolved_scope,
+      # The catalog corpus behind the **Exercise suggestion** autocomplete on
+      # the mid-session edit sheet's name fields.
+      exercise_suggestions: Exercise.suggestions
     }
   end
 

@@ -24,6 +24,7 @@ import type {
   EditableFreeform,
   EditableGroup,
 } from "@/lib/blocks-draft"
+import type { ExerciseSuggestion } from "@/lib/exercise-suggestions"
 
 export function BlockEditSheet({
   open,
@@ -31,12 +32,14 @@ export function BlockEditSheet({
   block,
   index,
   draft,
+  suggestions,
 }: {
   open: boolean
   onOpenChange: (next: boolean) => void
   block: EditableBlock
   index: number
   draft: BlocksDraft
+  suggestions?: ExerciseSuggestion[]
 }) {
   const onChange = (partial: Partial<EditableBlock>) =>
     draft.updateBlock(index, partial)
@@ -55,6 +58,7 @@ export function BlockEditSheet({
             <ExerciseBlockFields
               block={block}
               onChange={onChange as (partial: Partial<EditableExercise>) => void}
+              suggestions={suggestions}
             />
           )}
           {block.kind === "group" && (
@@ -68,6 +72,7 @@ export function BlockEditSheet({
               onItemRemove={(itemIndex) => draft.removeGroupItem(index, itemIndex)}
               onItemMoveUp={(itemIndex) => draft.moveGroupItem(index, itemIndex, -1)}
               onItemMoveDown={(itemIndex) => draft.moveGroupItem(index, itemIndex, 1)}
+              suggestions={suggestions}
             />
           )}
           {block.kind === "freeform" && (

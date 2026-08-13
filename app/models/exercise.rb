@@ -40,6 +40,21 @@ class Exercise < ApplicationRecord
     Exercise::Alias.find_by(normalized_key: key)&.exercise
   end
 
+  # The **Exercise suggestion** corpus shipped to every block-editing surface:
+  # one row per non-merged Exercise, carrying its canonical name and the
+  # **Normalized keys** of all of its Aliases. Shipping server-computed keys is
+  # what keeps client-side matching from drifting away from `Normalizable`.
+  #
+  # The whole corpus rides along as a prop rather than sitting behind an
+  # endpoint — the catalog is SteimFit-internal and bounded, the product has no
+  # separate JSON API, and client-side filtering is immune to flaky gym wifi.
+  def self.suggestions
+    where(merged_into_id: nil)
+      .order(:name)
+      .includes(:aliases)
+      .map { |exercise| { id: exercise.id, name: exercise.name, keys: exercise.aliases.map(&:normalized_key).sort } }
+  end
+
   private
     def ensure_primary_alias
       aliases.create!(raw_name: name, normalized_key: self.class.normalize_name(name), source: "primary")

@@ -25,6 +25,37 @@ class TrainingSessionsControllerTest < ActionDispatch::IntegrationTest
     assert_equal "trainer", inertia.props[:scope]
   end
 
+  test "index ships the exercise suggestion corpus with every alias key" do
+    supino = Exercise.create!(name: "Supino Reto")
+    supino.aliases.create!(raw_name: "Supino reto c/ barra",
+                           normalized_key: Exercise.normalize_name("Supino reto c/ barra"),
+                           source: "llm")
+
+    sign_in_as(@user)
+    get training_sessions_path
+
+    row = inertia.props[:exercise_suggestions].find { |s| s[:name] == "Supino Reto" }
+    assert_equal supino.id, row[:id]
+    assert_includes row[:keys], "supino reto"
+    assert_includes row[:keys], "supino reto c/ barra"
+  end
+
+  test "index omits merged-away exercises from the suggestion corpus but keeps their keys" do
+    survivor = Exercise.create!(name: "Supino Reto")
+    loser = Exercise.create!(name: "Supino Reto com Barra")
+    loser.merge_into!(survivor)
+
+    sign_in_as(@user)
+    get training_sessions_path
+
+    suggestions = inertia.props[:exercise_suggestions]
+    names = suggestions.map { |s| s[:name] }
+    assert_includes names, "Supino Reto"
+    assert_not_includes names, "Supino Reto com Barra"
+    assert_includes suggestions.find { |s| s[:name] == "Supino Reto" }[:keys],
+                    "supino reto com barra"
+  end
+
   test "index defaults scope to trainer when ?scope is missing or unrecognized" do
     sign_in_as(@user)
 

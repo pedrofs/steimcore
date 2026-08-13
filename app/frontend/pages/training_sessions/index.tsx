@@ -41,16 +41,10 @@ import type {
   GroupBlock,
 } from "@/lib/blocks"
 import { type EditableBlock, toBlock } from "@/lib/blocks-draft"
-import { cn } from "@/lib/utils"
+import type { ExerciseSuggestion } from "@/lib/exercise-suggestions"
+import { cn, normalizeForSearch } from "@/lib/utils"
 
 import { initials, paletteColorFor } from "./avatar"
-
-function normalizeForSearch(value: string): string {
-  return value
-    .normalize("NFD")
-    .replace(/\p{Diacritic}/gu, "")
-    .toLowerCase()
-}
 
 type TrainingSessionRow = {
   id: string
@@ -94,6 +88,7 @@ type Props = {
   trainingSessions: TrainingSessionRow[]
   pickerCandidates: PickerCandidate[]
   scope: "trainer" | "org"
+  exerciseSuggestions: ExerciseSuggestion[]
 }
 
 type Scope = "trainer" | "org"
@@ -114,6 +109,7 @@ export default function TrainingSessionsIndex({
   trainingSessions,
   pickerCandidates,
   scope,
+  exerciseSuggestions,
 }: Props) {
   const currentUserId = usePage().props.currentUser?.id ?? null
   const [pickerOpen, setPickerOpen] = useState(false)
@@ -322,6 +318,7 @@ export default function TrainingSessionsIndex({
                 showAttribution={
                   currentUserId !== null && focused.trainerId !== currentUserId
                 }
+                exerciseSuggestions={exerciseSuggestions}
               />
             )}
           </>
@@ -502,6 +499,7 @@ function FocusedView({
   onClaim,
   canClaim,
   showAttribution,
+  exerciseSuggestions,
 }: {
   session: TrainingSessionRow
   doneCount: number
@@ -514,6 +512,7 @@ function FocusedView({
   onClaim: () => void
   canClaim: boolean
   showAttribution: boolean
+  exerciseSuggestions: ExerciseSuggestion[]
 }) {
   const total = session.blocks.length
   const pct = total > 0 ? Math.round((doneCount / total) * 100) : 0
@@ -647,6 +646,7 @@ function FocusedView({
         onToggleBlock={onToggleBlock}
         onSetLoad={onSetLoad}
         canEdit={session.finishedAt === null}
+        exerciseSuggestions={exerciseSuggestions}
       />
     </div>
   )
@@ -664,12 +664,14 @@ function BlockList({
   onToggleBlock,
   onSetLoad,
   canEdit,
+  exerciseSuggestions,
 }: {
   session: TrainingSessionRow
   isBlockDone: (index: number) => boolean
   onToggleBlock: (index: number) => void
   onSetLoad: (exerciseName: string, value: string) => void
   canEdit: boolean
+  exerciseSuggestions: ExerciseSuggestion[]
 }) {
   const draft = useBlocksDraft(session.blocks)
   const [editingIndex, setEditingIndex] = useState<number | null>(null)
@@ -771,6 +773,7 @@ function BlockList({
           block={sheetBlock}
           index={sheetIndex}
           draft={draft}
+          suggestions={exerciseSuggestions}
         />
       )}
 
