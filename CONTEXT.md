@@ -158,6 +158,25 @@ Hard-deletes the student's own active session, freeing the one-active slot and r
 
 _Trainer-side visibility_: a **Student-initiated** session has no `trainer_id`, so it does not appear in a trainer's own ("Meus") scope; it surfaces on the live-sessions board only under the **"Todos"** (org-wide) filter, rendered with a **self-serve marker** ("Iniciado pelo aluno") in place of a trainer name/avatar. The existing duplicate-active guard already stops a trainer from starting a second session for a student who is mid-session. _(A future PR will let a trainer assign herself to a student-initiated session — out of scope here.)_
 
+**Swap** (pt-BR **"Trocar treino"**):
+Exchanging a live **Training session**'s **Workout** for a sibling Workout of the same **Periodization version** — the student showed up for Treino A but is doing Treino C. Re-snapshots name/position/**Blocks** and **resets progress to empty**, because the new prescription shares nothing with the old one. Changes nothing about the plan.
+_Avoid_: confusing with a **Mid-session edit** (which changes the prescription and does persist to the plan).
+
+**Mid-session edit** *(see [ADR-0009](docs/adr/0009-mid-session-edits-fork-and-promote.md))*:
+A trainer changing the **Workout** from inside a live **Training session** — swapping an exercise, dropping one, adding an exercise or **Block** group. Unlike a **Swap** (which exchanges the whole Workout for a sibling and resets progress), it edits the prescription itself. It is **not** session-local: one save forks a new version from the **Current version** (carrying every other **Workout** forward byte-identically), writes the new **Blocks** onto the target **Workout**, **promotes** the fork, and re-points the live session at the new version's Workout — so the change persists into every future performance of that Workout. Blocked when the session is finished, or when the session has become **Detached**.
+_Avoid_: session edit, local edit, "só hoje" (there is no today-only edit — that concept was considered and rejected).
+
+**Detached session**:
+A **Training session** whose `workout_id` / `periodization_version_id` is null, or whose `periodization_version_id` is no longer the **Periodization**'s **Current version** — the plan moved on since the session started (another trainer promoted, or the session is stale from a previous day). Both FKs are `ON DELETE SET NULL`, so this is a legitimate state, not corruption. A Detached session can still be toggled, swapped, and finished, but not **Mid-session edited** — forking from the Current version would splice the student onto a plan they did not start.
+_Avoid_: orphaned session, stale session (**Stale** already means "started over 8h ago" and is unrelated).
+
+**Progress remap**:
+Rewriting a **Training session**'s `progress` (an array of stringified indices into `blocks_snapshot`) so the student's ticked-off blocks survive a **Mid-session edit**. The editor sends the origin index each surviving block came from (null for newly added ones), so kept blocks keep their done state through reorders *and* renames, removed blocks drop out, and new blocks start undone. Deliberately not a reset (which is what **Swap** does) — the student may be five blocks deep.
+
+**Exercise suggestion**:
+The autocomplete offered on a **Block**'s name field, in both the **Mid-session edit** sheet and the trainer's inline block editor. Matches the typed text against the whole **Alias** corpus but inserts the owning **Exercise**'s canonical name, so trainer phrasing converges on canonical names and **Resolution** (and therefore **Media surfacing**) hits more often. The field stays **free text** — an off-catalog name is valid and gets minted by **Linking** afterward — and no Exercise id is ever written into Block JSON (ADR-0006).
+_Avoid_: exercise picker, catalog lookup (both imply the name is constrained to the catalog).
+
 ### Trainer attention model
 
 **Dashboard queue**:
@@ -225,6 +244,7 @@ Each earned Medal carries a nullable `seen_at`. Organic earns land **unseen** �
 - A **Training session** is a student's performance of one **Workout**; the **Treinos (student tab)** shows **Workouts**, never **Training sessions**.
 - A **Periodization template** belongs to an **Organization** and has many ordered **Template workouts**; it references no **Student**.
 - **Cloning** a **Periodization template** into a **Student** produces a new **Periodization** with one `:completed`, promoted **Periodization version** copied from the template — the template is not referenced afterward.
+- A **Mid-session edit** produces a new promoted **Periodization version** and re-points the live **Training session** at it; a **Swap** produces neither.
 - The **Dashboard queue** is the only cohort on the home page.
 - An **Exercise** belongs to one **Exercise family** and one **Muscle group**, and has many **Aliases**.
 - An **Alias** resolves one **Normalized key** to exactly one **Exercise**; every Exercise owns its own name as an Alias.
