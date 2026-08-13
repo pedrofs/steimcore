@@ -130,6 +130,10 @@ class TrainingSessionsController < InertiaController
         workout_name: session.workout_name_snapshot,
         workout_position: session.workout_position_snapshot,
         blocks: BlockMedia.with_media(session.blocks_with_loads),
+        # Fingerprint of the blocks the board loaded — a **Mid-session edit**
+        # sends it back so a concurrent change is refused rather than remapped
+        # against the wrong array (ADR-0009).
+        blocks_digest: session.blocks_digest,
         completed_block_indices: session.progress,
         finished_at: session.finished_at,
         created_at: session.created_at,

@@ -158,6 +158,16 @@ class TrainingSessionsControllerTest < ActionDispatch::IntegrationTest
     assert_equal @user.id, first[:trainer_id]
   end
 
+  test "index session payload carries the blocks digest a mid-session edit must send back" do
+    make_eligible(@alice, workout_count: 1)
+    session = @user.training_sessions.start_for!(@alice)
+
+    sign_in_as(@user)
+    get training_sessions_path
+
+    assert_equal session.blocks_digest, inertia.props[:training_sessions].first[:blocks_digest]
+  end
+
   test "index lists eligible students in picker_candidates with eligible flag" do
     make_eligible(@alice, workout_count: 2)
 

@@ -14,6 +14,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
+import { BlockEditSheet } from "@/components/blocks/block-edit-sheet"
 import { ExerciseMedia } from "@/components/exercise-media"
 import { Button } from "@/components/ui/button"
 import { ButtonGroup } from "@/components/ui/button-group"
@@ -31,12 +32,14 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet"
 import { WeightControl } from "@/components/weight-control"
+import { useBlocksDraft, type OriginIndex } from "@/hooks/use-blocks-draft"
 import type {
   Block,
   ExerciseBlock,
   FreeformBlock,
   GroupBlock,
 } from "@/lib/blocks"
+import { toBlock } from "@/lib/blocks-draft"
 import { cn } from "@/lib/utils"
 
 import { initials, paletteColorFor } from "./avatar"
@@ -55,6 +58,7 @@ type TrainingSessionRow = {
   workoutName: string
   workoutPosition: number
   blocks: Block[]
+  blocksDigest: string
   completedBlockIndices: string[]
   finishedAt: string | null
   createdAt: string
@@ -631,25 +635,184 @@ function FocusedView({
         </div>
       </div>
 
-      {total === 0 ? (
+      {/* Keyed by the digest so any server-side change to the blocks — a swap,
+          another trainer's edit, or this trainer's own save — re-seeds the
+          draft, while the block-completion round-trips (which leave the digest
+          alone) keep a staged draft alive. */}
+      <BlockList
+        key={session.blocksDigest}
+        session={session}
+        isBlockDone={isBlockDone}
+        onToggleBlock={onToggleBlock}
+        onSetLoad={onSetLoad}
+        canEdit={session.finishedAt === null}
+      />
+    </div>
+  )
+}
+
+// The focused session's blocks, plus the **Mid-session edit** (ADR-0009): each
+// card offers Editar / Remover, changes are staged locally in a draft, and the
+// whole blocks array is committed once from the sticky bar. The first staged
+// change puts the view into edit mode, where a card is no longer
+// tap-to-complete — so a tap is never ambiguous between "mark done" and
+// "select to edit", and a block staged for removal can never be ticked.
+function BlockList({
+  session,
+  isBlockDone,
+  onToggleBlock,
+  onSetLoad,
+  canEdit,
+}: {
+  session: TrainingSessionRow
+  isBlockDone: (index: number) => boolean
+  onToggleBlock: (index: number) => void
+  onSetLoad: (exerciseName: string, value: string) => void
+  canEdit: boolean
+}) {
+  const draft = useBlocksDraft(session.blocks)
+  const [editingIndex, setEditingIndex] = useState<number | null>(null)
+  const [saving, setSaving] = useState(false)
+  const editMode = draft.dirty
+
+  const cards = useMemo(
+    () =>
+      draft.blocks.map((block, index) => {
+        const origin = draft.originIndices[index]
+        return {
+          block: withDecorations(toBlock(block), origin, session.blocks),
+          origin,
+        }
+      }),
+    [draft.blocks, draft.originIndices, session.blocks],
+  )
+
+  function discard() {
+    setEditingIndex(null)
+    draft.reset()
+  }
+
+  function save() {
+    const { blocks, originIndices } = draft.payload()
+    setSaving(true)
+    router.patch(
+      `/training_sessions/${session.id}/workout`,
+      {
+        workout: { blocks },
+        // A blank entry, not null: Rails compacts nils out of parameter arrays,
+        // which would silently shift every later block's origin.
+        origin_indices: originIndices.map((origin) => (origin === null ? "" : origin)),
+        blocks_digest: session.blocksDigest,
+      },
+      { preserveScroll: true, preserveState: true, onFinish: () => setSaving(false) },
+    )
+  }
+
+  // The sheet stays mounted while it animates out, like the board's other
+  // sheets, so it keeps rendering the block it was editing after the index is
+  // cleared.
+  const lastEditedIndex = useRef(0)
+  if (editingIndex !== null) lastEditedIndex.current = editingIndex
+  const sheetIndex = editingIndex ?? lastEditedIndex.current
+  const sheetBlock = draft.blocks[sheetIndex]
+
+  return (
+    <>
+      {cards.length === 0 ? (
         <p className="rounded-2xl border border-dashed bg-card p-6 text-center text-sm text-muted-foreground">
           Esse treino não tem blocos.
         </p>
       ) : (
         <div className="space-y-2">
-          {session.blocks.map((block, index) => (
+          {cards.map(({ block, origin }, index) => (
             <BlockCard
               key={index}
               block={block}
-              done={isBlockDone(index)}
-              onToggle={() => onToggleBlock(index)}
+              done={origin !== null && isBlockDone(origin)}
+              editMode={editMode}
+              onToggle={() => {
+                if (origin !== null) onToggleBlock(origin)
+              }}
               onSetLoad={onSetLoad}
+              onEdit={canEdit ? () => setEditingIndex(index) : undefined}
+              onRemove={canEdit ? () => draft.removeBlock(index) : undefined}
             />
           ))}
         </div>
       )}
-    </div>
+
+      {sheetBlock && (
+        <BlockEditSheet
+          open={editingIndex !== null}
+          onOpenChange={(next) => {
+            if (!next) setEditingIndex(null)
+          }}
+          block={sheetBlock}
+          index={sheetIndex}
+          draft={draft}
+        />
+      )}
+
+      {editMode && (
+        <div className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-background/95 px-3 pt-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] backdrop-blur">
+          <div className="mx-auto flex max-w-2xl items-stretch gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              className="h-auto px-4"
+              onClick={discard}
+              disabled={saving}
+            >
+              Descartar
+            </Button>
+            <Button
+              type="button"
+              className="h-auto flex-1 flex-col gap-0 py-2 leading-tight"
+              onClick={save}
+              disabled={saving}
+            >
+              <span>{saving ? "Salvando..." : "Salvar alterações"}</span>
+              <span className="text-[11px] font-normal opacity-80">
+                Vale também para os próximos treinos
+              </span>
+            </Button>
+          </div>
+        </div>
+      )}
+    </>
   )
+}
+
+// A draft block is rebuilt from the editable mirror, which carries none of the
+// media and weight the serializer decorates the server blocks with. Re-attach
+// them from the block this one came from, but only while the movement's name is
+// unchanged — a renamed exercise is a genuine substitution, and must not
+// inherit the previous movement's load (ADR-0009).
+function withDecorations(
+  block: Block,
+  origin: OriginIndex,
+  serverBlocks: Block[],
+): Block {
+  const source = origin === null ? null : serverBlocks[origin]
+  if (!source || source.kind !== block.kind) return block
+
+  if (block.kind === "exercise" && source.kind === "exercise") {
+    if (block.name !== source.name) return block
+    return { ...block, weight: source.weight, media: source.media }
+  }
+
+  if (block.kind === "group" && source.kind === "group") {
+    return {
+      ...block,
+      items: block.items.map((item, index) => {
+        const sourceItem = source.items[index]
+        if (!sourceItem || sourceItem.name !== item.name) return item
+        return { ...item, weight: sourceItem.weight, media: sourceItem.media }
+      }),
+    }
+  }
+
+  return block
 }
 
 function StaleBanner({
@@ -688,36 +851,87 @@ function StaleBanner({
 function BlockCard({
   block,
   done,
+  editMode,
   onToggle,
   onSetLoad,
+  onEdit,
+  onRemove,
 }: {
   block: Block
   done: boolean
+  editMode: boolean
   onToggle: () => void
   onSetLoad: (exerciseName: string, value: string) => void
+  onEdit?: () => void
+  onRemove?: () => void
 }) {
   return (
     <button
       type="button"
-      onClick={onToggle}
+      onClick={editMode ? undefined : onToggle}
       aria-pressed={done}
       className={cn(
         "block w-full rounded-2xl border p-3 text-left",
         "transition-[background-color,border-color,box-shadow,transform] duration-200 ease-out",
-        "motion-safe:active:scale-95",
+        !editMode && "motion-safe:active:scale-95",
         done
           ? "border-emerald-500 bg-emerald-500 text-white shadow-md shadow-emerald-500/20"
           : "border-border bg-card text-foreground hover:border-foreground/20",
       )}
     >
-      {block.kind === "exercise" && (
-        <ExerciseCard block={block} done={done} onSetLoad={onSetLoad} />
-      )}
-      {block.kind === "group" && (
-        <GroupCard block={block} done={done} onSetLoad={onSetLoad} />
-      )}
-      {block.kind === "freeform" && <FreeformCard block={block} done={done} />}
+      <div className="flex items-start gap-2">
+        <div className="min-w-0 flex-1">
+          {block.kind === "exercise" && (
+            <ExerciseCard block={block} done={done} onSetLoad={onSetLoad} />
+          )}
+          {block.kind === "group" && (
+            <GroupCard block={block} done={done} onSetLoad={onSetLoad} />
+          )}
+          {block.kind === "freeform" && <FreeformCard block={block} done={done} />}
+        </div>
+        {onEdit && onRemove && (
+          <BlockMenu done={done} onEdit={onEdit} onRemove={onRemove} />
+        )}
+      </div>
     </button>
+  )
+}
+
+// A span trigger rather than a button — the card itself is a button, and the
+// board already nests its media and weight affordances the same way. Stops
+// propagation so opening the menu never toggles the block.
+function BlockMenu({
+  done,
+  onEdit,
+  onRemove,
+}: {
+  done: boolean
+  onEdit: () => void
+  onRemove: () => void
+}) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <span
+          role="button"
+          tabIndex={0}
+          aria-label="Opções do bloco"
+          onClick={(event) => event.stopPropagation()}
+          className={cn(
+            "-mt-1 -mr-1 inline-flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-full",
+            done ? "text-white/80 hover:bg-white/15" : "text-muted-foreground hover:bg-muted",
+          )}
+        >
+          <MoreVerticalIcon className="size-4" />
+        </span>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuItem onSelect={onEdit}>Editar</DropdownMenuItem>
+        <DropdownMenuItem variant="destructive" onSelect={onRemove}>
+          Remover
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }
 
@@ -1020,16 +1234,20 @@ function SwapSheet({
 }
 
 function FlashToaster() {
-  const { flash } = usePage().props
-  const alert = flash.alert
+  const { flash, errors } = usePage().props
+  // One treatment for everything the server says back: the board's
+  // confirmations ("Treino atualizado no plano do aluno."), its guard alerts,
+  // and the pt-BR validation errors a rejected **Mid-session edit** returns as
+  // an errors hash rather than a flash.
+  const message = flash.alert ?? flash.notice ?? errorMessage(errors)
   const [visible, setVisible] = useState<string | null>(null)
 
   useEffect(() => {
-    if (!alert) return
-    setVisible(alert)
+    if (!message) return
+    setVisible(message)
     const id = window.setTimeout(() => setVisible(null), 4000)
     return () => window.clearTimeout(id)
-  }, [alert])
+  }, [message])
 
   if (!visible) return null
   return (
@@ -1040,4 +1258,18 @@ function FlashToaster() {
       {visible}
     </div>
   )
+}
+
+function errorMessage(errors: Record<string, unknown>): string | undefined {
+  const messages: string[] = []
+  for (const value of Object.values(errors)) {
+    if (Array.isArray(value)) {
+      for (const entry of value) {
+        if (typeof entry === "string") messages.push(entry)
+      }
+    } else if (typeof value === "string") {
+      messages.push(value)
+    }
+  }
+  return messages.length > 0 ? messages.join(" · ") : undefined
 }
