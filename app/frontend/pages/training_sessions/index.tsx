@@ -15,6 +15,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import { BlockEditSheet } from "@/components/blocks/block-edit-sheet"
+import { BLOCK_KIND_LABELS } from "@/components/blocks/block-fields"
 import { ExerciseMedia } from "@/components/exercise-media"
 import { Button } from "@/components/ui/button"
 import { ButtonGroup } from "@/components/ui/button-group"
@@ -39,7 +40,7 @@ import type {
   FreeformBlock,
   GroupBlock,
 } from "@/lib/blocks"
-import { toBlock } from "@/lib/blocks-draft"
+import { type EditableBlock, toBlock } from "@/lib/blocks-draft"
 import { cn } from "@/lib/utils"
 
 import { initials, paletteColorFor } from "./avatar"
@@ -692,6 +693,16 @@ function BlockList({
     draft.reset()
   }
 
+  // Adding and editing are one gesture: the new block lands at the end of the
+  // draft — the index it will hold once the append is applied — and the sheet
+  // opens straight onto it.
+  function addBlock(kind: EditableBlock["kind"]) {
+    setEditingIndex(draft.blocks.length)
+    if (kind === "exercise") draft.appendExercise()
+    else if (kind === "group") draft.appendGroup()
+    else draft.appendFreeform()
+  }
+
   function save() {
     const { blocks, originIndices } = draft.payload()
     setSaving(true)
@@ -736,10 +747,20 @@ function BlockList({
               onSetLoad={onSetLoad}
               onEdit={canEdit ? () => setEditingIndex(index) : undefined}
               onRemove={canEdit ? () => draft.removeBlock(index) : undefined}
+              onMoveUp={
+                canEdit && index > 0 ? () => draft.moveBlock(index, -1) : undefined
+              }
+              onMoveDown={
+                canEdit && index < cards.length - 1
+                  ? () => draft.moveBlock(index, 1)
+                  : undefined
+              }
             />
           ))}
         </div>
       )}
+
+      {canEdit && <AddBlockMenu onAdd={addBlock} />}
 
       {sheetBlock && (
         <BlockEditSheet
@@ -780,6 +801,38 @@ function BlockList({
         </div>
       )}
     </>
+  )
+}
+
+// The block list's add affordance. A menu rather than three side-by-side
+// buttons: the board is phone-first, and one full-width target is easier to hit
+// one-handed than a row of them. Labels come from the inline editor's so the
+// vocabulary is identical on both surfaces.
+function AddBlockMenu({ onAdd }: { onAdd: (kind: EditableBlock["kind"]) => void }) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          type="button"
+          variant="outline"
+          className="mt-2 h-11 w-full gap-2 border-dashed text-muted-foreground"
+        >
+          <PlusIcon className="size-4" />
+          Adicionar bloco
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start">
+        <DropdownMenuItem onSelect={() => onAdd("exercise")}>
+          {BLOCK_KIND_LABELS.exercise}
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => onAdd("group")}>
+          {BLOCK_KIND_LABELS.group}
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => onAdd("freeform")}>
+          {BLOCK_KIND_LABELS.freeform}
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }
 
@@ -856,6 +909,8 @@ function BlockCard({
   onSetLoad,
   onEdit,
   onRemove,
+  onMoveUp,
+  onMoveDown,
 }: {
   block: Block
   done: boolean
@@ -864,6 +919,8 @@ function BlockCard({
   onSetLoad: (exerciseName: string, value: string) => void
   onEdit?: () => void
   onRemove?: () => void
+  onMoveUp?: () => void
+  onMoveDown?: () => void
 }) {
   return (
     <button
@@ -890,7 +947,13 @@ function BlockCard({
           {block.kind === "freeform" && <FreeformCard block={block} done={done} />}
         </div>
         {onEdit && onRemove && (
-          <BlockMenu done={done} onEdit={onEdit} onRemove={onRemove} />
+          <BlockMenu
+            done={done}
+            onEdit={onEdit}
+            onRemove={onRemove}
+            onMoveUp={onMoveUp}
+            onMoveDown={onMoveDown}
+          />
         )}
       </div>
     </button>
@@ -904,10 +967,14 @@ function BlockMenu({
   done,
   onEdit,
   onRemove,
+  onMoveUp,
+  onMoveDown,
 }: {
   done: boolean
   onEdit: () => void
   onRemove: () => void
+  onMoveUp?: () => void
+  onMoveDown?: () => void
 }) {
   return (
     <DropdownMenu>
@@ -927,6 +994,12 @@ function BlockMenu({
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
         <DropdownMenuItem onSelect={onEdit}>Editar</DropdownMenuItem>
+        <DropdownMenuItem disabled={!onMoveUp} onSelect={() => onMoveUp?.()}>
+          Mover para cima
+        </DropdownMenuItem>
+        <DropdownMenuItem disabled={!onMoveDown} onSelect={() => onMoveDown?.()}>
+          Mover para baixo
+        </DropdownMenuItem>
         <DropdownMenuItem variant="destructive" onSelect={onRemove}>
           Remover
         </DropdownMenuItem>
