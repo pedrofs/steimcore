@@ -57,6 +57,22 @@ class PeriodizationVersionsControllerTest < ActionDispatch::IntegrationTest
     assert_equal false, props[:read_only]
   end
 
+  test "show ships the exercise suggestion corpus for the inline workout editor" do
+    supino = Exercise.create!(name: "Supino Reto")
+    supino.aliases.create!(raw_name: "Supino reto c/ barra",
+                           normalized_key: Exercise.normalize_name("Supino reto c/ barra"),
+                           source: "llm")
+    apply_completed_plan
+    sign_in_as(@user)
+
+    get periodization_version_path(@version)
+
+    row = inertia.props[:exercise_suggestions].find { |s| s[:name] == "Supino Reto" }
+    assert_equal supino.id, row[:id]
+    assert_includes row[:keys], "supino reto"
+    assert_includes row[:keys], "supino reto c/ barra"
+  end
+
   test "show is scoped to the current organization" do
     other_org = Organization.create!(name: "Outro Gym")
     foreign_student = other_org.students.create!(name: "Externo")

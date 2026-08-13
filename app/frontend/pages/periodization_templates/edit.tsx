@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
 import { WorkoutsTabsList } from "@/components/workouts-tabs-list"
+import type { ExerciseSuggestion } from "@/lib/exercise-suggestions"
 
 type TemplateWorkout = {
   id: string
@@ -29,9 +30,10 @@ type Template = {
 
 type Props = {
   template: Template
+  exerciseSuggestions: ExerciseSuggestion[]
 }
 
-export default function Edit({ template }: Props) {
+export default function Edit({ template, exerciseSuggestions }: Props) {
   return (
     <>
       <PageHeader>
@@ -43,7 +45,10 @@ export default function Edit({ template }: Props) {
 
       <div className="flex flex-col gap-8">
         <DetailsForm template={template} />
-        <WorkoutsSection template={template} />
+        <WorkoutsSection
+          template={template}
+          suggestions={exerciseSuggestions}
+        />
       </div>
     </>
   )
@@ -111,7 +116,13 @@ function DetailsForm({ template }: { template: Template }) {
   )
 }
 
-function WorkoutsSection({ template }: { template: Template }) {
+function WorkoutsSection({
+  template,
+  suggestions,
+}: {
+  template: Template
+  suggestions: ExerciseSuggestion[]
+}) {
   const { workouts } = template
   const [activeTab, setActiveTab] = useState<string | undefined>(
     workouts[0]?.id,
@@ -140,7 +151,11 @@ function WorkoutsSection({ template }: { template: Template }) {
         {!singleWorkout && <WorkoutsTabsList workouts={workouts} />}
         {workouts.map((w) => (
           <TabsContent key={w.id} value={w.id} className="flex flex-col gap-3">
-            <WorkoutTabContent template={template} workout={w} />
+            <WorkoutTabContent
+              template={template}
+              workout={w}
+              suggestions={suggestions}
+            />
           </TabsContent>
         ))}
       </Tabs>
@@ -151,9 +166,11 @@ function WorkoutsSection({ template }: { template: Template }) {
 function WorkoutTabContent({
   template,
   workout,
+  suggestions,
 }: {
   template: Template
   workout: TemplateWorkout
+  suggestions: ExerciseSuggestion[]
 }) {
   const [editing, setEditing] = useState(false)
 
@@ -164,6 +181,7 @@ function WorkoutTabContent({
         blocks={workout.blocks}
         onCancel={() => setEditing(false)}
         onSaved={() => setEditing(false)}
+        suggestions={suggestions}
       />
     )
   }

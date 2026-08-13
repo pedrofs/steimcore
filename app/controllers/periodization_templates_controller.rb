@@ -35,7 +35,10 @@ class PeriodizationTemplatesController < InertiaController
     add_breadcrumb(label: "Editar", path: edit_periodization_template_path(@template))
 
     render inertia: "periodization_templates/edit", props: {
-      template: template_props(@template)
+      template: template_props(@template),
+      # The catalog corpus behind the **Exercise suggestion** autocomplete in
+      # the inline workout editor's name fields.
+      exercise_suggestions: Exercise.suggestions
     }
   end
 

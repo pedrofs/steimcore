@@ -18,6 +18,7 @@ import type {
   EditableFreeform,
   EditableGroup,
 } from "@/lib/blocks-draft"
+import type { ExerciseSuggestion } from "@/lib/exercise-suggestions"
 import { cn } from "@/lib/utils"
 
 type Props = {
@@ -29,6 +30,9 @@ type Props = {
   onSaved: () => void
   onDirtyChange?: (dirty: boolean) => void
   returnTo?: string
+  /** The **Exercise suggestion** corpus for the name fields. Optional: a
+   *  surface that does not ship it still edits, just without autocomplete. */
+  suggestions?: ExerciseSuggestion[]
 }
 
 export function WorkoutEditor({
@@ -38,6 +42,7 @@ export function WorkoutEditor({
   onSaved,
   onDirtyChange,
   returnTo,
+  suggestions,
 }: Props) {
   const draft = useBlocksDraft(blocks)
   // Inertia owns submission only — the draft blocks live in the hook, and
@@ -100,6 +105,7 @@ export function WorkoutEditor({
             isFirst={index === 0}
             isLast={index === blockCount - 1}
             draft={draft}
+            suggestions={suggestions}
           />
         ))}
       </div>
@@ -181,12 +187,14 @@ function BlockEditorCard({
   isFirst,
   isLast,
   draft,
+  suggestions,
 }: {
   block: EditableBlock
   index: number
   isFirst: boolean
   isLast: boolean
   draft: BlocksDraft
+  suggestions?: ExerciseSuggestion[]
 }) {
   const onChange = (partial: Partial<EditableBlock>) =>
     draft.updateBlock(index, partial)
@@ -209,6 +217,7 @@ function BlockEditorCard({
         <ExerciseBlockFields
           block={block}
           onChange={onChange as (partial: Partial<EditableExercise>) => void}
+          suggestions={suggestions}
         />
       )}
       {block.kind === "group" && (
@@ -222,6 +231,7 @@ function BlockEditorCard({
           onItemRemove={(itemIndex) => draft.removeGroupItem(index, itemIndex)}
           onItemMoveUp={(itemIndex) => draft.moveGroupItem(index, itemIndex, -1)}
           onItemMoveDown={(itemIndex) => draft.moveGroupItem(index, itemIndex, 1)}
+          suggestions={suggestions}
         />
       )}
       {block.kind === "freeform" && (

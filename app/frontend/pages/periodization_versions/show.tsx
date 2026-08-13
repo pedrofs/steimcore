@@ -15,12 +15,17 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip"
 import { useJobStatus } from "@/hooks/use-job-status"
+import type { ExerciseSuggestion } from "@/lib/exercise-suggestions"
 
 type Version = PeriodizationVersionData
 
 type Student = { id: string; name: string }
 
-type Props = { version: Version; student: Student }
+type Props = {
+  version: Version
+  student: Student
+  exerciseSuggestions: ExerciseSuggestion[]
+}
 
 function PrintButton({ enabled, href }: { enabled: boolean; href: string }) {
   const button = (
@@ -51,6 +56,7 @@ function PrintButton({ enabled, href }: { enabled: boolean; href: string }) {
 export default function ShowPeriodizationVersion({
   version,
   student,
+  exerciseSuggestions,
 }: Props) {
   useJobStatus(version.status, [ "version", "student", "flash", "errors" ])
 
@@ -87,6 +93,7 @@ export default function ShowPeriodizationVersion({
           student={student}
           versionPath={versionPath}
           promotePath={promotePath}
+          exerciseSuggestions={exerciseSuggestions}
         />
       )}
     </>
@@ -98,11 +105,13 @@ function CompletedVersion({
   student,
   versionPath,
   promotePath,
+  exerciseSuggestions,
 }: {
   version: Version
   student: Student
   versionPath: string
   promotePath: string
+  exerciseSuggestions: ExerciseSuggestion[]
 }) {
   const printablePath = `/students/${student.id}/periodization/printable`
   const [dirtyWorkoutName, setDirtyWorkoutName] = useState<string | null>(null)
@@ -126,6 +135,7 @@ function CompletedVersion({
       <PeriodizationVersionView
         version={version}
         onDirtyWorkoutChange={setDirtyWorkoutName}
+        exerciseSuggestions={exerciseSuggestions}
       />
 
       {version.readOnly ? (

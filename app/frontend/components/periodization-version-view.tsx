@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent } from "@/components/ui/tabs"
 import { WorkoutEditor } from "@/components/workout-editor"
 import { WorkoutsTabsList } from "@/components/workouts-tabs-list"
+import type { ExerciseSuggestion } from "@/lib/exercise-suggestions"
 
 export type PeriodizationVersionWorkout = {
   id: string
@@ -58,6 +59,12 @@ type Props = {
    * like "Salvar como ativa" with a discard-confirm.
    */
   onDirtyWorkoutChange?: (dirtyWorkoutName: string | null) => void
+  /**
+   * The **Exercise suggestion** corpus for the inline workout editor's name
+   * fields. Optional: a surface that does not ship it still edits, just
+   * without autocomplete.
+   */
+  exerciseSuggestions?: ExerciseSuggestion[]
 }
 
 export function PeriodizationVersionView({
@@ -66,6 +73,7 @@ export function PeriodizationVersionView({
   presentation = "page",
   returnTo,
   onDirtyWorkoutChange,
+  exerciseSuggestions,
 }: Props) {
   const [{ editingWorkoutId, dirty }, setEditingState] = useState<EditingDirty>(
     { editingWorkoutId: null, dirty: false },
@@ -125,6 +133,7 @@ export function PeriodizationVersionView({
         }
         dirtyEditedWorkoutName={dirtyEditedWorkoutName}
         returnTo={returnTo}
+        suggestions={exerciseSuggestions}
       />
     </div>
   )
@@ -166,6 +175,7 @@ function WorkoutsTabs({
   onDirtyChange,
   dirtyEditedWorkoutName,
   returnTo,
+  suggestions,
 }: {
   version: PeriodizationVersionData
   workouts: PeriodizationVersionWorkout[]
@@ -177,6 +187,7 @@ function WorkoutsTabs({
   onDirtyChange: (dirty: boolean) => void
   dirtyEditedWorkoutName: string | null
   returnTo?: string
+  suggestions?: ExerciseSuggestion[]
 }) {
   const [activeTab, setActiveTab] = useState<string | undefined>(
     workouts[0]?.id,
@@ -230,6 +241,7 @@ function WorkoutsTabs({
                 onCancel={onCancelEdit}
                 onSaved={onSaved}
                 onDirtyChange={onDirtyChange}
+                suggestions={suggestions}
               />
             ) : (
               <>

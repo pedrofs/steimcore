@@ -64,6 +64,22 @@ class PeriodizationTemplatesControllerTest < ActionDispatch::IntegrationTest
     assert_equal "Agachamento", inertia.props[:template][:workouts].first[:blocks].first["name"]
   end
 
+  test "edit ships the exercise suggestion corpus for the inline workout editor" do
+    supino = Exercise.create!(name: "Supino Reto")
+    supino.aliases.create!(raw_name: "Supino reto c/ barra",
+                           normalized_key: Exercise.normalize_name("Supino reto c/ barra"),
+                           source: "llm")
+    template = @organization.periodization_templates.create!(name: "Modelo")
+
+    sign_in_as(@user)
+    get edit_periodization_template_path(template)
+
+    row = inertia.props[:exercise_suggestions].find { |s| s[:name] == "Supino Reto" }
+    assert_equal supino.id, row[:id]
+    assert_includes row[:keys], "supino reto"
+    assert_includes row[:keys], "supino reto c/ barra"
+  end
+
   test "edit is scoped to the current organization" do
     other_org = Organization.create!(name: "Outro Gym")
     theirs = other_org.periodization_templates.create!(name: "Plano alheio")

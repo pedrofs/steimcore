@@ -19,7 +19,10 @@ class PeriodizationVersionsController < InertiaController
 
     render inertia: "periodization_versions/show", props: {
       version: version_props(@version),
-      student: { id: student.id, name: student.name }
+      student: { id: student.id, name: student.name },
+      # The catalog corpus behind the **Exercise suggestion** autocomplete in
+      # the inline workout editor's name fields.
+      exercise_suggestions: Exercise.suggestions
     }
   end
 
